@@ -1,0 +1,18 @@
+Potential features:
+vector strength of cross freq coulping 
+Wavelet coefficients
+stationarity of prev to light - diff to when dive into blocks?
+coastline
+PCs of AR coefs, over time many small stationary bins
+PCs in general - will not work?!
+The low freq components? - including the weird change ups m hines did, per sec?
+Or sum of wavelets
+Eigenvalues
+
+Asses by having counter for x and just plotting? per one. For AR "fingerprint" can use subplots.
+
+
+Preprocessing?
+::20,
+0 mean and std varience? z  norm?
+in blocks of whole thing?
