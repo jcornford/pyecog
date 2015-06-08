@@ -1,6 +1,6 @@
 import numpy as np
-class ClassfierTester():
-    def __init__(self,features,labels):
+class ClassifierTester():
+    def __init__(self,features,labels, training_test_split = 80):
         """
         features: 2d array
         labels: 1d array
@@ -8,19 +8,20 @@ class ClassfierTester():
         """
         self.features = features
         self.labels= labels
+        self.percent = training_test_split
         
         
         #generate training and test sets
         self._gen_train_and_test()
         
-    def _gen_train_and_test(self,percent = 80):
+    def _gen_train_and_test(self):
         
         self.rng_state = np.random.get_state()
         np.random.shuffle(self.features)
         np.random.set_state(self.rng_state)
         np.random.shuffle(self.labels)
         
-        self.slicepoint = int((self.features.shape[0]/100.0)*percent)
+        self.slicepoint = int((self.features.shape[0]/100.0)*self.percent)
         
         self.test_features = self.features[self.slicepoint:,:]
         self.test_labels = self.labels[self.slicepoint:]

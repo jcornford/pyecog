@@ -3,6 +3,9 @@ import glob
 import os
 from os.path import join
 import numpy as np
+
+from lfpData import LFPData
+
 class LoadSeizureData(object):
     '''
     Class to load all files for a given name (e.g. all or animal)
@@ -35,7 +38,7 @@ class LoadSeizureData(object):
         self.data_array_list = []
         self.label_colarray_list = []
         for i, filename in enumerate(self.filenames):    
-            print float(i)/float(len(self.filenames))*100.," percent complete         \r",
+            #print float(i)/float(len(self.filenames))*100.," percent complete         \r",
             # Each call of _load_data_from_file appends data to features_train 
             self.temp_data,self.temp_label = self._load_data_from_filename(filename,preprocess=preprocess)
             self.data_array_list.append(self.temp_data)
@@ -45,9 +48,9 @@ class LoadSeizureData(object):
         self.data_array = np.vstack((self.data_array_list))
         self.label_colarray = np.hstack((self.label_colarray_list))
         self.label_colarray = np.reshape(self.label_colarray, (self.label_colarray.shape[0],1))
-        print self.data_array.shape
-        print self.label_colarray.shape
-        print "\nDone"
+        #print self.data_array.shape
+        #print self.label_colarray.shape
+        #print "\nDone"
         
     def _get_filenames(self):
         filenames = glob.glob(join(self.base_dir,'*','*'))    

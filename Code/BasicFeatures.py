@@ -1,5 +1,5 @@
 import numpy as np
-import FeatureBaseClass
+import featureBaseClass
 import scipy.stats as st
 
 class BasicFeatures():
@@ -16,7 +16,7 @@ class BasicFeatures():
         skew = st.skew(data, axis=1)
         variation = st.variation(data, axis=1)
         coastline = self._coastline(data)
-        print variation[:,None].shape
+        #3print variation[:,None].shape
         
         features = np.hstack((kurtosis[:,None], skew[:,None], variation[:,None], coastline[:,None]))
         Inan = np.where(np.isnan(features))
@@ -26,7 +26,7 @@ class BasicFeatures():
         
         return features
     def _coastline(self, data_array):
-        print 'here'
+        #print 'here'
         coastline = np.absolute(np.diff(data_array,axis = 1))
         features = np.sum(coastline, axis =1)
         normalised_coastline = (features-min(features))/(max(features)-min(features))
