@@ -14,11 +14,12 @@ class BasicFeatures():
     def extract(self, data):
         kurtosis = st.kurtosis(data, axis=1)
         skew = st.skew(data, axis=1)
-        variation = st.variation(data, axis=1)
+        #variation = st.variation(data, axis=1)
         coastline = self._coastline(data)
         #3print variation[:,None].shape
         
-        features = np.hstack((kurtosis[:,None], skew[:,None], variation[:,None], coastline[:,None]))
+        #features = np.hstack((kurtosis[:,None], skew[:,None], variation[:,None], coastline[:,None]))
+        features = np.hstack((kurtosis[:,None], skew[:,None], coastline[:,None]))
         Inan = np.where(np.isnan(features))
         Iinf = np.where(np.isinf(features))
         features[Inan] = 0

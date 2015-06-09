@@ -21,3 +21,5 @@ classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray)
 (score, predictedlabelsprobs, reallabels) = classtester.test_classifier(rf)
 print 'training a random forest classifier!'
 print score, 'percent correct!'
+for row_index in range(predictedlabelsprobs.shape[0]):
+    print predictedlabelsprobs[row_index,:], ' actual label was :', reallabels[row_index]
