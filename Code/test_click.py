@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun 26 22:18:15 2014
-
+Not using this!
 @author: Jonathan
 """
 
