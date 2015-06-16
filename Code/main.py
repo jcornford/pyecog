@@ -4,8 +4,8 @@ import numpy as np
 
 from loadSeizureData  import LoadSeizureData
 from classifierTester import ClassifierTester
-from basicFeatures    import BasicFeatures
-from randomForestClassifier import RandomForest
+from extractors.basicFeatures import BasicFeatures
+from classifiers.randomForestClassifier import RandomForest
 
 dirpath = '/Users/Jonathan/Documents/PhD /Seizure_related/Network_states/VMData/Classified'
 
