@@ -34,8 +34,9 @@ class LFPData(object):
 
             self.data_array = np.array(self.data_array)
             if preprocess:
-                self.data_array -= np.mean(self.data_array,axis = 0)
-                self.data_array /= np.std(self.data_array,axis = 0)
+                print 'no normalisation'
+                #self.data_array -= np.mean(self.data_array,axis = 0)
+                #self.data_array /= np.std(self.data_array,axis = 0)
             self.label_array = np.array(self.label_array)
             #plt.figure(figsize=(12,6))
             #plt.plot(self.data_array.T)
