@@ -13,7 +13,8 @@ class LFPData(object):
         
         if preprocess:
             # if more advanced can make a method for this
-            self.alldata = self.alldata[::20,:]   
+            self.alldata = self.alldata[::20,:]
+            
         self.lfpdata = self.alldata[:,1]
             
        
@@ -33,10 +34,7 @@ class LFPData(object):
                     self.label_array.append(label)
 
             self.data_array = np.array(self.data_array)
-            if preprocess:
-                print 'no normalisation'
-                #self.data_array -= np.mean(self.data_array,axis = 0)
-                #self.data_array /= np.std(self.data_array,axis = 0)
+            self.data_array -= np.mean(self.data_array,axis = 0)
             self.label_array = np.array(self.label_array)
             #plt.figure(figsize=(12,6))
             #plt.plot(self.data_array.T)
