@@ -8,6 +8,7 @@ from extractors.basicFeatures    import BasicFeatures
 from classifiers.randomForestClassifier import RandomForest
 from extractors.freqfeatures     import FreqFeatures
 from relabeling_functions import relabel, reorder
+from visualisation import plots
 
 dirpath = '/Users/Jonathan/Documents/PhD /Seizure_related/Network_states/VMData/Classified'
 dataobj = LoadSeizureData(dirpath)
@@ -22,5 +23,7 @@ classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray)
 (score, predictedlabelsprobs, reallabels) = classtester.test_classifier(rf)
 print 'training a random forest classifier!'
 print score, 'percent correct!'
+
+plots.radviz(dataobj)
 #for row_index in range(predictedlabelsprobs.shape[0]):
  #   print predictedlabelsprobs[row_index,:], ' actual label was :', reallabels[row_index]

@@ -1,5 +1,7 @@
-def radviz(data, labels, variable_names, ax=None, color=None, colormap=None, labelsize = 12, **kwds):
-    """RadViz - a multivariate data visualization algorithm
+def radviz2(data, labels, variable_names, ax=None, labelsize = 12, **kwds):
+    """
+    RadViz - a multivariate data visualization algorithm
+    This function returns the coordinates for radviz
     Parameters:
     -----------
     data : 
@@ -20,10 +22,6 @@ def radviz(data, labels, variable_names, ax=None, color=None, colormap=None, lab
     --------
     ax: Matplotlib axis object
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as patches
-    
     if ax is None:
         ax = plt.gca(xlim=[-1, 1], ylim=[-1, 1])
 
@@ -39,13 +37,14 @@ def radviz(data, labels, variable_names, ax=None, color=None, colormap=None, lab
 
     to_plot = {}
     for kls in [1,2,3,4]:
-        to_plot[kls] = [[], []]
+        to_plot[kls] = [[], [],[]]
 
     s = np.array([(np.cos(t), np.sin(t))
                   for t in [2.0 * np.pi * (i / float(n))
                             for i in range(n)]])
 
     for i in range(m):
+        label = labels[i,0]
         row = data[i,:]
         row_ = np.repeat(np.expand_dims(row, axis=1), 2, axis=1)
         y = (s * row_).sum(axis=0) / row.sum()
@@ -53,11 +52,21 @@ def radviz(data, labels, variable_names, ax=None, color=None, colormap=None, lab
         kls = labels[i,0]
         to_plot[kls][0].append(y[0])
         to_plot[kls][1].append(y[1])
-    print to_plot.keys()
+        to_plot[kls][2].append(label)
     
-    colors = ['r','g','b','k']
-    for i, kls in enumerate([1,2,3,4]):
-        ax.scatter(to_plot[kls][0], to_plot[kls][1],c = colors[i], **kwds)
+    #cols= x,y,color
+    states =  np.hstack((np.array(to_plot[1]),
+                         np.array(to_plot[2]),
+                         np.array(to_plot[3]),
+                         np.array(to_plot[4]),
+                        ))
+    states = states.T
+    print states.shape
+    ax.scatter(states[:,0],states[:,1],c = states[:,2])
+    
+    #colors = ['r','g','b','k']
+    #for i, kls in enumerate([1,2,3,4]):
+    #    ax.scatter(to_plot[kls][0], to_plot[kls][1],c = colors[i], **kwds)
 
     ax.add_patch(patches.Circle((0.0, 0.0), radius=1.0, facecolor='none'))
 
@@ -79,7 +88,6 @@ def radviz(data, labels, variable_names, ax=None, color=None, colormap=None, lab
 
     ax.axis('equal')
     return ax
-plt.figure(figsize = (10,6) )
+
 names = [u'kurtosis', u'skew', u'variation', u'coastline', u'Network States']
-radviz2(dataobj.features,dataobj.label_colarray, names)
-mpld3.display()
+ax = radviz_points(dataobj.features,dataobj.label_colarray, names)
