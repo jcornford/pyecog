@@ -10,7 +10,7 @@ class BasicFeatures():
     """
 
     def __init__(self):
-        pass
+        self.names = ['kurtosis','skew','variation','coasteline']
 
     def extract(self, data):
         kurtosis = st.kurtosis(data, axis=1)

@@ -25,5 +25,7 @@ print 'training a random forest classifier!'
 print score, 'percent correct!'
 
 plots.radviz(dataobj)
+plots.scatter_matrix(dataobj)
+raw_input()
 #for row_index in range(predictedlabelsprobs.shape[0]):
  #   print predictedlabelsprobs[row_index,:], ' actual label was :', reallabels[row_index]

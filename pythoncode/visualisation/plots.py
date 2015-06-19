@@ -1,6 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as patches
+# These are rubbish!
+class scatter_matrix():
+    def __init__(self, dataobj):
+        import seaborn as sns
+        import pandas as pd
+        sns.set(style="white")
+        sns.set_context("talk", font_scale=1.00)
+        df = pd.DataFrame(dataobj.features, columns = dataobj.feature_names)
+        df['Network States'] = dataobj.label_colarray
+        self.pg = sns.pairplot(df, vars=dataobj.feature_names, size = 2.5, hue="Network States")
+        sns.plt.show()
+
+
 
 class radviz():
     'This needs work, currently written as a function. Just exporting from the ipython notbeook'
@@ -8,7 +21,7 @@ class radviz():
         # This should have all been done with a scatter!
         plot_dict = self._radviz_points(dataobj.features,dataobj.label_colarray)
 
-        plt.figure(figsize = (10,10))
+        fig = plt.figure(figsize = (10,10))
         ax1 = plt.subplot(111)
         marker_size = 8
         marker_edge = 0.6
@@ -27,12 +40,12 @@ class radviz():
 
         ax1.legend(frameon = False,numpoints = 1)
 
-        dataobj.feature_names = ['kurtosis', 'skew', 'variation', 'coastline']
+        #dataobj.feature_names = ['kurtosis', 'skew', 'variation', 'coastline']
         names = dataobj.feature_names
         self._radviz_circle(ax1, names)
         ax1.axis('equal')
         ax1.axis('off')
-        plt.show()
+        fig.show()
 
     def _normalize(self,series):
             a = np.min(series, axis = 0)

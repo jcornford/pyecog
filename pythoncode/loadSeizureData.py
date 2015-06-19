@@ -65,8 +65,11 @@ class LoadSeizureData(object):
         return lfp_data.data_array, lfp_data.label_array
     
     def extract_feature_array(self,feature_extractors = [None]):
-        self.featureslist = []
+        self.features = []
+        self.feature_names = []
         for extractor in feature_extractors:
-            self.featureslist.append(extractor.extract(self.data_array))
-        self.features = np.vstack(self.featureslist)
+            self.features.append(extractor.extract(self.data_array))
+            self.feature_names.append(extractor.names)
+        self.feature_names = [item for sublist in self.feature_names for item in sublist] # flatten
+        self.features = np.vstack(self.features)
         self.features = self.features
