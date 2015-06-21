@@ -27,6 +27,13 @@ fourier = FreqFeatures()
 #dataobj.extract_feature_array([basicStatsExtractor])
 dataobj.extract_feature_array([wavelets, basicStatsExtractor, fourier])
 
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=5)
+pca.whiten =True
+dataobj.features = pca.fit_transform(dataobj.features)
+
+
 print dataobj.features.shape
 rf = RandomForest(no_trees = 100)
 classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
