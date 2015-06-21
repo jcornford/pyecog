@@ -41,3 +41,10 @@ in blocks of whole thing?
 Regularisation vs pca
 
 mda, lda?
+
+## 2015 06 21
+1.Cross validation
+2.split test dataset away and use at the very very end
+when standerdising etc, do not include the test dataset
+3.power after a std crossing? as a feature for class 2?
+4.detect baseline sections in the whole trace? 0 crossings, stationarity of mean?

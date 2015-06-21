@@ -36,6 +36,11 @@ dataobj.features = std_scale.transform(dataobj.features)
 minmax_scale = preprocessing.MinMaxScaler().fit(dataobj.features)
 #dataobj.features = minmax_scale.transform(dataobj.features)
 
+#from sklearn.decomposition import PCA
+#pca = PCA(n_components=13).fit(dataobj.features)
+#dataobj.features = pca.transform(dataobj.features)
+
+
 print dataobj.features.shape
 rf = RandomForest(no_trees = 100)
 classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
