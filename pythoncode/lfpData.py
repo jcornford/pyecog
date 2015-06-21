@@ -14,6 +14,7 @@ class LFPData(object):
         if preprocess:
             # if more advanced can make a method for this
             self.alldata = self.alldata[::20,:]
+
             
         self.lfpdata = self.alldata[:,1]
             
@@ -35,6 +36,14 @@ class LFPData(object):
 
             self.data_array = np.array(self.data_array)
             self.data_array -= np.mean(self.data_array,axis = 0)
+            # remove glitches
+            self.threshold = np.std(self.data_array, axis = 1)*7
+            self.mask = np.where(self.data_array>self.threshold[:,None],0,1)
+            self.mask2 = np.where(self.data_array<-self.threshold[:,None],0,1)
+            self.mask += self.mask2
+            self.mask /= 2 
+            self.data_array *= self.mask
+            ### Finish removing glitches ###
             self.label_array = np.array(self.label_array)
             #plt.figure(figsize=(12,6))
             #plt.plot(self.data_array.T)

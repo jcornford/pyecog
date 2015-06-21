@@ -13,7 +13,8 @@ class FreqFeatures():
         pass
 
     def extract(self, data):
-        features = np.log(np.absolute(np.fft.rfft(data, axis = 1)[:,1:48]))
+        features = np.log(np.absolute(np.fft.rfft(data, axis = 1)[:,1:200]))
         features  = sklearn.preprocessing.scale(features, axis = 0)
+        self.names = range(features.shape[1])
         print 'here'
         return features

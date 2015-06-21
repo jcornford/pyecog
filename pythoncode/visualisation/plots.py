@@ -10,7 +10,7 @@ class scatter_matrix():
         sns.set_context("talk", font_scale=1.00)
         df = pd.DataFrame(dataobj.features, columns = dataobj.feature_names)
         df['Network States'] = dataobj.label_colarray
-        self.pg = sns.pairplot(df, vars=dataobj.feature_names, size = 2.5, hue="Network States")
+        self.pg = sns.pairplot(df, vars=dataobj.feature_names, size = 1.8, hue="Network States")
         sns.plt.show()
 
 

@@ -37,3 +37,7 @@ Preprocessing?
 ::20,
 0 mean and std varience? z  norm?
 in blocks of whole thing?
+
+Regularisation vs pca
+
+mda, lda?
