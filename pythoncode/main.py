@@ -25,14 +25,16 @@ basicStatsExtractor = BasicFeatures()
 wavelets = WaveletFeatures()
 fourier = FreqFeatures()
 #dataobj.extract_feature_array([basicStatsExtractor])
-dataobj.extract_feature_array([wavelets, basicStatsExtractor, fourier])
+dataobj.extract_feature_array([wavelets, basicStatsExtractor])
 
 
-from sklearn.decomposition import PCA
-pca = PCA(n_components=5)
-pca.whiten =True
-dataobj.features = pca.fit_transform(dataobj.features)
+from sklearn import preprocessing
 
+std_scale = preprocessing.StandardScaler().fit(dataobj.features)
+dataobj.features = std_scale.transform(dataobj.features)
+
+minmax_scale = preprocessing.MinMaxScaler().fit(dataobj.features)
+#dataobj.features = minmax_scale.transform(dataobj.features)
 
 print dataobj.features.shape
 rf = RandomForest(no_trees = 100)
