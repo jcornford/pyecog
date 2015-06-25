@@ -24,8 +24,8 @@ dataobj = reorder(dataobj)
 basicStatsExtractor = BasicFeatures()
 wavelets = WaveletFeatures()
 fourier = FreqFeatures()
-#dataobj.extract_feature_array([basicStatsExtractor])
-dataobj.extract_feature_array([wavelets, basicStatsExtractor])
+dataobj.extract_feature_array([basicStatsExtractor])
+#dataobj.extract_feature_array([wavelets, basicStatsExtractor])
 
 
 from sklearn import preprocessing

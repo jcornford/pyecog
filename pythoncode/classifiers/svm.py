@@ -4,7 +4,7 @@ class SupportVecClf():
     Support vector classifier
     """
     def __init__(self, k_type= 'rbf'):
-        self.classifier = SVC()
+        self.classifier = SVC(kernel = k_type)
     def fit(self, X, y):
         """
         Method to fit the model.

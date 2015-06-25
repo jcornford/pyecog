@@ -72,5 +72,4 @@ class LoadSeizureData(object):
             self.feature_names.append(extractor.names)
         self.feature_names = [item for sublist in self.feature_names for item in sublist] # flatten
         print self.feature_names, 'ARE THE FEATURES USED'
-        print self.features[0].shape, self.features[1].shape
         self.features = np.hstack([self.features[i] for i in range(len(self.features))])

@@ -40,7 +40,7 @@ def relabel(dataobj):
 
     # Second round!
     dataobj = reorder(dataobj)
-    print 'Second round of re-labelling!'
+    print 'Second round of re-labelling! - updated!'
     C1=[0,1,2,3,4,5,7,8,10,19,20,21,22,23,24,26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
         40, 41,42,56,57,59,60,63,44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,125,126,127,128,129,130,131,132,
        141,142,143,144,145,146,147,148,149,155,156,164,166,170,171,203]
@@ -59,11 +59,21 @@ def relabel(dataobj):
         277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295,
         296, 297, 298, 299, 300,150
         ]
-    b = [6,9,11,12,13,14,15,16,17,18,157]
+    b = [6,9,11,12,13,14,15,16,17,18,157,]
+
+        #16,15,18,19,21,20,80,147,25]
+
+
     dataobj.label_colarray[C1] = 1
     dataobj.label_colarray[C2] = 2
     dataobj.label_colarray[C3] = 3
     dataobj.label_colarray[b] = 4
+    dataobj = reorder(dataobj)
+    dataobj.label_colarray[[16,15,18,19,21,20,80,147,25]] = 4
+    dataobj.label_colarray[[78,144,137,136,95,139]] = 3
+    dataobj.label_colarray[[24,138]] = 2
+    dataobj.label_colarray[[128,131,132,130]] = 1
+    dataobj = reorder(dataobj)
     return dataobj
 
 def reorder(dataobj):
