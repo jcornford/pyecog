@@ -35,7 +35,7 @@ class LFPData(object):
                     self.label_array.append(label)
 
             self.data_array = np.array(self.data_array)
-            self.data_array -= np.mean(self.data_array,axis = 0)
+            #self.data_array -= np.mean(self.data_array,axis = 0)
             # remove glitches
             self.threshold = np.std(self.data_array, axis = 1)*7
             self.mask = np.where(self.data_array>self.threshold[:,None],0,1)
