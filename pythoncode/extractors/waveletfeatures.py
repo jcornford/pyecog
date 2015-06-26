@@ -14,12 +14,12 @@ class WaveletFeatures():
 
     def extract(self,data):
         power = []
-        self.myWaveletFamily, self.frequencies = self._morletFamily(start=1,stop=50,step = 4)
+        self.myWaveletFamily, self.frequencies = self._custommorletFamily([2,6,10,20,40,100,150])
         for i in range(data.shape[0]):
             self.convResults = self._convolve(data[i,:], self.myWaveletFamily,self.frequencies, fs = 512)
             powerArray  = np.absolute(self.convResults)
             power.append(powerArray)
-        self.max_wave_powers = np.vstack([np.max(power[i], axis = 1) for i in range(len(power))])
+        self.max_wave_powers = np.vstack([np.mean(power[i], axis = 1) for i in range(len(power))])
         self.names = self.frequencies
         return self.max_wave_powers
 
@@ -73,7 +73,7 @@ class WaveletFeatures():
         return wavelet, timeaxis
 
             
-    def _morletFamily(self,start=1,stop=50,timewindow = (-0.1,0.1),step = 5,fs = 512.0, freqNorm = False):
+    def _custommorletFamily(self,central_freqs,timewindow = (-0.1,0.1),step = 5,fs = 512.0, freqNorm = False):
         '''
         Returns a list of wavelets 
         Inputs:
@@ -83,7 +83,7 @@ class WaveletFeatures():
         '''
         waveletList = []
         frequencies = []
-        for f in np.arange(start,stop,step):
+        for f in central_freqs:
             wavelet, xaxis = self._complexMorlet(f,fs,timewindow ,freqNorm=freqNorm)
             waveletList.append(wavelet)
             frequencies.append(f)

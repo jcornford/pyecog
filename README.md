@@ -1,5 +1,19 @@
 # networkclassifer
-Repositry to hold files for classifying network state in a given window before light pulses
+Repositry to hold files for classifying network state in a given window before light pulses.
+
+Currently taking 10 seconds before a light pulse ans extract features from this window.
+
+1. Add something for after the feature matrix has been computed - to perform dimensionality reduction, LDA, z-norm, standardisation, play with rLDA etc. Remember that this will be fitted on the trainingset and then test set is transoformed.
+
+2. Cross validation. 
+
+3. Hyperparameter fitting. 
+
+4. Std etc, be caureful on th etype of normalisation used before them.
+
+5. Ways to see classification of individual states better
+
+6. Classifier based on probabiity. 
 
 ## To do:
 1. Write code to visualise and go through and check/change labels of the 10 second sections.

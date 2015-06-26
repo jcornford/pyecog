@@ -24,23 +24,27 @@ dataobj = reorder(dataobj)
 basicStatsExtractor = BasicFeatures()
 wavelets = WaveletFeatures()
 fourier = FreqFeatures()
-dataobj.extract_feature_array([basicStatsExtractor])
+dataobj.extract_feature_array([basicStatsExtractor, wavelets])
+print dataobj.features.shape
 #dataobj.extract_feature_array([wavelets, basicStatsExtractor])
 
+# NOW GENERATE TRAINING AND TEST
 
+# TRAINING FEATURE MATRIX MODIFICATION AND NORMALISATION
 from sklearn import preprocessing
-
 std_scale = preprocessing.StandardScaler().fit(dataobj.features)
 dataobj.features = std_scale.transform(dataobj.features)
-
 minmax_scale = preprocessing.MinMaxScaler().fit(dataobj.features)
 #dataobj.features = minmax_scale.transform(dataobj.features)
 
-#from sklearn.decomposition import PCA
-#pca = PCA(n_components=13).fit(dataobj.features)
-#dataobj.features = pca.transform(dataobj.features)
+from sklearn.decomposition import PCA
+pca = PCA(n_components=5).fit(dataobj.features)
+dataobj.features = pca.transform(dataobj.features)
+#from sklearn.lda import LDA
+#lda = LDA(n_components=2)
+#dataobj.features = lda.fit_transform(dataobj.features, np.ravel(dataobj.label_colarray))
 
-
+#TEST INDIVIDUAL CLASSIFIERS
 print dataobj.features.shape
 rf = RandomForest(no_trees = 100)
 classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
