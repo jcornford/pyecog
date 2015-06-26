@@ -16,7 +16,7 @@ class BasicFeatures():
         self.names = ['std','norm_coastline', 'coastline','pos_crossings', 'moment6', 'skew']
 
     def extract(self, data):
-        
+        # data array is no longer zero meaned by default!
         kurtosis = st.kurtosis(data, axis=1)
         
         skew = st.skew(data, axis=1)
