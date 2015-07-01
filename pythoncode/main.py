@@ -38,19 +38,26 @@ minmax_scale = preprocessing.MinMaxScaler().fit(dataobj.features)
 #dataobj.features = minmax_scale.transform(dataobj.features)
 
 from sklearn.decomposition import PCA
-pca = PCA(n_components=5).fit(dataobj.features)
-dataobj.features = pca.transform(dataobj.features)
+pca = PCA(n_components=2).fit(dataobj.features)
+dataobj.lda = pca.transform(dataobj.features)
 #from sklearn.lda import LDA
 #lda = LDA(n_components=2)
-#dataobj.features = lda.fit_transform(dataobj.features, np.ravel(dataobj.label_colarray))
+#dataobj.lda= lda.fit_transform(dataobj.features, np.ravel(dataobj.label_colarray))
+#plt.scatter(dataobj.lda[:,0],dataobj.lda[:,1], c = dataobj.label_colarray)
+#plt.show()
+
 
 #TEST INDIVIDUAL CLASSIFIERS
 print dataobj.features.shape
 rf = RandomForest(no_trees = 100)
-classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
-(score, predictedlabelsprobs, reallabels) = classtester.test_classifier(rf)
+scores = []
 print 'training a random forest classifier!'
-print score, 'percent correct!'
+for i in range(10):
+	classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
+	(score, predictedlabelsprobs, reallabels) = classtester.test_classifier(rf)
+	print score, 'percent correct!'
+	scores.append(score)
+print np.mean(scores), 'is mean score'
 
 print 'training a support vector classifier'
 svcclf = SupportVecClf(k_type = 'rbf')
@@ -63,6 +70,7 @@ knn_clf = KNeighbors(15)
 print score, 'percent correct!'
 
 plots.radviz(dataobj)
+#plt.show()
 #plots.scatter_matrix(dataobj)
 #raw_input()
 #plt.close('all')
