@@ -11,20 +11,24 @@ from visualisation import plots
 from extractors.basicFeatures    import BasicFeatures
 from extractors.freqfeatures     import FreqFeatures
 from extractors.waveletfeatures import WaveletFeatures
+from extractors.postcrossingfreqfeatures import PostCrossingPower
 
 from classifiers.randomForestClassifier import RandomForest
 from classifiers.svm import SupportVecClf
 from classifiers.neighbors import KNeighbors
 
-dirpath = '/Users/Jonathan/Documents/PhD /Seizure_related/Network_states/VMData/Classified'
+dirpath = '/Users/Jonathan/Documents/PhD/Seizure_related/Classified'
 dataobj = LoadSeizureData(dirpath)
 dataobj.load_data()
 dataobj = relabel(dataobj)
 dataobj = reorder(dataobj)
+
 basicStatsExtractor = BasicFeatures()
 wavelets = WaveletFeatures()
+pcp = PostCrossingPower()
 fourier = FreqFeatures()
-dataobj.extract_feature_array([basicStatsExtractor, wavelets])
+
+dataobj.extract_feature_array([basicStatsExtractor,pcp,wavelets])
 print dataobj.features.shape
 #dataobj.extract_feature_array([wavelets, basicStatsExtractor])
 
@@ -49,7 +53,7 @@ dataobj.lda = pca.transform(dataobj.features)
 
 #TEST INDIVIDUAL CLASSIFIERS
 print dataobj.features.shape
-rf = RandomForest(no_trees = 100)
+rf = RandomForest(no_trees = 50000)
 scores = []
 print 'training a random forest classifier!'
 for i in range(10):
@@ -57,12 +61,17 @@ for i in range(10):
 	(score, predictedlabelsprobs, reallabels) = classtester.test_classifier(rf)
 	print score, 'percent correct!'
 	scores.append(score)
-print np.mean(scores), 'is mean score'
+print '****',np.mean(scores), 'is mean score','****'
+
 
 print 'training a support vector classifier'
-svcclf = SupportVecClf(k_type = 'rbf')
-(score, predictedlabelsprobs, reallabels) = classtester.test_classifier(svcclf)
-print score, 'percent correct!'
+for i in range(10):
+    classtester = ClassifierTester(dataobj.features,np.ravel(dataobj.label_colarray), training_test_split = 80)
+    svcclf = SupportVecClf(k_type = 'rbf')
+    (score, predictedlabelsprobs, reallabels) = classtester.test_classifier(svcclf)
+    print score, 'percent correct!'
+    scores.append(score)
+print '****', np.mean(scores), 'is mean score ****'
 
 print 'training a K nearest neighbors classifier'
 knn_clf = KNeighbors(15)
