@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 
 # Basic script to run network state classfication
 
-from loadSeizureData  import LoadSeizureData
-from classifierTester import ClassifierTester
+from load_seizure_data  import LoadSeizureData
+from classifier_tester import ClassifierTester
 from relabeling_functions import relabel, reorder
 from visualisation import plots
 

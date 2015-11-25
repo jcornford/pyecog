@@ -68,8 +68,8 @@ class ClickInfo(plugins.PluginBase):
 
 
 # Basic script to run network state classfication
-from loadSeizureData  import LoadSeizureData
-from classifierTester import ClassifierTester
+from load_seizure_data  import LoadSeizureData
+from classifier_tester import ClassifierTester
 from basicFeatures    import BasicFeatures
 from randomForestClassifier import RandomForest
 from freqfeatures     import FreqFeatures
