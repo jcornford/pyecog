@@ -70,7 +70,7 @@ else:
     validation_labels = np.loadtxt('../val_labels_fair.csv', delimiter=',')
 
 print features0616.shape
-#classifier0616 = NetworkClassifer(features0616,labels0616, validation_features,validation_labels)
-classifier0616 = NetworkClassifer(f471,l471, validation_features,validation_labels)
-classifier0616.run()
-classifier0616.randomforest_info()
+#classifier0616 = NetworkClassifer(features,labels, validation_features,validation_labels)
+classifier = NetworkClassifer(f471,l471, validation_features,validation_labels)
+classifier.run()
+#classifier.randomforest_info()
