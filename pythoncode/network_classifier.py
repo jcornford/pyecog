@@ -7,7 +7,7 @@ import numpy as np
 #import stfio_plot as sp
 from load_seizure_data import SeizureData
 from relabeling_functions import relabel,reorder
-from nc import extract_features
+#from nc import extract_features
 from classifier import NetworkClassifer
 
 def normalise(series):
@@ -15,7 +15,7 @@ def normalise(series):
     b = np.max(series, axis=1)
     return np.divide((series - a[:, None]), (b-a)[:,None])
 
-FROMSCRATCH = False
+FROMSCRATCH = True
 if FROMSCRATCH:
     dirpath = '/Users/Jonathan/PhD/Seizure_related/20150616'
     _20150616dataobj = SeizureData(dirpath, amount_to_downsample = 40)
@@ -46,13 +46,17 @@ if FROMSCRATCH:
     for i in range(data0616.shape[0]):
         labels0616[i] = inds[i,1]
 
+    f = open('../dataset','wb')
+    pickle.dump(data0616,f)
+    print 'Loaded and pickled'
 
-    print time.clock()
-    features0616 = extract_features(data0616)
-    print time.clock()
 
-    np.savetxt('../features0616_n342.csv',features0616,delimiter=',')
-    np.savetxt('../labels0616_n342.csv',labels0616,delimiter=',')
+
+    #features0616 = extract_features(data0616)
+
+
+    #np.savetxt('../features0616_n342.csv',features0616,delimiter=',')
+    #np.savetxt('../labels0616_n342.csv',labels0616,delimiter=',')
 
 else:
     labels0616 = np.loadtxt('../labels0616_n342.csv', delimiter=',')
@@ -70,11 +74,11 @@ else:
     validation_features = np.loadtxt('../val_feats_fair.csv', delimiter=',')
     validation_labels = np.loadtxt('../val_labels_fair.csv', delimiter=',')
 
-print features0616.shape
+print data0616.shape
 #classifier0616 = NetworkClassifer(features,labels, validation_features,validation_labels)
-classifier = NetworkClassifer(f471,l471, validation_features,validation_labels)
-classifier.run()
+#classifier = NetworkClassifer(f471,l471, validation_features,validation_labels)
+#classifier.run()
 #classifier.randomforest_info()
-classifier.pca(n_components = 2)
-f = open('../pca','wb')
-pickle.dump(classifier,f)
+#classifier.pca(n_components = 2)
+#f = open('../pca','wb')
+#pickle.dump(classifier,f)

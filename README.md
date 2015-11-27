@@ -11,6 +11,9 @@ Todo:
 4. Sort out the code from early days vs ipython notebook copies etc
 5. Asses scaling, preprocessing (baseline subtraction etc) and imputing options.
 
+#To think about:
+What to do with the first 100ms of rolling window?
+
 ## Possible features
 * Stationarity testing
 Potential features:
