@@ -1,5 +1,6 @@
 import time
 
+import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -74,3 +75,6 @@ print features0616.shape
 classifier = NetworkClassifer(f471,l471, validation_features,validation_labels)
 classifier.run()
 #classifier.randomforest_info()
+classifier.pca(n_components = 2)
+f = open('../pca','wb')
+pickle.dump(classifier,f)
