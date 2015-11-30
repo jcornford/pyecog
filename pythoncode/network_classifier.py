@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #import stfio_plot as sp
-from load_seizure_data import SeizureData
+from network_loader import SeizureData
 from relabeling_functions import relabel,reorder
 #from nc import extract_features
 from classifier import NetworkClassifer
