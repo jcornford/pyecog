@@ -38,10 +38,8 @@ class NetworkClassifer():
         print 'Done'
 
     def _cross_validation(self,clf, k_folds = 5):
-        scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
-        return scores
-        #print 'Cross validation performance',scores
-        #print("Accuracy: %0.2f (std %0.2f)" % (scores.mean()*100, scores.std()*100))
+        self.scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
+
 
     def randomforest_info(self, max_trees = 1000, step = 20, kfolds = 5):
         print 'Characterising R_forest. Looping through trees: ',
@@ -68,8 +66,16 @@ class NetworkClassifer():
 
     def pca(self,n_components = 6):
         self.pca = PCA(n_components)
-
         self.pca_iss_features = self.pca.fit_transform(self.iss_features)
+
+    def lda(self,n_components = 2, pca_reg = True):
+        self.lda = LDA(n_components)
+        if pca_reg:
+            self.pca_reg = PCA(10)
+            pca_reg_features = self.pca_reg.fit_transform(self.iss_features)
+            self.lda_iss_features = self.lda.fit_transform(pca_reg_features,self.labels)
+        else:
+            self.lda_iss_features = self.lda.fit_transform(self.iss_features,self.labels)
 
     def knn_info(self, kmax=100 ):
         self.knndata = np.zeros((kmax,4))
@@ -93,6 +99,7 @@ class NetworkClassifer():
 
         r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
         self._cross_validation(r_forest)
+        print("Cross validation RF performance: Accuracy: %0.2f (std %0.2f)" % (self.scores.mean()*100, self.scores.std()*100))
 
         r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
         r_forest.fit(self.iss_features,self.labels)

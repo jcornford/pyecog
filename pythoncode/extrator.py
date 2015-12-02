@@ -59,21 +59,21 @@ class FeatureExtractor():
             - baseline_mean_diff is the second list and is the mean difference between baseline datapoint indexes.
         '''
         print 'Extracting baseline via rolling std...',
-        array_std = np.std(self.rolling_window(dataset,window=window_size),-1)
-        array_window = np.zeros([dataset.shape[0],window_size-1])
+        array_std = np.std(self.rolling_window(self.dataset,window=window_size),-1)
+        array_window = np.zeros([self.dataset.shape[0],window_size-1])
         rolling_std_array = np.hstack((array_window,array_std))
-        masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, dataset)
+        masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, self.dataset)
         mean_baseline_vector = np.mean(masked_std_below_threshold,axis = 1)
 
         if subtract_baseline:
-            dataset_after_subtraction_option = dataset - mean_baseline_vector[:,None]
+            dataset_after_subtraction_option = self.dataset - mean_baseline_vector[:,None]
 
         masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, dataset_after_subtraction_option)
         indexes = np.array(np.arange(5120))
 
-        self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in xrange(dataset.shape[0])]
-        baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in xrange(dataset.shape[0])]
-        baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(dataset.shape[0])]
+        self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in xrange(self.dataset.shape[0])]
+        baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in xrange(self.dataset.shape[0])]
+        baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(self.dataset.shape[0])]
         #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in xrange(dataset.shape[0])]
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff]).T
@@ -85,8 +85,8 @@ class FeatureExtractor():
         pk_nlist = []
         val_nlist = []
 
-        for i in range(dataset.shape[0]):
-            pk, val = self.peakdet(dataset[i,:], 0.5)
+        for i in range(self.dataset.shape[0]):
+            pk, val = self.peakdet(self.dataset[i,:], 0.5)
             pk_nlist.append(pk)
             val_nlist.append(val)
 
@@ -259,8 +259,8 @@ class FeatureExtractor():
 
 
 
-dataset = pickle.load(open('../dataset','rb'))
-extractor = FeatureExtractor(dataset)
+#dataset = pickle.load(open('../dataset','rb'))
+#extractor = FeatureExtractor(dataset)
 
 
 # begin piss-around

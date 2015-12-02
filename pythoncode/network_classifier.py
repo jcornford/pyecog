@@ -7,9 +7,12 @@ import numpy as np
 #import stfio_plot as sp
 from network_loader import SeizureData
 from relabeling_functions import relabel,reorder
-#from nc import extract_features
+from extrator import FeatureExtractor
 from classifier import NetworkClassifer
 
+#from make_pdfs import plot_traces
+
+print 'N.B. move normalisation to loader'
 def normalise(series):
     a = np.min(series, axis=1)
     b = np.max(series, axis=1)
@@ -17,6 +20,7 @@ def normalise(series):
 
 FROMSCRATCH = True
 if FROMSCRATCH:
+    ################# 'NEW data' ###################
     dirpath = '/Users/Jonathan/PhD/Seizure_related/20150616'
     _20150616dataobj = SeizureData(dirpath, amount_to_downsample = 40)
     _20150616dataobj.load_data()
@@ -46,17 +50,46 @@ if FROMSCRATCH:
     for i in range(data0616.shape[0]):
         labels0616[i] = inds[i,1]
 
-    f = open('../dataset','wb')
-    pickle.dump(data0616,f)
-    print 'Loaded and pickled'
+    print len(labels0616)
+
+    ################## Original Data ####################
+    dirpath = '/Users/Jonathan/PhD/Seizure_related/Classified'
+    dataobj = SeizureData(dirpath,amount_to_downsample = 20)
+    dataobj.load_data()
+    dataobj = relabel(dataobj)
+    dataobj = reorder(dataobj)
+    dataset301 = dataobj.data_array
+    labels301 = dataobj.label_colarray
+    print dataset301.shape
+    print labels301.shape
+    new_labels = np.loadtxt(notebook_dir+'new_event_labels_28082015.csv',delimiter= ',')
+    for x in new_labels:
+        labels301[x[0]] = x[1]
+
+    selection = np.loadtxt(notebook_dir+'perfect_event_labels_28082015.csv',delimiter= ',')
+    indexes =  list(selection[:,0])
+    print indexes
+
+    dataset129_unnorm = dataset301[indexes,:]
+    dataset129_norm = normalise(dataset129_unnorm)
+    dataset301_norm = normalise(dataset301)
+    labels129 = labels301[indexes]
+
+    print dataset129_norm.shape
+
+    ################## Validation Data ####################
 
 
+    #f = open('../dataset','wb')
+    #pickle.dump(data0616,f)
+    #print 'Loaded and pickled'
 
     #features0616 = extract_features(data0616)
 
-
     #np.savetxt('../features0616_n342.csv',features0616,delimiter=',')
     #np.savetxt('../labels0616_n342.csv',labels0616,delimiter=',')
+
+
 
 else:
     labels0616 = np.loadtxt('../labels0616_n342.csv', delimiter=',')
@@ -71,14 +104,30 @@ else:
     f471 = np.vstack([f129,f342])
     l471 = np.hstack([l129,l342])
 
-    validation_features = np.loadtxt('../val_feats_fair.csv', delimiter=',')
-    validation_labels = np.loadtxt('../val_labels_fair.csv', delimiter=',')
+labels0616 = np.loadtxt('../labels0616_n342.csv', delimiter=',')
+features0616 = np.loadtxt('../features0616_n342.csv', delimiter=',')
+validation_features = np.loadtxt('../val_feats_fair.csv', delimiter=',')
+validation_labels = np.loadtxt('../val_labels_fair.csv', delimiter=',')
 
 print data0616.shape
+print data0616.shape
+
+featuredata1 = FeatureExtractor(data0616)
+featuredata2 = FeatureExtractor(dataset129_norm)
+
+labels129_flat = np.ravel(labels129)
+labels0616_flat = np.ravel(labels0616)
+
+print labels129_flat.shape, labels0616.shape
+labels_full = np.hstack([labels0616_flat,labels129_flat])
+featuredata_full = np.vstack([featuredata1.feature_array,featuredata2.feature_array])
 #classifier0616 = NetworkClassifer(features,labels, validation_features,validation_labels)
-classifier = NetworkClassifer(f471,l471, validation_features,validation_labels)
-#classifier.run()
+classifier = NetworkClassifer(featuredata_full,labels_full, validation_features,validation_labels)
+#classifier = NetworkClassifer(features0616,labels0616, validation_features,validation_labels)
+classifier.run()
 #classifier.randomforest_info()
-#classifier.pca(n_components = 2)
-#f = open('../pca','wb')
-#pickle.dump(classifier,f)
+classifier.pca(n_components = 2)
+classifier.lda(n_components = 2, pca_reg = True)
+f = open('../saved_clf','wb')
+pickle.dump(classifier,f)
+

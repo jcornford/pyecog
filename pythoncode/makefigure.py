@@ -12,13 +12,14 @@ treedata = np.loadtxt('../treedata500.csv',delimiter = ',')
 
 print treedata.shape
 
-figure = plt.figure(figsize = (12,8),facecolor='white')
-grid =  gridspec.GridSpec(2, 2,)
+figure = plt.figure(figsize = (11,12),facecolor='white')
+grid =  gridspec.GridSpec(3, 2,)
 
-classifier = pickle.load(open('../pca','rb'))
-pca = classifier.pca_iss_features
+classifier = pickle.load(open('../saved_clf','rb'))
+
+########### PCA plot ###############
 ax1 = plt.subplot(grid[0])
-
+pca = classifier.pca_iss_features
 for i in range(pca.shape[0]):
     ax1.scatter(pca[i,0], pca[i,1], c = phd.mc[cs[int(classifier.labels[i])]], edgecolor = 'k', s = 30)
 
@@ -27,42 +28,55 @@ ax1.set_ylabel("Principle Component 2", )
 var = sum((classifier.pca.explained_variance_ratio_))
 ax1.set_title("2d PCA projection: {:.2%} variance explained".format(var))
 
+######### LDA plot ###############
 ax2 = plt.subplot(grid[1])
-image = mpimg.imread('../5cv.png')
-ax2.imshow(image)
-ax2.axis('off')
-ax2.set_title('5-fold cross validation')
+lda = classifier.lda_iss_features
+for i in range(pca.shape[0]):
+    ax2.scatter(lda[i,0], lda[i,1], c = phd.mc[cs[int(classifier.labels[i])]], edgecolor = 'k', s = 30)
 
+ax2.set_xlabel("LD 1",)
+ax2.set_ylabel("LD 2", )
+
+ax2.set_title('2d LDA projection')
+
+######### Cross val plot ###########
 ax3 = plt.subplot(grid[2])
+image = mpimg.imread('../5cv.png')
+ax3.imshow(image)
+ax3.axis('off')
+ax3.set_title('5-fold cross validation')
+
+########### RF characterisation ########
+ax4 = plt.subplot(grid[3])
 n_trees = treedata[:,0]
-ax3.errorbar(n_trees, treedata[:, 1],yerr = treedata[:,2]/np.sqrt(5), label ='Cross validation', color = phd.mc['k'])
-#ax3.plot(n_trees, treedata[:, 1],color = phd.mc['k'], label ='Cross validation')
-ax3.plot(n_trees, treedata[:, 3], color = phd.mc['r'], label ='Test dataset')
+ax4.errorbar(n_trees, treedata[:, 1], yerr =treedata[:, 2] / np.sqrt(5), label ='Cross validation 22d', color = phd.mc['k'])
+#ax4.plot(n_trees, treedata[:, 1],color = phd.mc['k'], label ='Cross validation')
+ax4.plot(n_trees, treedata[:, 3], color = phd.mc['r'], label ='Test dataset 22d')
 
-ax3.legend(frameon = False, loc ='best', fontsize = 10)
+ax4.legend(frameon = False, loc ='best', fontsize = 10)
 
-xlim = ax3.get_xlim()
-#ax3.hlines(0.25, 0,xlim[1])
+xlim = ax4.get_xlim()
+#ax4.hlines(0.25, 0,xlim[1])
 myxlim = (-0.1, xlim[1])
-ax3.set_xlim(myxlim)
+ax4.set_xlim(myxlim)
 
-ylim = ax3.get_ylim()
+ylim = ax4.get_ylim()
 myylim = (ylim[0],1)
-ax3.set_ylim(myylim)
-#ax3.set_ylim(0,1)
+ax4.set_ylim(myylim)
+#ax4.set_ylim(0,1)
 
-ax3.set_xlabel('Number of Trees')
-ax3.set_ylabel('Classifier performance')
-ax3.set_title('Classifier performance')
+ax4.set_xlabel('Number of Trees')
+ax4.set_ylabel('Classifier performance')
+ax4.set_title('Classifier performance')
 
 import pandas as pd
 df = pd.read_pickle('../feature_importance')
-ax4 = plt.subplot(grid[3])
-ax4.set_title('Feature importance')
-ax4.set_ylabel('Importance (%)')
+ax5 = plt.subplot(grid[4])
+ax5.set_title('Feature importance')
+ax5.set_ylabel('Importance (%)')
 df = df.sort(columns=0)
-df.plot(kind='bar', ax = ax4,rot = 80, legend = False, grid = False,
-        color=phd.mc['k'],)
+df.plot(kind='bar', ax = ax5, rot = 80, legend = False, grid = False,
+        color=phd.mc['k'], )
 
 
 
@@ -84,7 +98,7 @@ def hide_spines():
 
 hide_spines()
 
-#ax2 = plt.subplot(grid[1])
+#ax3 = plt.subplot(grid[1])
 plt.tight_layout()
 plt.show()
 #plt.savefig('v01.png')
