@@ -1,6 +1,10 @@
-import stfio_plot as sp
+import matplotlib.pyplot as plt
+import numpy as np
+import pickle
 
-def plot_traces(to_plot, labels = None, savestring = None):
+import utils
+
+def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf"):
     if labels == None:
         labels = np.ones(to_plot.shape[0])
     colors = ['b','r','g','k','purple']
@@ -30,7 +34,7 @@ def plot_traces(to_plot, labels = None, savestring = None):
                 ax.get_xaxis().tick_bottom()
                 i -= (section)*40
                 if i == 39:
-                    sp.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's', sb_yoff = 0.1, sb_xoff = -0.1)
+                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's', sb_yoff = 0.1, sb_xoff = -0.1)
 
         except IndexError:
             for i in range(to_plot.shape[0]%40):
@@ -48,7 +52,15 @@ def plot_traces(to_plot, labels = None, savestring = None):
                 ax.get_xaxis().tick_bottom()
                 i -= (section)*40
                 if i == 0:
-                    sp.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's',
+                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's',
                                      sb_yoff = 0.1, sb_xoff = -0.1)
         if savestring:
-            plt.savefig(savestring+str(section)+".pdf")
+            plt.savefig(savestring+str(section)+format_string)
+
+if __name__ == "__main__":
+    training_tuple = pickle.load(open('../training_label_traces_tuple','rb'))
+    training_tuple = pickle.load(open('../validation_label_traces_tuple','rb'))
+    labels = training_tuple[0]
+    data = training_tuple[1]
+    print 'plotting ',data.shape[0], 'traces'
+    plot_traces(data,labels,savestring='../validation ',format_string='.pdf')

@@ -12,10 +12,10 @@ from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the p
 
 class FeatureExtractor():
 
-    def __init__(self, dataset):
+    def __init__(self, dataset, subtract_baseline = True):
         self.start = time.clock()
         self.dataset = dataset
-        self._baseline(subtract_baseline=True, threshold=0.04, window_size=100)
+        self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()
         self._peaks_and_valleys()
         self._wavelet_features(fs = 512, frequencies = [1,5,10,15,20,30,60, 90])
@@ -67,16 +67,19 @@ class FeatureExtractor():
 
         if subtract_baseline:
             dataset_after_subtraction_option = self.dataset - mean_baseline_vector[:,None]
+        else:
+            dataset_after_subtraction_option = self.dataset
 
         masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, dataset_after_subtraction_option)
         indexes = np.array(np.arange(5120))
 
         self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in xrange(self.dataset.shape[0])]
         baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in xrange(self.dataset.shape[0])]
+        baseline_diff_skew = [st.skew(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(self.dataset.shape[0])]
         baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(self.dataset.shape[0])]
         #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in xrange(dataset.shape[0])]
 
-        self.baseline_features = np.vstack([baseline_length,baseline_mean_diff]).T
+        self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
         print 'DONE', time.clock() - self.start
         print 'N.B using mean baseline difference - perhaps not best?'
 

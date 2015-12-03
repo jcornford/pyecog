@@ -35,7 +35,7 @@ for i in range(pca.shape[0]):
     ax2.scatter(lda[i,0], lda[i,1], c = phd.mc[cs[int(classifier.labels[i])]], edgecolor = 'k', s = 30)
 
 ax2.set_xlabel("LD 1",)
-ax2.set_ylabel("LD 2", )
+ax2.set_ylabel("LD 3", )
 
 ax2.set_title('2d LDA projection')
 
@@ -48,10 +48,10 @@ ax3.set_title('5-fold cross validation')
 
 ########### RF characterisation ########
 ax4 = plt.subplot(grid[3])
-n_trees = treedata[:,0]
-ax4.errorbar(n_trees, treedata[:, 1], yerr =treedata[:, 2] / np.sqrt(5), label ='Cross validation 22d', color = phd.mc['k'])
+n_trees = classifier.treedata[:,0]
+ax4.errorbar(n_trees, classifier.treedata[:, 1], yerr =classifier.treedata[:, 2] / np.sqrt(5), label ='Cross validation 22d', color = phd.mc['k'])
 #ax4.plot(n_trees, treedata[:, 1],color = phd.mc['k'], label ='Cross validation')
-ax4.plot(n_trees, treedata[:, 3], color = phd.mc['r'], label ='Test dataset 22d')
+ax4.plot(n_trees, classifier.treedata[:, 3], color = phd.mc['r'], label ='Test dataset 22d')
 
 ax4.legend(frameon = False, loc ='best', fontsize = 10)
 
@@ -69,11 +69,12 @@ ax4.set_xlabel('Number of Trees')
 ax4.set_ylabel('Classifier performance')
 ax4.set_title('Classifier performance')
 
-import pandas as pd
-df = pd.read_pickle('../feature_importance')
+########### Feature importance ##############
 ax5 = plt.subplot(grid[4])
 ax5.set_title('Feature importance')
 ax5.set_ylabel('Importance (%)')
+import pandas as pd
+df = pd.DataFrame(classifier.r_forest.feature_importances_*100,classifier.feature_labels)
 df = df.sort(columns=0)
 df.plot(kind='bar', ax = ax5, rot = 80, legend = False, grid = False,
         color=phd.mc['k'], )
