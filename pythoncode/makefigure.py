@@ -1,10 +1,11 @@
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import matplotlib.image as mpimg
-import numpy as np
 import pickle
 
-import utils as phd
+import matplotlib.gridspec as gridspec
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pythoncode import utils as phd
 
 cs = ['none','b','r','k','grey','grey']
 treedata = np.loadtxt('../treedata500.csv',delimiter = ',')

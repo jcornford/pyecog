@@ -1,8 +1,10 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import pickle
 
-import utils
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pythoncode import utils
+
 
 def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf"):
     if labels == None:
@@ -34,7 +36,7 @@ def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf
                 ax.get_xaxis().tick_bottom()
                 i -= (section)*40
                 if i == 39:
-                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's', sb_yoff = 0.1, sb_xoff = -0.1)
+                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV', div = 3.0, xunits='s', sb_yoff = 0.1, sb_xoff = -0.1)
 
         except IndexError:
             for i in range(to_plot.shape[0]%40):
@@ -52,8 +54,8 @@ def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf
                 ax.get_xaxis().tick_bottom()
                 i -= (section)*40
                 if i == 0:
-                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV',div = 3.0, xunits= 's',
-                                     sb_yoff = 0.1, sb_xoff = -0.1)
+                    utils.plot_scalebars(ax, linewidth=1.0, yunits='mV', div = 3.0, xunits='s',
+                                         sb_yoff = 0.1, sb_xoff = -0.1)
         if savestring:
             plt.savefig(savestring+str(section)+format_string)
 
