@@ -63,6 +63,7 @@ class NetworkClassifer():
     def pca(self,n_components = 6):
         self.pca = PCA(n_components)
         self.pca_iss_features = self.pca.fit_transform(self.iss_features)
+        self.pca_iss_validation_features = self.pca.transform(self.iss_validation_features)
 
     def lda(self,n_components = 2, pca_reg = True, reg_dimensions = 10):
         self.lda = LDA(n_components)
@@ -70,8 +71,11 @@ class NetworkClassifer():
             self.pca_reg = PCA(reg_dimensions)
             pca_reg_features = self.pca_reg.fit_transform(self.iss_features)
             self.lda_iss_features = self.lda.fit_transform(pca_reg_features,self.labels)
+            pca_reg_validation_features = self.pca_reg.transform(self.iss_validation_features)
+            self.lda_iss_validation_features = self.lda.transform(pca_reg_validation_features)
         else:
             self.lda_iss_features = self.lda.fit_transform(self.iss_features,self.labels)
+            self.lda_iss_validation_features = self.lda.transform(self.iss_validation_features)
 
     def knn_info(self, kmax=100 ):
         self.knndata = np.zeros((kmax,4))
@@ -84,6 +88,22 @@ class NetworkClassifer():
             self.knndata[i,2] = knn.score(self.X_test,self.y_test)
             self.knndata[i,3] = knn.score(self.iss_validation_features, self.validation_labels)
         np.savetxt('../knndata.csv',self.knndata, delimiter=',')
+
+    def lda_run(self, k_folds = 5):
+        self.r_forest_lda = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
+        self.lda_scores = cross_validation.cross_val_score(self.r_forest_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
+        print("Cross validation RF performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.lda_scores.mean()*100, self.lda_scores.std()*100))
+
+        self.r_forest_lda.fit(self.lda_iss_features,self.labels)
+        print self.r_forest_lda.score(self.lda_iss_validation_features, self.validation_labels), 'LDA test-set performance \n'
+
+    def pca_run(self,k_folds = 5):
+        self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
+        self.pca_scores = cross_validation.cross_val_score(self.r_forest_pca, self.pca_iss_features, self.labels, cv=k_folds,n_jobs=5)
+        print("Cross validation RF performance PCA: Accuracy: %0.2f (std %0.2f)" % (self.pca_scores.mean()*100, self.pca_scores.std()*100))
+
+        self.r_forest_pca.fit(self.pca_iss_features,self.labels)
+        print self.r_forest_pca.score(self.pca_iss_validation_features, self.validation_labels), 'PCA test-set performance \n'
 
     def run(self):
 
@@ -103,7 +123,7 @@ class NetworkClassifer():
         #print r_forest.score(self.X_train,self.y_train), 'randomforest train performance'
         #print r_forest.score(self.X_test,self.y_test), 'randomforest test performance'
 
-        print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest valdiation set performance \n'
+        print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
 
         svm_clf = SVC()
         svm_clf.fit(self.X_train,self.y_train)

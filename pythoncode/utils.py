@@ -1,4 +1,15 @@
 import numpy as np
+
+from network_loader import SeizureData
+from relabeling_functions import relabel,reorder
+
+def normalise(series):
+    #return series
+    a = np.min(series, axis=1)
+    b = np.max(series, axis=1)
+    return np.divide((series - a[:, None]), (b-a)[:,None])
+
+
 mc = {'b' :(77, 117, 179),
       'r' :(210, 88, 88),
       'k' :(38,35,35),
@@ -8,6 +19,64 @@ mc = {'b' :(77, 117, 179),
 for key in mc.keys():
     mc[key] = [x / 255.0 for x in mc[key]]
     print key, mc[key]
+
+def raw_validation_load():
+    dirpath = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20'
+    testdataobj20 = SeizureData(dirpath,amount_to_downsample = 40)
+    testdataobj20.load_data()
+    datasettest20 = testdataobj20.data_array
+
+    dirpath = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40'
+    testdataobj40 = SeizureData(dirpath,amount_to_downsample = 40)
+    testdataobj40.load_data()
+    datasettest40 = testdataobj40.data_array
+
+    datasettest = np.vstack([datasettest20,datasettest40])
+    return datasettest
+
+def raw_training_load():
+    ################# 'NEW data' ###################
+    dirpath = '/Users/Jonathan/PhD/Seizure_related/20150616'
+    _20150616dataobj = SeizureData(dirpath, amount_to_downsample = 40)
+    _20150616dataobj.load_data()
+    _20150616data = _20150616dataobj.data_array
+    _20150616labels = _20150616dataobj.label_colarray
+    _20150616data_norm = normalise(_20150616data)
+
+    print _20150616dataobj.filename_list.shape
+    _20150616dataobj.filenames_list = [_20150616dataobj.filename_list[i] for i in range(_20150616dataobj.filename_list.shape[0])]
+    for name in _20150616dataobj.filenames_list[0:20]:
+        print name[-34:]
+
+    # select out the stuff we want
+    #inds = np.loadtxt('0901_400newdata.csv', delimiter=',')
+    notebook_dir = '/Users/jonathan/PhD/Seizure_related/2015_08_PyRanalysis/'
+    inds = np.loadtxt(notebook_dir +'0616correctedintervals.csv', delimiter=',')
+    data0616_unnorm = _20150616data[list(inds[:,0])]
+    data0616 = _20150616data_norm[list(inds[:,0])]
+    labels0616 = _20150616labels[list(inds[:,0])]
+    for i in range(data0616.shape[0]):
+        labels0616[i] = inds[i,1]
+
+    ################## Original Data ####################
+    dirpath = '/Users/Jonathan/PhD/Seizure_related/Classified'
+    dataobj = SeizureData(dirpath,amount_to_downsample = 20)
+    dataobj.load_data()
+    dataobj = relabel(dataobj)
+    dataobj = reorder(dataobj)
+    dataset301 = dataobj.data_array
+    labels301 = dataobj.label_colarray
+    new_labels = np.loadtxt(notebook_dir+'new_event_labels_28082015.csv',delimiter= ',')
+    for x in new_labels:
+        labels301[x[0]] = x[1]
+
+    selection = np.loadtxt(notebook_dir+'perfect_event_labels_28082015.csv',delimiter= ',')
+    indexes =  list(selection[:,0])
+    dataset129_unnorm = dataset301[indexes,:]
+    dataset129_norm = normalise(dataset129_unnorm)
+    dataset301_norm = normalise(dataset301)
+    labels129 = labels301[indexes]
+    return np.vstack((data0616_unnorm,dataset301))
 
 def plot_scalebars(ax, div=3.0, labels=True,
                     xunits="", yunits="", nox=False,

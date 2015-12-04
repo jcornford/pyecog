@@ -33,7 +33,7 @@ ax1.set_title("2d PCA projection: {:.2%} variance explained".format(var))
 ax2 = plt.subplot(grid[1])
 lda = classifier.lda_iss_features
 for i in range(pca.shape[0]):
-    ax2.scatter(lda[i,0], lda[i,1], c = phd.mc[cs[int(classifier.labels[i])]], edgecolor = 'k', s = 30)
+    ax2.scatter(lda[i,0], lda[i,2], c = phd.mc[cs[int(classifier.labels[i])]], edgecolor = 'k', s = 30)
 
 ax2.set_xlabel("LD 1",)
 ax2.set_ylabel("LD 3", )
