@@ -3,7 +3,35 @@ import os
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from math import floor, ceil
+import cProfile
+
+from line_profiler import LineProfiler
+
+def cprofile(func):
+    def profiled_func(*args, **kwargs):
+        profile = cProfile.Profile()
+        try:
+            profile.enable()
+            result = func(*args, **kwargs)
+            profile.disable()
+            return result
+        finally:
+            profile.print_stats()
+    return profiled_func
+
+def lprofile():
+    def inner(func):
+        def profiled_func(*args, **kwargs):
+            try:
+                profiler = LineProfiler()
+                profiler.add_function(func)
+
+                profiler.enable_by_count()
+                return func(*args, **kwargs)
+            finally:
+                profiler.print_stats()
+        return profiled_func
+    return inner
 
 class NDFLoader():
 
@@ -18,6 +46,8 @@ class NDFLoader():
 
         self._get_file_properties()
 
+    #@cprofile
+    @lprofile()
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
             # no offset
@@ -43,34 +73,32 @@ class NDFLoader():
             self.data_size = file_size - self.data_address
             print 'data is ', self.data_size, 'bytes long'
 
-
-    def load(self, ignore_clock = True):
+    #@cprofile
+    @lprofile()
+    def load(self, ignore_clock=True):
         # get the data
         if ignore_clock == True:
             print('!!!!!! You wanted to ditch the clock... Still loading up clock at the moment !!!!!!')
 
-        print 'Starting [',
-        #print '\#'*12,
-        sys.stdout.flush()
-        steps = (self.data_size/4)/10
+        print('!!!!!! Only loading 30th of full file for speed profiling purposes - remember this !!!!!')
+        self.data_size = self.data_size/30
 
         with open(self.filepath, 'rb') as f:
             f.seek(self.data_address) # offset to start reading bytes at data loc
             for i in xrange(self.data_size/4): # 4 bytes per message
-                if i % steps ==0:
-                    print '#',
-                    sys.stdout.flush()
                 channel = struct.unpack('b',f.read(1))[0]
                 data_point = struct.unpack('>H',f.read(2))[0]
                 timestamp = struct.unpack('B',f.read(1))[0]
                 try:
                     self.data_dict[str(channel)].append(data_point)
                 except:
-                    #print 'Creating entry for channel', channel
+                    print 'Creating entry for channel', channel
                     self.data_dict[str(channel)] = [data_point]
-            print '\b]  Finished'
+            print 'Done'
         self.channel_info = 'Need to pull this out'
 
+
+    @lprofile()
     def save(self, file_format, channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
         '''
         Default is to save all channels (-1). If you want to specify which channels to save
@@ -90,20 +118,17 @@ class NDFLoader():
 
         #implement multiple processes for saving
         dp_per_row = int(fs*sec_per_row)# could end up changing what they ask for...
-        array = np.array(self.data_dict['9'])
+        array = np.array(ndf.data_dict['9'])
         print 'cutting',array.shape[0]%dp_per_row, 'datapoints'
         row_index = array.shape[0]/dp_per_row # remeber floor division if int
         save_array = np.reshape(array[:row_index*dp_per_row],newshape = (row_index,dp_per_row))
-        np.savetxt('transmitter9.csv', save_array, delimiter=',')
         #probs dont need to change into an array before saving - but if new view, probs not big deal?
 
 
-
 dir = '/Users/Jonathan/Dropbox/'
-filepath = dir+'M1445362612.ndf'
-ndffile = NDFLoader(filepath)
-ndffile.load()
-ndffile.save('npy')
+ndf = NDFLoader(dir+'M1445362612.ndf')
+ndf.load()
+ndf.save('npy')
 #print os.listdir(dir)
 
 '''
@@ -137,4 +162,5 @@ The data recorder will never store a message with channel number zero unless tha
 All messages with channel number zero are guaranteed to be clocks.
 
 http://www.ncbi.nlm.nih.gov/pubmed/20172805
+http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4360820/
  '''
