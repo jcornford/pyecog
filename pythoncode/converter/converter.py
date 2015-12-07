@@ -131,6 +131,17 @@ ndf.load()
 ndf.save('npy')
 #print os.listdir(dir)
 
+f = open(fp, 'rb')
+f.seek(di)
+T = np.fromfile(f,'i1')[::4]
+
+f.seek(di+3)
+clk = np.fromfile(f,'i1')[::4]
+
+f.seek(di+1)
+v= np.fromfile(f,'>H2')[::2]
+
+
 '''
 The NDF format is designed to make it easy for us to add one-dimensional data to an existing file. The letters NDF
 stand for Neuroscience Data Format. The NDF file starts with a header of at least twelve bytes. The first four bytes
