@@ -6,10 +6,10 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.decomposition import PCA
-from sklearn.lda import LDA
+#from sklearn.lda import LDA
 from sklearn import preprocessing
 from sklearn import cross_validation
-
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 class NetworkClassifer():
 
@@ -43,22 +43,39 @@ class NetworkClassifer():
     def _cross_validation(self,clf, k_folds = 5):
         self.scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
 
-
-    def randomforest_info(self, max_trees = 1000, step = 40, kfolds = 5):
+    def randomforest_info(self, max_trees = 1000, step = 40, k_folds = 5):
         print 'Characterising R_forest. Looping through trees: ',
-        self.treedata = np.zeros((max_trees/step, 4))
+        self.treedata = np.zeros((max_trees/step, 10))
         for i,n_trees in enumerate(np.arange(0, max_trees,step)):
             if n_trees == 0:
                 n_trees = 1
             print n_trees,
             r_forest = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
-            scores = self._cross_validation(r_forest)
+            scores = cross_validation.cross_val_score(r_forest, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
             r_forest_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
             r_forest_full.fit(self.iss_features,self.labels)
             self.treedata[i,0] = n_trees
-            self.treedata[i,1] = self.scores.mean()
-            self.treedata[i,2] = self.scores.std()
+            self.treedata[i,1] = scores.mean()
+            self.treedata[i,2] = scores.std()
+            # now add the test dataset - score
             self.treedata[i,3] = r_forest_full.score(self.iss_validation_features, self.validation_labels)
+
+            r_forest_lda = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+            r_forest_lda_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+            r_forest_lda_full.fit(self.lda_iss_features,self.labels)
+            lda_scores = cross_validation.cross_val_score(r_forest_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
+            self.treedata[i,4] = lda_scores.mean()
+            self.treedata[i,5] = lda_scores.std()
+            self.treedata[i,6] = r_forest_lda_full.score(self.lda_iss_validation_features, self.validation_labels)
+            print self.treedata[i,6]
+
+            r_forest_pca = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+            r_forest_pca_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+            r_forest_pca_full.fit(self.pca_iss_features,self.labels)
+            pca_scores = cross_validation.cross_val_score(r_forest_pca, self.pca_iss_features, self.labels, cv=k_folds,n_jobs=5)
+            self.treedata[i,7] = pca_scores.mean()
+            self.treedata[i,8] = pca_scores.std()
+            self.treedata[i,9] = r_forest_pca_full.score(self.pca_iss_validation_features, self.validation_labels)
 
     def pca(self,n_components = 6):
         self.pca = PCA(n_components)
@@ -66,7 +83,8 @@ class NetworkClassifer():
         self.pca_iss_validation_features = self.pca.transform(self.iss_validation_features)
 
     def lda(self,n_components = 2, pca_reg = True, reg_dimensions = 10):
-        self.lda = LDA(n_components)
+        self.lda = LinearDiscriminantAnalysis(n_components = n_components, solver='eigen', shrinkage='auto')
+        #self.lda = LDA(n_components)
         if pca_reg:
             self.pca_reg = PCA(reg_dimensions)
             pca_reg_features = self.pca_reg.fit_transform(self.iss_features)

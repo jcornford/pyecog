@@ -1,7 +1,7 @@
-import struct
-import os
+
 import numpy as np
-import sys
+import os
+import struct
 import matplotlib.pyplot as plt
 import cProfile
 
@@ -35,7 +35,7 @@ def lprofile():
 
 class NDFLoader():
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, time_interval_hours = (0,1)):
         self.filepath = filepath
         self.identifier = None
         self.data_address = None
@@ -46,8 +46,19 @@ class NDFLoader():
 
         self._get_file_properties()
 
+        self.adc_range=2.7
+        self.amp_factor=300
+        self.bitsize=16
+        self.volt_div=self.adc_range/(2**self.bitsize)/self.amp_factor*1e3 # in mV unit
+
+        #firmware dependent check needed in future - this here or above?
+        self.clock_tick_cycle=7.8125e-3 # per second
+        self.clock_division=self.clock_tick_cycle/256.0
+        self.time_interval_hours = time_interval_hours
+        self.time_interval= self.time_interval_hours*3600; #convert hourly interval to seconds
+
     #@cprofile
-    @lprofile()
+    #@lprofile()
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
             # no offset
@@ -64,41 +75,18 @@ class NDFLoader():
             if meta_data_length != 0:
                 f.seek(meta_data_string_address)
                 self.metadata = f.read(meta_data_length)
-                print self.metadata
+                #print self.metadata
             else:
                 print 'meta data length unknown - not bothering to work it out...',
                 print 'skipping'
 
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
-            print 'data is ', self.data_size, 'bytes long'
+            #print 'data is ', self.data_size, 'bytes long'
 
     #@cprofile
-    @lprofile()
-    def load(self, ignore_clock=True):
-        # get the data
-        if ignore_clock == True:
-            print('!!!!!! You wanted to ditch the clock... Still loading up clock at the moment !!!!!!')
-
-        print('!!!!!! Only loading 30th of full file for speed profiling purposes - remember this !!!!!')
-        self.data_size = self.data_size/30
-
-        with open(self.filepath, 'rb') as f:
-            f.seek(self.data_address) # offset to start reading bytes at data loc
-            for i in xrange(self.data_size/4): # 4 bytes per message
-                channel = struct.unpack('b',f.read(1))[0]
-                data_point = struct.unpack('>H',f.read(2))[0]
-                timestamp = struct.unpack('B',f.read(1))[0]
-                try:
-                    self.data_dict[str(channel)].append(data_point)
-                except:
-                    print 'Creating entry for channel', channel
-                    self.data_dict[str(channel)] = [data_point]
-            print 'Done'
-        self.channel_info = 'Need to pull this out'
-
-
-    @lprofile()
+    #@lprofile()
+    #@lprofile()
     def save(self, file_format, channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
         '''
         Default is to save all channels (-1). If you want to specify which channels to save
@@ -124,22 +112,77 @@ class NDFLoader():
         save_array = np.reshape(array[:row_index*dp_per_row],newshape = (row_index,dp_per_row))
         #probs dont need to change into an array before saving - but if new view, probs not big deal?
 
+    @lprofile()
+    #@cprofile
+    def load(self,read_id=8):
+        #print 'currently only working in one transmitter mode'
+        f = open(self.filepath, 'rb')
+        f.seek(self.data_address)
+
+        e_bit_reads = np.fromfile(f,'u1')
+        transmitter_ids = e_bit_reads[::4]
+        self.tids = transmitter_ids
+        self.t_stamps = e_bit_reads[3::4]#*self.clock_division
+
+        f.seek(self.data_address+1)
+        self.messages = np.fromfile(f,'>H')[::2]
+        #print messages[:20]
+
+        #clock_ticks = np.where(transmitter_ids==0,1,0)
+        self.clock_ticks = np.logical_not(transmitter_ids.astype('bool')).astype(int)
+        self.clock_ticks= np.cumsum(self.clock_ticks)-1
+        fine_time_array = self.t_stamps*self.clock_division
+        coarse_time_array = self.clock_ticks*self.clock_tick_cycle
+        self.time_array = fine_time_array+coarse_time_array
+
+        self.data = np.vstack((self.time_array[transmitter_ids==read_id],self.messages[transmitter_ids==read_id]))
+        #self.data = self.messages[transmitter_ids==read_id]
+        '''
+        if selected_ids_list is None:
+            ids = set(transmitter_id)
+            ids.remove(0)
+            print 'Not written code to properly analyse all yet, please supply value'
+        '''
 
 dir = '/Users/Jonathan/Dropbox/'
 ndf = NDFLoader(dir+'M1445362612.ndf')
 ndf.load()
-ndf.save('npy')
-#print os.listdir(dir)
+print ndf.data.shape
 
-f = open(fp, 'rb')
-f.seek(di)
-T = np.fromfile(f,'i1')[::4]
 
-f.seek(di+3)
-clk = np.fromfile(f,'i1')[::4]
 
-f.seek(di+1)
-v= np.fromfile(f,'>H2')[::2]
+'''
+        %find clock message
+        clock_tick_pos=find(id==0);
+        clock_tick_pos(end+1)=length(id)+1;%tick,data,tick,...,tick,data,add_tick
+        start_pos=floor(time_interval(1)/clock_tick_cycle)+1;
+        duration=ceil(time_interval(2)/clock_tick_cycle);
+        end_pos=start_pos+duration;
+        if end_pos>length(clock_tick_pos)%trim later could stitch
+                end_pos=length(clock_tick_pos)-1;
+        end
+        id=id(clock_tick_pos(start_pos):clock_tick_pos(end_pos));
+        sample=bitand(temp(clock_tick_pos(start_pos):clock_tick_pos(end_pos)),bin2dec('00000000111111111111111100000000'));%sample
+        sample=bitshift(sample,-8);
+        time_stamp=bitand(temp(clock_tick_pos(start_pos):clock_tick_pos(end_pos)),bin2dec('00000000000000000000000011111111'));
+
+        clear temp;
+
+        %realign time stamps to proper time scale
+        clock_tick_pos=clock_tick_pos(start_pos:end_pos)-clock_tick_pos(start_pos)+1;
+        time_interval=1:(length(clock_tick_pos)-1);
+        temp2=arrayfun(@(x,y,z)time_stamp(x+1:y-1)*clock_division+clock_tick_cycle*z,clock_tick_pos(1:end-1),clock_tick_pos(2:end),time_interval','UniformOutput',false);
+        time_stamp=[time_stamp(1:clock_tick_pos(1)-1)*clock_division;cell2mat(temp2)];
+        clear temp2;
+
+        %get rid of clock tick lines
+        clock_tick_pos(end)=[];
+        sample(clock_tick_pos)=[];id(clock_tick_pos)=[];
+        %seperate channels
+        for channelidx=channels
+            idx=find(id==channelidx);
+            raw{channelidx}=[time_stamp(idx)/3600,volt_div*sample(idx)];%convert back to hours and corre
+        '''
 
 
 '''

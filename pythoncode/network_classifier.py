@@ -25,17 +25,18 @@ elif not reload_training:
     training_traces = pickle.load(open('../full_raw_training','rb'))
     training_traces_norm = utils.normalise(training_traces)
     training_data = FeatureExtractor(training_traces_norm)
+    np.savetxt('training_traces.csv',training_traces_norm,delimiter=',')
 
 ################# Training Labels and mixed event exclusion ###################
 cleanup = np.loadtxt('../Training_cleanup.csv',delimiter=',')
 training_labels = np.array([int(x[1]) for x in cleanup])
-
+print training_labels.shape
 training_indexes = []
 for i in range(training_labels.shape[0]):
         if training_labels[i] != 0:
             training_indexes.append(i)
 
-################## Validation Data ####################
+################## Test Data ####################
 reload_validation = False
 if reload_validation:
     validation_traces = utils.raw_validation_load()
@@ -49,6 +50,7 @@ elif not reload_training:
     validation_traces = pickle.load(open('../raw_validation','rb'))
     validation_traces_norm = utils.normalise(validation_traces)
     validation_data = FeatureExtractor(validation_traces_norm)
+    np.savetxt('test_traces.csv',validation_traces_norm,delimiter=',')
 
 ################# Validation cleanup ###################
 cleanup = np.loadtxt('../validation_cleanUp.csv',delimiter=',')
@@ -59,16 +61,17 @@ for i in range(validation_labels.shape[0]):
         if validation_labels[i] != 0:
             validation_indexes.append(i)
 
-
+np.savetxt('all_traces.csv',np.vstack((validation_traces_norm,training_traces_norm)),delimiter=',')
+np.savetxt('all_cleanup.csv',np.hstack((validation_labels)), delimiter = ',')
 classifier = NetworkClassifer(training_data.feature_array[training_indexes,:],training_labels[training_indexes],
                               validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
 classifier.run()
-#classifier.randomforest_info(max_trees=200)
+
 classifier.pca(n_components = 3)
-classifier.lda(n_components = 3, pca_reg = True, reg_dimensions = 9c)
+classifier.lda(n_components = 3, pca_reg = False, reg_dimensions = 9)
 classifier.lda_run()
 classifier.pca_run()
-
+classifier.randomforest_info(max_trees=2000, step = 50)
 f = open('../saved_clf','wb')
 pickle.dump(classifier,f)
 
