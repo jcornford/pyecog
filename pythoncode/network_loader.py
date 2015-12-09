@@ -9,7 +9,7 @@ class LFPData(object):
     Class for one section of data before the light pulse.
     """
     def __init__(self, path,preprocess, window_len, fs = 512, label = None, downsample_rate = 20):
-        self.fs = 512
+        self.fs = fs
         self.window_len = window_len*fs
         self.label = None
         self.filename = path
@@ -20,7 +20,7 @@ class LFPData(object):
         if preprocess:
             # if more advanced can make a method for this
             #print "downsampled!"
-            print(path[-35:-3]+'...'),
+            print(path[-65:-3]+'...'),
             self.alldata = self.alldata[::downsample_rate,:]
             print str(self.alldata.shape[0]/500)+'secs'
 
@@ -43,7 +43,7 @@ class LFPData(object):
                     data_section = self.lfpdata[i:lightindextuple[0]]
                     self.data_array.append(data_section)
                     self.label_array.append(label)
-                    self.name_array.append(self.filename[:-3]+str(lightindextuple[0]/500))
+                    self.name_array.append(self.filename[:-4]+str(lightindextuple[0]/float(self.fs)))
 
             self.data_array = np.array(self.data_array)
             #self.data_array -= np.mean(self.data_array,axis = 0)
@@ -75,7 +75,7 @@ class LFPData(object):
             raise AssertionError('The file has an odd number of light pulses,\
                                  cannot automatically detect the pulse times')
         light_index_list = []
-        for i in range(0,lightindexes.shape[0],2):
+        for i in range(0, lightindexes.shape[0], 2):
             pulse = (lightindexes[i],lightindexes[i+1])
             light_index_list.append(pulse)
         return light_index_list
@@ -84,12 +84,12 @@ class SeizureData(object):
     '''
     Class to load all files for a given name (e.g. all or animal)
     '''
-    def __init__(self,base_dir, amount_to_downsample):
+    def __init__(self,base_dir, amount_to_downsample, fs=512):
         '''
         base_dir is the path to the directory containing the network state
         folders. These folders need to be c1,c2,c3 etc
         '''
-        self.fs = 512
+        self.fs = fs
         self.n_channels = 1
         self.amount_to_downsample = amount_to_downsample
         if not os.path.isdir(base_dir):
@@ -139,7 +139,7 @@ class SeizureData(object):
         for i in range(self.n_states):
             if filename.find('c'+str(i+1)) >-1:
                 label = i+1
-        lfp_data = LFPData(filename,preprocess, self.window, label = label, downsample_rate=self.amount_to_downsample)
+        lfp_data = LFPData(filename,preprocess, self.window, label = label,fs=self.fs, downsample_rate=self.amount_to_downsample)
 
         return lfp_data.data_array, lfp_data.label_array, lfp_data.name_array
 

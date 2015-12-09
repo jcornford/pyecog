@@ -21,15 +21,16 @@ for key in mc.keys():
     print key, mc[key]
 
 def raw_validation_load():
-    dirpath = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20'
-    testdataobj20 = SeizureData(dirpath,amount_to_downsample = 40)
+    dirpath1 = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20'
+    testdataobj20 = SeizureData(dirpath1,amount_to_downsample = 40)
     testdataobj20.load_data()
     datasettest20 = testdataobj20.data_array
 
-    dirpath = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40'
-    testdataobj40 = SeizureData(dirpath,amount_to_downsample = 40)
+    dirpath2 = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40'
+    testdataobj40 = SeizureData(dirpath2,amount_to_downsample = 40)
     testdataobj40.load_data()
     datasettest40 = testdataobj40.data_array
+    print datasettest40.shape,'is correct data shape'
 
     datasettest = np.vstack([datasettest20,datasettest40])
     return datasettest

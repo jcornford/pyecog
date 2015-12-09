@@ -37,7 +37,7 @@ for i in range(training_labels.shape[0]):
             training_indexes.append(i)
 
 ################## Test Data ####################
-reload_validation = False
+reload_validation = True
 if reload_validation:
     validation_traces = utils.raw_validation_load()
     validation_traces_norm = utils.normalise(validation_traces)
@@ -71,9 +71,9 @@ classifier.pca(n_components = 3)
 classifier.lda(n_components = 3, pca_reg = False, reg_dimensions = 9)
 classifier.lda_run()
 classifier.pca_run()
-classifier.randomforest_info(max_trees=2000, step = 50)
-f = open('../saved_clf','wb')
-pickle.dump(classifier,f)
+#classifier.randomforest_info(max_trees=2000, step = 50)
+#f = open('../saved_clf','wb')
+#pickle.dump(classifier,f)
 
 ''' ######## for pdfs of the validation ############ '''
 #f = open('../validation_label_traces_tuple','wb')

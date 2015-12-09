@@ -10,6 +10,9 @@ from sklearn.decomposition import PCA
 from sklearn import preprocessing
 from sklearn import cross_validation
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.cross_validation import StratifiedShuffleSplit
+from sklearn.grid_search import GridSearchCV
+
 
 class NetworkClassifer():
 
@@ -110,10 +113,25 @@ class NetworkClassifer():
     def lda_run(self, k_folds = 5):
         self.r_forest_lda = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
         self.lda_scores = cross_validation.cross_val_score(self.r_forest_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
-        print("Cross validation RF performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.lda_scores.mean()*100, self.lda_scores.std()*100))
-
+        print("Cross validation Random Forest performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.lda_scores.mean()*100, self.lda_scores.std()*100))
         self.r_forest_lda.fit(self.lda_iss_features,self.labels)
-        print self.r_forest_lda.score(self.lda_iss_validation_features, self.validation_labels), 'LDA test-set performance \n'
+        print self.r_forest_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
+
+        '''
+        C_range = np.logspace(-2, 10, 13)
+        gamma_range = np.logspace(-9, 3, 13)
+        param_grid = dict(gamma=gamma_range, C=C_range)
+        cv = StratifiedShuffleSplit(self.labels, n_iter=5, test_size=0.2, random_state=42)
+        grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
+        grid.fit(self.lda_iss_features, self.labels)
+        print("The best parameters are %s with a score of %0.2f"% (grid.best_params_, grid.best_score_))
+        '''
+
+        self.svc_lda = SVC(kernel='rbf',C = 1,gamma = 'auto')
+        self.svc_lda_scores = cross_validation.cross_val_score(self.svc_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
+        print("Cross validation SVM performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.svc_lda_scores.mean()*100, self.svc_lda_scores.std()*100))
+        self.svc_lda.fit(self.lda_iss_features,self.labels)
+        print self.svc_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
 
     def pca_run(self,k_folds = 5):
         self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
@@ -138,16 +156,14 @@ class NetworkClassifer():
         self.r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
         self.r_forest.fit(self.iss_features,self.labels)
 
-        #print r_forest.score(self.X_train,self.y_train), 'randomforest train performance'
-        #print r_forest.score(self.X_test,self.y_test), 'randomforest test performance'
-
         print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
 
         svm_clf = SVC()
-        svm_clf.fit(self.X_train,self.y_train)
-        print svm_clf.score(self.X_train,self.y_train), 'SVC rbf train performance'
-        print svm_clf.score(self.X_test,self.y_test), 'SVC rbf test performance'
-        print svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf valdiation set performance \n'
+        self.svm_scores = cross_validation.cross_val_score(svm_clf, self.iss_features, self.labels, cv=5,n_jobs=5)
+        print "Cross validation SVM performance: Accuracy: %0.2f (std %0.2f)" %(self.svm_scores.mean()*100, self.svm_scores.std()*100)
+        svm_clf = SVC()
+        svm_clf.fit(self.iss_features,self.labels)
+        print svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
 
         n_neighbors = 4
         knn = KNeighborsClassifier(n_neighbors, weights='distance')
