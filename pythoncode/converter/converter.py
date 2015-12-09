@@ -1,11 +1,9 @@
-
 import numpy as np
 import os
 import struct
 import matplotlib.pyplot as plt
-import cProfile
-
-from line_profiler import LineProfiler
+#import cProfile
+#from line_profiler import LineProfiler
 
 def cprofile(func):
     def profiled_func(*args, **kwargs):
@@ -112,31 +110,34 @@ class NDFLoader():
         save_array = np.reshape(array[:row_index*dp_per_row],newshape = (row_index,dp_per_row))
         #probs dont need to change into an array before saving - but if new view, probs not big deal?
 
-    @lprofile()
+    #@lprofile()
     #@cprofile
     def load(self,read_id=8):
-        #print 'currently only working in one transmitter mode'
+        print 'currently only working in one transmitter mode'
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
 
+        # read everything in 8bits, grab ids and time stamps
         e_bit_reads = np.fromfile(f,'u1')
         transmitter_ids = e_bit_reads[::4]
         self.tids = transmitter_ids
-        self.t_stamps = e_bit_reads[3::4]#*self.clock_division
+        self.t_stamps = e_bit_reads[3::4]
 
+        # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address+1)
-        self.messages = np.fromfile(f,'>H')[::2]
-        #print messages[:20]
+        self.messages = np.fromfile(f,'u2')[::2]
 
-        #clock_ticks = np.where(transmitter_ids==0,1,0)
+        # convert timestamps into correct time using clock id
         self.clock_ticks = np.logical_not(transmitter_ids.astype('bool')).astype(int)
+        #clock_ticks = np.where(transmitter_ids==0,1,0)
         self.clock_ticks= np.cumsum(self.clock_ticks)-1
         fine_time_array = self.t_stamps*self.clock_division
         coarse_time_array = self.clock_ticks*self.clock_tick_cycle
         self.time_array = fine_time_array+coarse_time_array
 
-        self.data = np.vstack((self.time_array[transmitter_ids==read_id],self.messages[transmitter_ids==read_id]))
-        #self.data = self.messages[transmitter_ids==read_id]
+        self.data = self.messages[transmitter_ids==read_id]*self.volt_div
+        self.time = self.time_array[transmitter_ids==read_id]
+
         '''
         if selected_ids_list is None:
             ids = set(transmitter_id)
@@ -148,43 +149,10 @@ dir = '/Users/Jonathan/Dropbox/'
 ndf = NDFLoader(dir+'M1445362612.ndf')
 ndf.load()
 print ndf.data.shape
+print ndf.time.shape
 
 
-
-'''
-        %find clock message
-        clock_tick_pos=find(id==0);
-        clock_tick_pos(end+1)=length(id)+1;%tick,data,tick,...,tick,data,add_tick
-        start_pos=floor(time_interval(1)/clock_tick_cycle)+1;
-        duration=ceil(time_interval(2)/clock_tick_cycle);
-        end_pos=start_pos+duration;
-        if end_pos>length(clock_tick_pos)%trim later could stitch
-                end_pos=length(clock_tick_pos)-1;
-        end
-        id=id(clock_tick_pos(start_pos):clock_tick_pos(end_pos));
-        sample=bitand(temp(clock_tick_pos(start_pos):clock_tick_pos(end_pos)),bin2dec('00000000111111111111111100000000'));%sample
-        sample=bitshift(sample,-8);
-        time_stamp=bitand(temp(clock_tick_pos(start_pos):clock_tick_pos(end_pos)),bin2dec('00000000000000000000000011111111'));
-
-        clear temp;
-
-        %realign time stamps to proper time scale
-        clock_tick_pos=clock_tick_pos(start_pos:end_pos)-clock_tick_pos(start_pos)+1;
-        time_interval=1:(length(clock_tick_pos)-1);
-        temp2=arrayfun(@(x,y,z)time_stamp(x+1:y-1)*clock_division+clock_tick_cycle*z,clock_tick_pos(1:end-1),clock_tick_pos(2:end),time_interval','UniformOutput',false);
-        time_stamp=[time_stamp(1:clock_tick_pos(1)-1)*clock_division;cell2mat(temp2)];
-        clear temp2;
-
-        %get rid of clock tick lines
-        clock_tick_pos(end)=[];
-        sample(clock_tick_pos)=[];id(clock_tick_pos)=[];
-        %seperate channels
-        for channelidx=channels
-            idx=find(id==channelidx);
-            raw{channelidx}=[time_stamp(idx)/3600,volt_div*sample(idx)];%convert back to hours and corre
-        '''
-
-
+# From open source instruments website
 '''
 The NDF format is designed to make it easy for us to add one-dimensional data to an existing file. The letters NDF
 stand for Neuroscience Data Format. The NDF file starts with a header of at least twelve bytes. The first four bytes
@@ -215,6 +183,4 @@ Byte	Contents
 The data recorder will never store a message with channel number zero unless that message comes from the clock.
 All messages with channel number zero are guaranteed to be clocks.
 
-http://www.ncbi.nlm.nih.gov/pubmed/20172805
-http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4360820/
  '''
