@@ -33,7 +33,8 @@ def lprofile():
 
 class NDFLoader():
 
-    def __init__(self, filepath, time_interval_hours = (0,1)):
+    def __init__(self, filepath, time_interval_hours = (0,1), print_meta = False):
+        self.print_meta = print_meta
         self.filepath = filepath
         self.identifier = None
         self.data_address = None
@@ -73,7 +74,8 @@ class NDFLoader():
             if meta_data_length != 0:
                 f.seek(meta_data_string_address)
                 self.metadata = f.read(meta_data_length)
-                #print self.metadata
+                if self.print_meta:
+                    print self.metadata
             else:
                 print 'meta data length unknown - not bothering to work it out...',
                 print 'skipping'
