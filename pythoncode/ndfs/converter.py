@@ -1,9 +1,9 @@
 import numpy as np
 import os
 import struct
-import matplotlib.pyplot as plt
-#import cProfile
-#from line_profiler import LineProfiler
+from line_profiler import LineProfiler
+import cProfile
+import h5py
 
 def cprofile(func):
     def profiled_func(*args, **kwargs):
@@ -32,16 +32,28 @@ def lprofile():
     return inner
 
 class NDFLoader():
+    '''
+    Class to load ndf binary files.
+
+    To implement:
+        - Save as hdf5 file, assess file size in that format - 1mb smaller!
+        - Read time of hdf5 file?
+        - Interpolate missing data for stable 512 hz sampling.
+        - Detect glitches and remove.
+        - Add option to have baseline be one - remove median or something.
+    '''
 
     def __init__(self, filepath, time_interval_hours = (0,1), print_meta = False):
         self.print_meta = print_meta
         self.filepath = filepath
+        self.file_label = filepath.split('/')[-1].split('.')[0]
+        print self.file_label
         self.identifier = None
         self.data_address = None
         self.metadata = None
         self.data_size = None
         self.channel_info = None
-        self.data_dict = {}
+        self.data_dict = None
 
         self._get_file_properties()
 
@@ -56,8 +68,6 @@ class NDFLoader():
         self.time_interval_hours = time_interval_hours
         self.time_interval= self.time_interval_hours*3600; #convert hourly interval to seconds
 
-    #@cprofile
-    #@lprofile()
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
             # no offset
@@ -82,12 +92,8 @@ class NDFLoader():
 
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
-            #print 'data is ', self.data_size, 'bytes long'
 
-    #@cprofile
-    #@lprofile()
-    #@lprofile()
-    def save(self, file_format, channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
+    def save(self, file_format = 'hdf5', channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
         '''
         Default is to save all channels (-1). If you want to specify which channels to save
         pass in a tuple with desired channel numbers. e.g. (1,3,5,9) for channels 1, 3, 5 and 9.
@@ -96,14 +102,25 @@ class NDFLoader():
         Currently accepting the following savefile format options:
             - csv
             - xls
-            - hd5
+            - hdf5
             - npy
             - pickle
 
-        '''
-        print 'detailed method not written yet - check loading is correct and optimise it - \
-        perhaps work out how many and pre-assign to array?'
+        Strongly recommended to save in hdf5 file format
 
+        '''
+        print 'WARNING: SAVE NOT FINISHED'
+
+        savefile = h5py.File(self.filepath[:-4]+'.hdf5', 'w')
+        hdf5_data = savefile.create_dataset('data', shape=self.data.shape, dtype='float')
+        hdf5_time = savefile.create_dataset('time', shape = self.time.shape, dtype='float')
+        #hdf5_data = savefile.create_dataset(self.file_label+'_data', shape=self.data.shape, dtype='float')
+        #hdf5_time = savefile.create_dataset(self.file_label+'_time', shape = self.time.shape, dtype='float')
+
+        hdf5_data[:] = self.data
+        hdf5_time[:] = self.time
+
+        '''
         #implement multiple processes for saving
         dp_per_row = int(fs*sec_per_row)# could end up changing what they ask for...
         array = np.array(ndf.data_dict['9'])
@@ -111,10 +128,9 @@ class NDFLoader():
         row_index = array.shape[0]/dp_per_row # remeber floor division if int
         save_array = np.reshape(array[:row_index*dp_per_row],newshape = (row_index,dp_per_row))
         #probs dont need to change into an array before saving - but if new view, probs not big deal?
+        '''
 
-    #@lprofile()
-    #@cprofile
-    def load(self,read_id=8):
+    def load(self,read_id):
         print 'currently only working in one transmitter mode'
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
@@ -127,7 +143,7 @@ class NDFLoader():
 
         # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address+1)
-        self.messages = np.fromfile(f,'u2')[::2]
+        self.messages = np.fromfile(f,'>u2')[::2]
 
         # convert timestamps into correct time using clock id
         self.clock_ticks = np.logical_not(transmitter_ids.astype('bool')).astype(int)
@@ -137,21 +153,51 @@ class NDFLoader():
         coarse_time_array = self.clock_ticks*self.clock_tick_cycle
         self.time_array = fine_time_array+coarse_time_array
 
-        self.data = self.messages[transmitter_ids==read_id]*self.volt_div
-        self.time = self.time_array[transmitter_ids==read_id]
+        if type(read_id) == int:
+            self.data = self.messages[transmitter_ids==read_id]*self.volt_div
+            self.time = self.time_array[transmitter_ids==read_id]
 
-        '''
-        if selected_ids_list is None:
-            ids = set(transmitter_id)
+        elif type(read_id) == list:
+            print 'WARNING: NOT FINISHED CODING'
+            self.data_dict = {}
+            for id in read_id:
+                self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
+                self.time = self.time_array[transmitter_ids==read_id]
+
+        elif read_id == 'all':
+            print 'WARNING: NOT FINISHED CODING'
+            self.data_dict = {}
+            ids = set(self.tids)
             ids.remove(0)
-            print 'Not written code to properly analyse all yet, please supply value'
-        '''
+            for id in ids:
+                self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
+                self.time = self.time_array[transmitter_ids==read_id]
 
+
+import time
 dir = '/Users/Jonathan/Dropbox/'
+start = time.clock()
 ndf = NDFLoader(dir+'M1445362612.ndf')
-ndf.load()
+ndf.load(8)
+print (time.clock()-start)*1000, 'ms'
 print ndf.data.shape
 print ndf.time.shape
+ndf.save()
+
+
+
+
+start = time.clock()
+file = h5py.File('/Users/Jonathan/Dropbox/M1445362612.hdf5', 'r')
+data = file['data']
+ndftime = file['time']
+#return data
+print (time.clock()-start)*1000, 'ms'
+
+import matplotlib.pyplot as plt
+
+#plt.plot(data[:5120])
+#plt.show()
 
 
 # From open source instruments website
