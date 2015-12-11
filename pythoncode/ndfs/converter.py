@@ -5,6 +5,9 @@ from line_profiler import LineProfiler
 import cProfile
 import h5py
 
+
+import matplotlib.pyplot as plt
+
 def cprofile(func):
     def profiled_func(*args, **kwargs):
         profile = cProfile.Profile()
@@ -67,6 +70,30 @@ class NDFLoader():
         self.clock_division=self.clock_tick_cycle/256.0
         self.time_interval_hours = time_interval_hours
         self.time_interval= self.time_interval_hours*3600; #convert hourly interval to seconds
+
+    def glitch_removal(self, x_std_threshold = 40, plot_glitches = False ):
+        print 'Code to remove glitches...'
+        diff = abs(np.diff(self.data))
+        mean_diff = np.mean(diff)
+        threshold = np.std(diff)*x_std_threshold + mean_diff
+        locs = np.where(diff>threshold,1,0)
+
+        print 'Removed', np.sum(locs),'datapoints detected as glitches, with a threshold of',
+        print x_std_threshold, 'times std deviation'
+        #print self.time[locs ==1]
+
+        if plot_glitches:
+            ii = 1
+            for ii in range(np.sum(locs)):
+                i = self.time[locs ==1][ii]
+                print i
+                plt.plot(self.data[(i-20)*512:(i+20)*512])
+                plt.show()
+        print 'Need to now replace the glitches'
+
+    def correct_sampling_frequency(self):
+        print 'To do'
+
 
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
@@ -179,6 +206,7 @@ dir = '/Users/Jonathan/Dropbox/'
 start = time.clock()
 ndf = NDFLoader(dir+'M1445362612.ndf')
 ndf.load(8)
+ndf.glitch_removal()
 print (time.clock()-start)*1000, 'ms'
 print ndf.data.shape
 print ndf.time.shape
@@ -194,7 +222,7 @@ ndftime = file['time']
 #return data
 print (time.clock()-start)*1000, 'ms'
 
-import matplotlib.pyplot as plt
+
 
 #plt.plot(data[:5120])
 #plt.show()
