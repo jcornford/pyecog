@@ -113,10 +113,6 @@ class NDFLoader():
             print 'greater than mean difference.'
 
 
-    def correct_sampling_frequency(self):
-        print 'To do'
-
-
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
             # no offset
@@ -166,8 +162,12 @@ class NDFLoader():
         #hdf5_data = savefile.create_dataset(self.file_label+'_data', shape=self.data.shape, dtype='float')
         #hdf5_time = savefile.create_dataset(self.file_label+'_time', shape = self.time.shape, dtype='float')
 
-        hdf5_data[:] = self.data
-        hdf5_time[:] = self.time
+        if self.resampled:
+            hdf5_data[:] = self.data_512hz
+            hdf5_time[:] = self.time_512hz
+        else:
+            hdf5_data[:] = self.data
+            hdf5_time[:] = self.time
 
         '''
         #implement multiple processes for saving
@@ -222,6 +222,16 @@ class NDFLoader():
                 self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
                 self.time = self.time_array[transmitter_ids==read_id]
 
+    def correct_sampling_frequency(self, fs = 512.0, length = 3600):
+        # first check that we are not interpolating datapoints for more than 1 second?
+        assert max(np.diff(self.time)) < 1.0
+
+        # do linear interpolation between the points
+        self.time_512hz = np.linspace(0,length,num=length*fs)
+        self.data_512hz = np.interp(self.time_512hz,self.time,self.data)
+        self.resampled = True
+
+
 
 import time
 dir = '/Users/Jonathan/Dropbox/'
@@ -230,14 +240,14 @@ ndf = NDFLoader(dir+'M1445362612.ndf')
 ndf.load(8)
 ndf.glitch_removal(plot_glitches=False)
 print (time.clock()-start)*1000, 'ms to load the ndf file'
-plt.plot(ndf.data)
-plt.show()
-print ndf.data.shape
-print ndf.time.shape
+
+start2 = time.clock()
+ndf.correct_sampling_frequency()
+print (time.clock()-start2)*1000, 'ms to load resample'
+#plt.plot(ndf.data)
+#plt.show()
+
 ndf.save()
-
-
-
 
 start = time.clock()
 file = h5py.File('/Users/Jonathan/Dropbox/M1445362612.hdf5', 'r')
