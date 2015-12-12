@@ -50,6 +50,7 @@ class NDFLoader():
         self.print_meta = print_meta
         self.filepath = filepath
         self.file_label = filepath.split('/')[-1].split('.')[0]
+        self.mean_point = None
         print self.file_label
         self.identifier = None
         self.data_address = None
@@ -71,25 +72,46 @@ class NDFLoader():
         self.time_interval_hours = time_interval_hours
         self.time_interval= self.time_interval_hours*3600; #convert hourly interval to seconds
 
-    def glitch_removal(self, x_std_threshold = 40, plot_glitches = False ):
-        print 'Code to remove glitches...'
-        diff = abs(np.diff(self.data))
-        mean_diff = np.mean(diff)
-        threshold = np.std(diff)*x_std_threshold + mean_diff
-        locs = np.where(diff>threshold,1,0)
 
-        print 'Removed', np.sum(locs),'datapoints detected as glitches, with a threshold of',
-        print x_std_threshold, 'times std deviation'
-        #print self.time[locs ==1]
+    def glitch_removal(self, x_std_threshold=10,diff_threshold = 20, plot_glitches=False, print_output = False):
+        mean_diff = np.mean(abs(np.diff(self.data)))
+        if not self.mean_point:
+            self.mean_point = np.mean(self.data)
+        std_dev = np.std(self.data)
+
+        # identify candidate glitches based on std deviation
+        threshold = std_dev * x_std_threshold + self.mean_point
+        crossing_locations = np.where(self.data > threshold)[0]
 
         if plot_glitches:
-            ii = 1
-            for ii in range(np.sum(locs)):
-                i = self.time[locs ==1][ii]
-                print i
-                plt.plot(self.data[(i-20)*512:(i+20)*512])
-                plt.show()
-        print 'Need to now replace the glitches'
+            plt.plot(self.time,self.data)
+            plt.title('Full trace')
+            plt.show()
+
+        # check local difference is much bigger than the mean difference between points
+        glitch_count = 0
+        for location in crossing_locations:
+            if location == 0:
+                print 'Warning: if two glitches at start, correction will fail'
+            i = location-1
+            ii = location+2
+            if abs(np.diff(self.data[i:ii])).all() > mean_diff*diff_threshold:
+                # plot glitche to be removed if plotting option is on
+                if plot_glitches:
+                    plt.plot(self.time[location-512:location+512], self.data[location - 512:location+512])
+                    plt.show()
+                try:
+                    self.data[location] = self.data[location-1]
+                except:
+                    self.data[location] = self.data[location+1]
+                glitch_count += 1
+
+        if print_output:
+            print 'Removed',glitch_count, 'datapoints detected as glitches, with a threshold of',
+            print x_std_threshold, 'times the std deviation. Therefore threshold was:',std_dev*x_std_threshold
+            print 'above mean. Also used local difference between points, glitch was at least',diff_threshold,
+            print 'greater than mean difference.'
+
 
     def correct_sampling_frequency(self):
         print 'To do'
@@ -206,8 +228,10 @@ dir = '/Users/Jonathan/Dropbox/'
 start = time.clock()
 ndf = NDFLoader(dir+'M1445362612.ndf')
 ndf.load(8)
-ndf.glitch_removal()
-print (time.clock()-start)*1000, 'ms'
+ndf.glitch_removal(plot_glitches=False)
+print (time.clock()-start)*1000, 'ms to load the ndf file'
+plt.plot(ndf.data)
+plt.show()
 print ndf.data.shape
 print ndf.time.shape
 ndf.save()
@@ -220,7 +244,7 @@ file = h5py.File('/Users/Jonathan/Dropbox/M1445362612.hdf5', 'r')
 data = file['data']
 ndftime = file['time']
 #return data
-print (time.clock()-start)*1000, 'ms'
+print (time.clock()-start)*1000, 'ms to load the hdf5 file'
 
 
 
