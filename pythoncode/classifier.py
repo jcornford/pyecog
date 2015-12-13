@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 #from sklearn.lda import LDA
 from sklearn import preprocessing
 from sklearn import cross_validation
+from sklearn.metrics import classification_report
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.cross_validation import StratifiedShuffleSplit
 from sklearn.grid_search import GridSearchCV
@@ -26,9 +27,9 @@ class NetworkClassifer():
         self.validation_features = validation_features
         self.validation_labels = np.ravel(validation_labels)
 
-        self._impute_and_scale()
+        self.impute_and_scale()
 
-    def _impute_and_scale(self):
+    def impute_and_scale(self):
         print 'Scaling and imputing training dataset...',
         self.imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
         self.imputer.fit(self.features)
@@ -145,7 +146,7 @@ class NetworkClassifer():
 
         #######################################
         #r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
-        self.X_train,self.X_test, self.y_train, self.y_test = cross_validation.train_test_split(self.iss_features, self.labels, test_size=0.5, random_state=3)
+        #self.X_train,self.X_test, self.y_train, self.y_test = cross_validation.train_test_split(self.iss_features, self.labels, test_size=0.5, random_state=3)
         #r_forest.fit(self.X_train,self.y_train)
         ########################################
 
@@ -157,14 +158,31 @@ class NetworkClassifer():
         self.r_forest.fit(self.iss_features,self.labels)
 
         print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
+        print self.r_forest.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[self.validation_labels==1]), 'randomforest seizure -set performance \n'
+
+        y_true = self.validation_labels
+        y_pred = self.r_forest.predict(self.iss_validation_features)
+        target_names = ['inter-ictal', 'ictal']
+        t = classification_report(y_true, y_pred, target_names=target_names)
+        print 'Random forest report:'
+        print t
 
         svm_clf = SVC()
         self.svm_scores = cross_validation.cross_val_score(svm_clf, self.iss_features, self.labels, cv=5,n_jobs=5)
         print "Cross validation SVM performance: Accuracy: %0.2f (std %0.2f)" %(self.svm_scores.mean()*100, self.svm_scores.std()*100)
-        svm_clf = SVC()
-        svm_clf.fit(self.iss_features,self.labels)
-        print svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
+        self.svm_clf = SVC()
+        self.svm_clf.fit(self.iss_features,self.labels)
+        print self.svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
+        print self.svm_clf.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[[self.validation_labels==1]]), 'SVC rbf test seizure performance \n'
 
+        y_true = self.validation_labels
+        y_pred = self.svm_clf.predict(self.iss_validation_features)
+        target_names = ['inter-ictal', 'ictal']
+        t = classification_report(y_true, y_pred, target_names=target_names)
+        print 'Support vector report'
+        print t
+
+        return None
         n_neighbors = 4
         knn = KNeighborsClassifier(n_neighbors, weights='distance')
         knn.fit(self.X_train, self.y_train)

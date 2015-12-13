@@ -138,6 +138,7 @@ class NDFLoader():
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
 
+
     def save(self, file_format = 'hdf5', channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
         '''
         Default is to save all channels (-1). If you want to specify which channels to save

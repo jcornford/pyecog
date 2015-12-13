@@ -71,7 +71,7 @@ class FeatureExtractor():
             dataset_after_subtraction_option = self.dataset
 
         masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, dataset_after_subtraction_option)
-        indexes = np.array(np.arange(5120))
+        indexes = np.array(np.arange(self.dataset.shape[1]))
 
         self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in xrange(self.dataset.shape[0])]
         baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in xrange(self.dataset.shape[0])]
