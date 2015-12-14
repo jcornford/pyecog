@@ -223,14 +223,22 @@ class NDFLoader():
                 self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
                 self.time = self.time_array[transmitter_ids==read_id]
 
-    def correct_sampling_frequency(self, fs = 512.0, length = 3600):
+    def correct_sampling_frequency(self, fs = 512.0, length = 3600, overwrite = False):
         # first check that we are not interpolating datapoints for more than 1 second?
-        assert max(np.diff(self.time)) < 1.0
+        #assert max(np.diff(self.time)) < 1.0
+        self.time_diff = np.diff(self.time)
+        if max(np.diff(self.time)) < 1.0:
+            print 'WARNING: assert max(np.diff(self.time)) < 1.0, would fail'
 
         # do linear interpolation between the points
         self.time_512hz = np.linspace(0,length,num=length*fs)
         self.data_512hz = np.interp(self.time_512hz,self.time,self.data)
         self.resampled = True
+
+        if overwrite:
+            self.time =  self.time_512hz[:]
+            self.data = self.data_512hz[:]
+            print 'overwrite'
 
 
 
@@ -248,6 +256,31 @@ print (time.clock()-start2)*1000, 'ms to load resample'
 #plt.plot(ndf.data)
 #plt.show()
 
+times = ndf.time[:]*1000
+diffs = np.diff(times)
+fs_ac = 1000.0/diffs
+print times
+print diffs
+
+
+plt.hist(fs_ac, bins = 50, normed = True)
+plt.xlim(100,700)
+plt.xlabel('Instantaneous frequency (Hz)')
+plt.title('M1445362612.ndf instantaneous sampling frequencies ')
+
+plt.savefig('../../fs distribution.png')
+
+plt.show()
+
+#print (ndf.time_diff[:20]*1000)/(1/512.0*1000)
+#print np.std(ndf.time_diff[:20]*1000)
+print (1/512.0)*1000
+print diffs/((1/512.0)*1000)
+#print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
+
+print 1000.0/np.max(diffs)
+print 1000.0/np.min(diffs)
+'''
 ndf.save()
 
 start = time.clock()
@@ -257,7 +290,7 @@ ndftime = file['time']
 #return data
 print (time.clock()-start)*1000, 'ms to load the hdf5 file'
 
-
+'''
 
 #plt.plot(data[:5120])
 #plt.show()

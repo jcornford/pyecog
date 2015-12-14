@@ -26,18 +26,18 @@ class Main():
         self.annotation_file = 'seizures_Rat8_20-271015.xlsx'
 
         self.normalise_seconds = True
-        self.row_length = 512*5
+        self.row_length = 512*1
 
 
         annotations = pd.read_excel(self.dir_path+self.annotation_file, index_col=False)
         annotations.columns = ['fname','start','end']
-        #self.annotations = annotations.dropna(axis=0, how='all')
-        #self._load_ictal_raw()
-        #self._extract_features_load_ictal_hdf5()
+        self.annotations = annotations.dropna(axis=0, how='all')
+        self._load_ictal_raw()
+        self._extract_features_load_ictal_hdf5()
 
         #return None
-        #self._load_inter_ictal_raw()
-        #self._extract_features_load_inter_ictal_hdf5()
+        self._load_inter_ictal_raw()
+        self._extract_features_load_inter_ictal_hdf5()
 
         self._make_feature_array()
         #self._impute_and_scale()
@@ -45,7 +45,7 @@ class Main():
         #self.plot_lda()
         #self.marking()
 
-        #self.classify()
+        self.classify()
         self.stats()
 
     def stats(self):
@@ -233,10 +233,13 @@ class Main():
 
             ndf =  NDFLoader(self.dir_path+'ndf/'+fname, print_meta=True)
             ndf.load(8)
+            ndf.glitch_removal(plot_glitches=False, print_output=True)
+            ndf.correct_sampling_frequency()
 
             np.set_printoptions(precision=3, suppress = True)
             ictal_time = ndf.time[(ndf.time >= start) & (ndf.time <= end)]
             ictal_data = ndf.data[(ndf.time >= start) & (ndf.time <= end)]
+
 
             #print ictal_data.shape[0]
             #print ictal_time.shape
@@ -260,6 +263,8 @@ class Main():
 
             ndf =  NDFLoader(self.dir_path+'ndf/'+fname, print_meta=True)
             ndf.load(8)
+            ndf.glitch_removal(plot_glitches=False, print_output=True)
+            ndf.correct_sampling_frequency()
 
             np.set_printoptions(precision=3, suppress = True)
             inter_ictal_time = ndf.time[(ndf.time <= start) | (ndf.time >= end)]

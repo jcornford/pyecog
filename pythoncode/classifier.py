@@ -158,11 +158,12 @@ class NetworkClassifer():
         self.r_forest.fit(self.iss_features,self.labels)
 
         print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
-        print self.r_forest.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[self.validation_labels==1]), 'randomforest seizure -set performance \n'
+        #print self.r_forest.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[self.validation_labels==1]), 'randomforest seizure -set performance \n'
 
         y_true = self.validation_labels
         y_pred = self.r_forest.predict(self.iss_validation_features)
         target_names = ['inter-ictal', 'ictal']
+        target_names = ['S1','S2','S3','S4']
         t = classification_report(y_true, y_pred, target_names=target_names)
         print 'Random forest report:'
         print t
@@ -173,11 +174,12 @@ class NetworkClassifer():
         self.svm_clf = SVC()
         self.svm_clf.fit(self.iss_features,self.labels)
         print self.svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
-        print self.svm_clf.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[[self.validation_labels==1]]), 'SVC rbf test seizure performance \n'
+        #print self.svm_clf.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[[self.validation_labels==1]]), 'SVC rbf test seizure performance \n'
 
         y_true = self.validation_labels
         y_pred = self.svm_clf.predict(self.iss_validation_features)
         target_names = ['inter-ictal', 'ictal']
+        target_names = ['S1','S2','S3','S4']
         t = classification_report(y_true, y_pred, target_names=target_names)
         print 'Support vector report'
         print t

@@ -3,16 +3,15 @@ Program for classifying network state in a given window before light pulses.
 
 Currently taking 10 seconds before a light pulse and extracting 22 features from this window.
 
-Todo:
+## Todo:
 
-1. Produce pdfs of the events within the training an test/ anything that comes
-2. Speed up feature extraction
+1. Predict the mixed event stuff with the classifier
+2. 
 3. Implement feature selection
 4. Sort out the code from early days vs ipython notebook copies etc
-5. Asses scaling, preprocessing (baseline subtraction etc) and imputing options.
+5. 
 
-#To think about:
-What to do with the first 100ms of rolling window?
+
 
 ## Possible features
 * Stationarity testing

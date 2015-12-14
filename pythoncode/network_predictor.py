@@ -10,6 +10,12 @@ from make_pdfs import plot_traces
 
 class Predictor():
 
+    '''
+    TODO:
+    Really should use this initially to checkout the mixed events only!
+
+    '''
+
     def __init__(self, clf_pickle_path = None, ):
 
         if clf_pickle_path == None:
