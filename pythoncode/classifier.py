@@ -134,6 +134,13 @@ class NetworkClassifer():
         self.svc_lda.fit(self.lda_iss_features,self.labels)
         print self.svc_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
 
+        y_true = self.validation_labels
+        y_pred = self.svc_lda.predict(self.lda_iss_validation_features)
+        target_names = ['S1','S2','S3','S4']
+        t = classification_report(y_true, y_pred, target_names=target_names)
+        print 'Support vector report lda'
+        print t
+
     def pca_run(self,k_folds = 5):
         self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
         self.pca_scores = cross_validation.cross_val_score(self.r_forest_pca, self.pca_iss_features, self.labels, cv=k_folds,n_jobs=5)
