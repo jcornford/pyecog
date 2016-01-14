@@ -272,46 +272,50 @@ class NDFLoader:
             self.data = self.data_512hz[:]
             print 'overwrite'
 
+            self.time[index] = self.time_512hz[:]
+            self.data[index] = self.data_512hz[:]
+            print('overwrite')
 
 
-import time
-dir = '/Users/Jonathan/Dropbox/'
-start = time.clock()
-ndf = NDFLoader(dir+'M1445362612.ndf')
-ndf.load(8)
-ndf.glitch_removal(plot_glitches=False)
-print (time.clock()-start)*1000, 'ms to load the ndf file'
+def main(filename):
+    print("Reading : " + filename)
+    start = time.clock()
+    ndf = NDFLoader(filename)
+    ndf.load([8])
+    ndf.glitch_removal(index=8, plot_glitches=False, print_output=True)
+    print((time.clock() - start) * 1000, 'ms to load the ndf file')
 
-start2 = time.clock()
-ndf.correct_sampling_frequency()
-print (time.clock()-start2)*1000, 'ms to load resample'
-#plt.plot(ndf.data)
-#plt.show()
+    start2 = time.clock()
+    ndf.correct_sampling_frequency(index=8)
+    print((time.clock() - start2) * 1000, 'ms to load resample')
 
-times = ndf.time[:]*1000
-diffs = np.diff(times)
-fs_ac = 1000.0/diffs
-print times
-print diffs
+    times = ndf.time[8] * 1000
+    diffs = np.diff(times)
+    fs_ac = 1000.0 / diffs
+    print(times)
+    print(diffs)
+
+    plt.figure()
+    plt.hist(fs_ac, bins=50, normed=True)
+    # plt.xlim(0, 700)
+    plt.xlabel('Instantaneous frequency (Hz)')
+    plt.title(filename + ' instantaneous sampling frequencies')
+    # plt.savefig('../../fs distribution.png')
+    plt.show()
+
+    # print (ndf.time_diff[:20]*1000)/(1/512.0*1000)
+    # print np.std(ndf.time_diff[:20]*1000)
+    print((1 / 512.0) * 1000)
+    print(diffs / ((1 / 512.0) * 1000))
+    # print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
+
+    print(1000.0 / np.max(diffs))
+    print(1000.0 / np.min(diffs))
 
 
-plt.hist(fs_ac, bins = 50, normed = True)
-plt.xlim(100,700)
-plt.xlabel('Instantaneous frequency (Hz)')
-plt.title('M1445362612.ndf instantaneous sampling frequencies ')
+if __name__ == "__main__":
+    main(sys.argv[1])
 
-plt.savefig('../../fs distribution.png')
-
-plt.show()
-
-#print (ndf.time_diff[:20]*1000)/(1/512.0*1000)
-#print np.std(ndf.time_diff[:20]*1000)
-print (1/512.0)*1000
-print diffs/((1/512.0)*1000)
-#print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
-
-print 1000.0/np.max(diffs)
-print 1000.0/np.min(diffs)
 '''
 ndf.save()
 
@@ -324,8 +328,8 @@ print (time.clock()-start)*1000, 'ms to load the hdf5 file'
 
 '''
 
-#plt.plot(data[:5120])
-#plt.show()
+# plt.plot(data[:5120])
+# plt.show()
 
 
 # From open source instruments website
@@ -354,7 +358,7 @@ Byte	Contents
 0	Channel Number
 1	Most Significant Data Byte
 2	Least Significant Data Byte
-3	Timestamp or Version Numbe
+3	Timestamp or Version Number
 
 The data recorder will never store a message with channel number zero unless that message comes from the clock.
 All messages with channel number zero are guaranteed to be clocks.
