@@ -256,22 +256,18 @@ class NDFLoader:
             self.data[id] = np.delete(self.data[id], bad_messages[id])
             self.time[id] = self.time_array[transmitter_ids == id]
             self.time[id] = np.delete(self.time[id], bad_messages[id])
+
+    def correct_sampling_frequency(self, index, fs=512.0, overwrite=False):
         # first check that we are not interpolating datapoints for more than 1 second?
-        #assert max(np.diff(self.time)) < 1.0
-        self.time_diff = np.diff(self.time)
-        if max(np.diff(self.time)) < 1.0:
-            print 'WARNING: assert max(np.diff(self.time)) < 1.0, would fail'
+        #assert max(np.diff(self.time[index])) < 1.0
+        self.time_diff = np.diff(self.time[index])
 
         # do linear interpolation between the points
-        self.time_512hz = np.linspace(0,length,num=length*fs)
-        self.data_512hz = np.interp(self.time_512hz,self.time,self.data)
+        self.time_512hz = np.linspace(0, self.time[index][-1], num=self.time[index][-1] * fs)
+        self.data_512hz = np.interp(self.time_512hz, self.time[index], self.data[index])
         self.resampled = True
 
         if overwrite:
-            self.time =  self.time_512hz[:]
-            self.data = self.data_512hz[:]
-            print 'overwrite'
-
             self.time[index] = self.time_512hz[:]
             self.data[index] = self.data_512hz[:]
             print('overwrite')
