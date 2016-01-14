@@ -1,41 +1,16 @@
-import numpy as np
 import os
 import struct
-from line_profiler import LineProfiler
-import cProfile
+import sys
+import time
+
 import h5py
-
-
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
 
-def cprofile(func):
-    def profiled_func(*args, **kwargs):
-        profile = cProfile.Profile()
-        try:
-            profile.enable()
-            result = func(*args, **kwargs)
-            profile.disable()
-            return result
-        finally:
-            profile.print_stats()
-    return profiled_func
 
-def lprofile():
-    def inner(func):
-        def profiled_func(*args, **kwargs):
-            try:
-                profiler = LineProfiler()
-                profiler.add_function(func)
-
-                profiler.enable_by_count()
-                return func(*args, **kwargs)
-            finally:
-                profiler.print_stats()
-        return profiled_func
-    return inner
-
-class NDFLoader():
-    '''
+class NDFLoader:
+    """
     Class to load ndf binary files.
 
     To implement:
@@ -44,47 +19,69 @@ class NDFLoader():
         - Interpolate missing data for stable 512 hz sampling.
         - Detect glitches and remove.
         - Add option to have baseline be one - remove median or something.
-    '''
+    """
 
-    def __init__(self, filepath, time_interval_hours = (0,1), print_meta = False):
+    def __init__(self, file_path, time_interval_hours=(0, 1), print_meta=False):
         self.print_meta = print_meta
-        self.filepath = filepath
-        self.file_label = filepath.split('/')[-1].split('.')[0]
+        self.filepath = file_path
+        self.file_label = file_path.split('/')[-1].split('.')[0]
         self.mean_point = None
-        print self.file_label
         self.identifier = None
         self.data_address = None
         self.metadata = None
         self.data_size = None
         self.channel_info = None
         self.data_dict = None
+        self.tids = None
+        self.t_stamps = None
+        self.data = {}
+        self.time = {}
 
         self._get_file_properties()
 
-        self.adc_range=2.7
-        self.amp_factor=300
-        self.bitsize=16
-        self.volt_div=self.adc_range/(2**self.bitsize)/self.amp_factor*1e3 # in mV unit
+        self.adc_range = 2.7
+        self.amp_factor = 300
+        self.bit_size = 16
+        self.volt_div = self.adc_range / (2 ** self.bit_size) / self.amp_factor * 1e3  # in mV unit
 
-        #firmware dependent check needed in future - this here or above?
-        self.clock_tick_cycle=7.8125e-3 # per second
-        self.clock_division=self.clock_tick_cycle/256.0
+        # firmware dependent check needed in future - this here or above?
+        self.clock_tick_cycle = 7.8125e-3  # per second
+        self.clock_division = self.clock_tick_cycle / 256.0
         self.time_interval_hours = time_interval_hours
-        self.time_interval= self.time_interval_hours*3600; #convert hourly interval to seconds
+        self.time_interval = self.time_interval_hours * 3600  # convert hourly interval to seconds
+
+    def remove_points_based_on_timestamps(self, indexes=[]):
+        """Remove data points based on timestamp.
+
+        """
+        if indexes == []:
+            indexes = self.tids
+
+        for id in indexes:
+            begin_chunk = 0
+            end_chunk = begin_chunk + 2000
+            for i in range(np.length(self.data[id])//2000):
+                # Read a 2000 long chunk of data
+                begin_chunk = 0*i
+                end_chunk = max(begin_chink+2000, np.length(self.data[id]))
+                chunck_times = self.time[id][begin_chunk:end_chunk]
 
 
-    def glitch_removal(self, x_std_threshold=10,diff_threshold = 20, plot_glitches=False, print_output = False):
-        mean_diff = np.mean(abs(np.diff(self.data)))
+
+
+
+    def glitch_removal(self, index, x_std_threshold=10, diff_threshold=20, plot_glitches=False, print_output=False):
+        mean_diff = np.mean(abs(np.diff(self.data[index])))
         if not self.mean_point:
-            self.mean_point = np.mean(self.data)
-        std_dev = np.std(self.data)
+            self.mean_point = np.mean(self.data[index])
+        std_dev = np.std(self.data[index])
 
         # identify candidate glitches based on std deviation
         threshold = std_dev * x_std_threshold + self.mean_point
-        crossing_locations = np.where(self.data > threshold)[0]
+        crossing_locations = np.where(self.data[index] > threshold)[0]
 
         if plot_glitches:
-            plt.plot(self.time,self.data)
+            plt.plot(self.time[index], self.data[index])
             plt.title('Full trace')
             plt.show()
 
@@ -92,55 +89,60 @@ class NDFLoader():
         glitch_count = 0
         for location in crossing_locations:
             if location == 0:
-                print 'Warning: if two glitches at start, correction will fail'
-            i = location-1
-            ii = location+2
-            if abs(np.diff(self.data[i:ii])).all() > mean_diff*diff_threshold:
-                # plot glitche to be removed if plotting option is on
-                if plot_glitches:
-                    plt.plot(self.time[location-512:location+512], self.data[location - 512:location+512])
-                    plt.show()
-                try:
-                    self.data[location] = self.data[location-1]
-                except:
-                    self.data[location] = self.data[location+1]
-                glitch_count += 1
+                print('Warning: if two glitches at start, correction will fail')
+            i = location - 1
+            ii = location + 1
+            # if abs(np.diff(self.data[i:ii])).all() > mean_diff * diff_threshold:
+            try:
+                if abs(self.data[index][location] - self.data[index][ii]) > 10 * std_dev:
+                    # plot glitche to be removed if plotting option is on
+                    if plot_glitches:
+                        plt.plot(self.time[index][location - 512:location + 512],
+                                 self.data[index][location - 512:location + 512])
+                        plt.show()
+                    try:
+                        value = self.data[index][i] + (self.time[index][location] - self.time[index][i]) * (
+                        self.data[index][ii] - self.data[index][i]) / (self.time[index][ii] - self.time[index][i])
+                        self.data[index][location] = value
+                    except KeyError:
+                        pass
+                    glitch_count += 1
+            except KeyError:
+                pass
 
         if print_output:
-            print 'Removed',glitch_count, 'datapoints detected as glitches, with a threshold of',
-            print x_std_threshold, 'times the std deviation. Therefore threshold was:',std_dev*x_std_threshold
-            print 'above mean. Also used local difference between points, glitch was at least',diff_threshold,
-            print 'greater than mean difference.'
-
+            print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of', end=' ')
+            print(x_std_threshold, 'times the std deviation. Therefore threshold was:', std_dev * x_std_threshold)
+            print('above mean. Also used local difference between points, glitch was at least', diff_threshold, end=' ')
+            print('greater than mean difference.')
 
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
             # no offset
             f.seek(0)
-            #The NDF file starts with a header of at least twelve bytes. The first four bytes
-            #spell the NDF identifier " ndf".
+            # The NDF file starts with a header of at least twelve bytes. The first four bytes
+            # spell the NDF identifier " ndf".
             self.identifier = f.read(4)
-            assert self.identifier == ' ndf'
+            assert (self.identifier == b' ndf')
 
-            meta_data_string_address = struct.unpack('>I',f.read(4))[0]
-            self.data_address = struct.unpack('>I',f.read(4))[0]
-            meta_data_length = struct.unpack('>I',f.read(4))[0]
+            meta_data_string_address = struct.unpack('>I', f.read(4))[0]
+            self.data_address = struct.unpack('>I', f.read(4))[0]
+            meta_data_length = struct.unpack('>I', f.read(4))[0]
 
             if meta_data_length != 0:
                 f.seek(meta_data_string_address)
                 self.metadata = f.read(meta_data_length)
                 if self.print_meta:
-                    print self.metadata
+                    print(self.metadata)
             else:
-                print 'meta data length unknown - not bothering to work it out...',
-                print 'skipping'
+                print('meta data length unknown - not bothering to work it out...', end=' ')
+                print('skipping')
 
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
 
-
-    def save(self, file_format = 'hdf5', channels_to_save = (-1), fs = 512, sec_per_row = 1, minimum_seconds = 1):
-        '''
+    def save(self, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
+        """
         Default is to save all channels (-1). If you want to specify which channels to save
         pass in a tuple with desired channel numbers. e.g. (1,3,5,9) for channels 1, 3, 5 and 9.
         Info on channels and their recording length can be found in the channel_info attribute.
