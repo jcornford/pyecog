@@ -198,34 +198,14 @@ class NDFLoader:
         self.messages = np.fromfile(f,'>u2')[::2]
 
         # convert timestamps into correct time using clock id
-        self.clock_ticks = np.logical_not(transmitter_ids.astype('bool')).astype(int)
-        #clock_ticks = np.where(transmitter_ids==0,1,0)
-        self.clock_ticks= np.cumsum(self.clock_ticks)-1
-        fine_time_array = self.t_stamps*self.clock_division
-        coarse_time_array = self.clock_ticks*self.clock_tick_cycle
-        self.time_array = fine_time_array+coarse_time_array
+        t_clock_data = np.zeros(self.messages.shape)
+        t_clock_data[transmitter_ids == 0] = 1
+        clock_data = np.cumsum(t_clock_data) * self.clock_tick_cycle
+        fine_time_array = self.t_stamps * self.clock_division
+        self.time_array = fine_time_array + clock_data
 
-        if type(read_id) == int:
-            self.data = self.messages[transmitter_ids==read_id]*self.volt_div
-            self.time = self.time_array[transmitter_ids==read_id]
-
-        elif type(read_id) == list:
-            print 'WARNING: NOT FINISHED CODING'
-            self.data_dict = {}
-            for id in read_id:
-                self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
-                self.time = self.time_array[transmitter_ids==read_id]
-
-        elif read_id == 'all':
-            print 'WARNING: NOT FINISHED CODING'
-            self.data_dict = {}
-            ids = set(self.tids)
-            ids.remove(0)
-            for id in ids:
-                self.data_dict[str(id)] = self.messages[transmitter_ids==read_id]*self.volt_div
-                self.time = self.time_array[transmitter_ids==read_id]
-
-    def correct_sampling_frequency(self, fs = 512.0, length = 3600, overwrite = False):
+        for id in read_id:
+            self.data[id] = self.messages[transmitter_ids == id] * self.volt_div
         # first check that we are not interpolating datapoints for more than 1 second?
         #assert max(np.diff(self.time)) < 1.0
         self.time_diff = np.diff(self.time)
