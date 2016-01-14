@@ -156,14 +156,17 @@ class NDFLoader:
 
         Strongly recommended to save in hdf5 file format
 
-        '''
-        print 'WARNING: SAVE NOT FINISHED'
+        Args:
+            file_format:
 
-        savefile = h5py.File(self.filepath[:-4]+'.hdf5', 'w')
+        """
+        print('WARNING: SAVE NOT FINISHED')
+
+        savefile = h5py.File(self.filepath[:-4] + '.hdf5', 'w')
         hdf5_data = savefile.create_dataset('data', shape=self.data.shape, dtype='float')
-        hdf5_time = savefile.create_dataset('time', shape = self.time.shape, dtype='float')
-        #hdf5_data = savefile.create_dataset(self.file_label+'_data', shape=self.data.shape, dtype='float')
-        #hdf5_time = savefile.create_dataset(self.file_label+'_time', shape = self.time.shape, dtype='float')
+        hdf5_time = savefile.create_dataset('time', shape=self.time.shape, dtype='float')
+        # hdf5_data = savefile.create_dataset(self.file_label+'_data', shape=self.data.shape, dtype='float')
+        # hdf5_time = savefile.create_dataset(self.file_label+'_time', shape = self.time.shape, dtype='float')
 
         if self.resampled:
             hdf5_data[:] = self.data_512hz
@@ -215,7 +218,7 @@ class NDFLoader:
         f.seek(self.data_address)
 
         # read everything in 8bits, grab ids and time stamps
-        e_bit_reads = np.fromfile(f,'u1')
+        e_bit_reads = np.fromfile(f, 'u1')
         transmitter_ids = e_bit_reads[::4]
         self.tids = transmitter_ids
         self.t_stamps = e_bit_reads[3::4]
@@ -241,8 +244,8 @@ class NDFLoader:
         print(len(self.t_stamps[transmitter_ids == 8]))
 
         # read again, but in 16 bit chunks, grab messages
-        f.seek(self.data_address+1)
-        self.messages = np.fromfile(f,'>u2')[::2]
+        f.seek(self.data_address + 1)
+        self.messages = np.fromfile(f, '>u2')[::2]
 
         # convert timestamps into correct time using clock id
         t_clock_data = np.zeros(self.messages.shape)
