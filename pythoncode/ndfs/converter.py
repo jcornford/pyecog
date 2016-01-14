@@ -182,8 +182,35 @@ class NDFLoader:
         #probs dont need to change into an array before saving - but if new view, probs not big deal?
         '''
 
-    def load(self,read_id):
-        print 'currently only working in one transmitter mode'
+    def load(self, read_id=[]):
+        """
+        This is based on the following analysis :
+        The time stamps for messages in a given channel fall at K + (64 x N) where N = 0, 1, 2 or 3, and K is an offset
+        that drifts slowly over the course of an entire ndf but is reasonably stable for a few seconds at a time.
+        So for a chunk of an ndf the "Clean up ndf" subroutine first estimates K as the mode of the residuals of
+        [time stamp/64] for the messages in the channel of interest. It then goes back to the same chunk and asks if,
+        for each message, the residual is within +/- 9 of the mode of K. If yes, accept the message as coming from the
+        transmitter of interest and not stray or corrupted signal.
+
+        That means that the tolerance is +/- [9/64], or approximately +/- 14%. I worked this out myself as giving a
+        good trade-off of throwing out bad messages and leaving gaps, and I think it's in the same range as the
+        tolerance that Kevan uses in his program.
+
+        I am using chunks of 2000 points (i.e. ~4s) by default, but you can get an idea of what would work by
+        calculating K and plotting it over a whole ndf file. You will see it drift up and down and loop as the clock on
+        board the transmitter drifts relative to the computer clock, but usually without discontinuities, so it is
+        basically constant over a few seconds.
+
+        Args:
+            read_id:
+
+        Returns:
+
+        """
+        if read_id == []:
+            read_id = set(self.tids)
+            read_id.remove(0)
+
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
 
@@ -192,6 +219,26 @@ class NDFLoader:
         transmitter_ids = e_bit_reads[::4]
         self.tids = transmitter_ids
         self.t_stamps = e_bit_reads[3::4]
+
+        # Here we find bad message
+        bad_messages = {}
+        for id in read_id:
+            bad_messages[id] = []
+            transmitter_timestamps = self.t_stamps[transmitter_ids==id]
+            begin_chunk = 0
+            end_chunk = begin_chunk + 2000
+            for i in range(transmitter_timestamps.size//2000):
+                # Read a 2000 long chunk of data
+                begin_chunk = 2000*i
+                end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
+                chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
+                mod_k = stats.mode(chunk_times % 64).mode[0]
+                for j in range(chunk_times.size):
+                    offset = (int(chunk_times[j]) - mod_k) % 64
+                    if offset > 9 and offset < 51:
+                        bad_messages[id].append(j + begin_chunk)
+        print(len(bad_messages[8]))
+        print(len(self.t_stamps[transmitter_ids == 8]))
 
         # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address+1)
@@ -206,6 +253,9 @@ class NDFLoader:
 
         for id in read_id:
             self.data[id] = self.messages[transmitter_ids == id] * self.volt_div
+            self.data[id] = np.delete(self.data[id], bad_messages[id])
+            self.time[id] = self.time_array[transmitter_ids == id]
+            self.time[id] = np.delete(self.time[id], bad_messages[id])
         # first check that we are not interpolating datapoints for more than 1 second?
         #assert max(np.diff(self.time)) < 1.0
         self.time_diff = np.diff(self.time)
