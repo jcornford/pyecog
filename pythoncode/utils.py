@@ -1,7 +1,7 @@
 import numpy as np
 
 from network_loader import SeizureData
-from relabeling_functions import relabel,reorder
+from relabeling_functions import relabel, reorder
 
 def normalise(series):
     #return series

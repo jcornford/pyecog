@@ -107,13 +107,13 @@ class SeizureData(object):
         """
         self.n_states = n_states
         self.window = window
-        self.filenames = self._get_filenames() # why the _again?
-        #for filename in self.filenames:
-            #print filename
+        self.filenames = self._get_filenames() # own method in case we want to get clever
         self.data_array_list = []
         self.label_colarray_list = []
         self.filename_list = []
+
         for i, filename in enumerate(self.filenames):
+            print filename
             #print float(i)/float(len(self.filenames))*100.," percent complete         \r",
             # Each call of _load_data_from_file appends data to features_train
             self.temp_data,self.temp_label, self.name = self._load_data_from_filename(filename,preprocess=preprocess)
@@ -132,13 +132,15 @@ class SeizureData(object):
         #print "\nDone"
 
     def _get_filenames(self):
-        filenames = glob.glob(join(self.base_dir,'*','*'))
+        filenames = [join(self.base_dir, name) for name in os.listdir(self.base_dir) if name[-4:] == '.npy']
         return filenames
 
     def _load_data_from_filename(self,filename, preprocess = True):
         for i in range(self.n_states):
-            if filename.find('c'+str(i+1)) >-1:
+            if filename.find('c'+str(i+1)) >-1: # in case pre-classified in folders
                 label = i+1
+            else:
+                label = 0
         lfp_data = LFPData(filename,preprocess, self.window, label = label,fs=self.fs, downsample_rate=self.amount_to_downsample)
 
         return lfp_data.data_array, lfp_data.label_array, lfp_data.name_array

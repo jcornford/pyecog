@@ -1,7 +1,7 @@
 import pickle
-import numpy as np
-
 import utils
+
+import numpy as np
 import pandas as pd
 
 from network_loader import SeizureData
@@ -11,9 +11,7 @@ from make_pdfs import plot_traces
 class Predictor():
 
     '''
-    TODO:
-    Really should use this initially to checkout the mixed events only!
-
+    Todo:
     '''
 
     def __init__(self, clf_pickle_path = None, ):
@@ -22,11 +20,15 @@ class Predictor():
             clf_pickle_path = '../saved_clf'
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
-        print self.r_forest
+        self.r_forest_lda = self.classifier.r_forest_lda
+        #print self.r_forest
+        #print self.r_forest_lda
 
-    def assess_states(self,fpath, downsample_rate,savestring = 'example', threshold = 65):
+
+    def assess_states(self,fpath, downsample_rate = None, savestring = 'example', threshold = 65):
         self.threshold = '65'
         self.savestring = savestring
+
         self.dataobj = SeizureData(fpath, amount_to_downsample = downsample_rate)
         self.dataobj.load_data()
         #print 'printing filename_list'
@@ -42,8 +44,8 @@ class Predictor():
         self.predslist = list(self.preds)
         self.predslist[self.predslist == 4] = 'Baseline'
         self.max_preds = np.max(self.pred_table, axis = 1)
-        self._string_fun()
-        self._write_to_excel()
+        #self._string_fun()
+        #self._write_to_excel()
 
     def plot_traces(self):
         plot_traces(self.norm_data, self.preds, savestring = self.savestring)
@@ -96,33 +98,20 @@ class Predictor():
                                            'format': format1})
         writer.save()
 
+'''
+nc = Predictor( clf_pickle_path = '../pickled_classifier')
+nc.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/',
+                 downsample_rate = 20)
+'''
+x = Predictor( clf_pickle_path = '../pickled_classifier')
+x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/',downsample_rate = 20)
 
 
-
-
-x = Predictor()
-x.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40',downsample_rate=20, savestring = '2015_12_09_predictions_40')
+#x.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40/c1',downsample_rate=20, savestring = '2015_12_09_predictions_40')
+'''
 x.plot_traces()
 
 x20 = Predictor()
 x20.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20',downsample_rate=40, savestring = '2015_12_09_predictions_20')
 x20.plot_traces()
-
-#cleanup = np.loadtxt('../Training_cleanup.csv',delimiter=',')
-#labels = np.array([int(x[1]) for x in cleanup])
-#print labels
-#ok_indexes = []
-#for i in range(labels.shape[0]):
-#        if labels[i] != 0:
-#            ok_indexes.append(i)
-#print labels[ok_indexes]
-    #validation_data.feature_array_fair = validation_data.feature_array[ok_indexes,:]
-    #validation_labels_fair = val_labels[ok_indexes]
-
-#new_labels = np.loadtxt(notebook_dir+'new_event_labels_28082015.csv',delimiter= ',')
- #   for x in new_labels:
-  #      labels301[x[0]] = x[1]
-
-   # selection = np.loadtxt(notebook_dir+'perfect_event_labels_28082015.csv',delimiter= ',')
-    #indexes =  list(selection[:,0])
-    #print indexes
+'''
