@@ -1,16 +1,18 @@
 
-import glob
 import os
 from os.path import join
+
 import numpy as np
+
+import abf_loader
 
 class LFPData(object):
     """
     Class for one section of data before the light pulse.
     """
-    def __init__(self, path,preprocess, window_len, fs = 512, label = None, downsample_rate = 20):
-        self.fs = fs
-        self.window_len = window_len*fs
+    def __init__(self, path,preprocess, window_len, target_fs = 512, label = None, downsample_rate = 20):
+        self.target_fs = target_fs
+        self.window_len = window_len*target_fs
         self.label = None
         self.filename = path
 
@@ -84,14 +86,16 @@ class SeizureData(object):
     '''
     Class to load all files for a given name (e.g. all or animal)
     '''
-    def __init__(self,base_dir, amount_to_downsample, fs=512):
+    def __init__(self,base_dir, fs_dict = None, target_fs=512):
         '''
         base_dir is the path to the directory containing the network state
         folders. These folders need to be c1,c2,c3 etc
         '''
-        self.fs = fs
-        self.n_channels = 1
-        self.amount_to_downsample = amount_to_downsample
+        self.target_fs = target_fs
+        self.n_channels = 1 # REDO!
+
+        self.original_fs = amount_to_downsample
+
         if not os.path.isdir(base_dir):
             raise ValueError('%s is not a directory.' % base_dir)
         self.base_dir = base_dir
@@ -141,7 +145,7 @@ class SeizureData(object):
                 label = i+1
             else:
                 label = 0
-        lfp_data = LFPData(filename,preprocess, self.window, label = label,fs=self.fs, downsample_rate=self.amount_to_downsample)
+        lfp_data = LFPData(filename,preprocess, self.window, label = label, target_fs=self.target_fs, downsample_rate=self.amount_to_downsample)
 
         return lfp_data.data_array, lfp_data.label_array, lfp_data.name_array
 

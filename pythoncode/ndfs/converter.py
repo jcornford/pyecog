@@ -63,7 +63,7 @@ class NDFLoader:
             for i in range(np.length(self.data[id])//2000):
                 # Read a 2000 long chunk of data
                 begin_chunk = 0*i
-                end_chunk = max(begin_chink+2000, np.length(self.data[id]))
+                end_chunk = max(begin_chunk+2000, np.length(self.data[id]))
                 chunck_times = self.time[id][begin_chunk:end_chunk]
 
 
@@ -111,9 +111,9 @@ class NDFLoader:
                 pass
 
         if print_output:
-            print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of', end=' ')
+            print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of',)# end=' ')
             print(x_std_threshold, 'times the std deviation. Therefore threshold was:', std_dev * x_std_threshold)
-            print('above mean. Also used local difference between points, glitch was at least', diff_threshold, end=' ')
+            print('above mean. Also used local difference between points, glitch was at least', diff_threshold,)# end=' ')
             print('greater than mean difference.')
 
     def _get_file_properties(self):
@@ -135,7 +135,7 @@ class NDFLoader:
                 if self.print_meta:
                     print(self.metadata)
             else:
-                print('meta data length unknown - not bothering to work it out...', end=' ')
+                print('meta data length unknown - not bothering to work it out...',)# end=' ')
                 print('skipping')
 
             file_size = os.path.getsize(self.filepath)
@@ -235,12 +235,14 @@ class NDFLoader:
                 begin_chunk = 2000*i
                 end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
                 chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
-                mod_k = stats.mode(chunk_times % 64).mode[0]
+                mode_k = stats.mode(chunk_times % 64).mode[0] # 64 as 8*64 is 256 - should be 8 messages ber time reset.
                 for j in range(chunk_times.size):
-                    offset = (int(chunk_times[j]) - mod_k) % 64
+                    offset = (int(chunk_times[j]) - mode_k) % 64 # actual offset minus most common offset
+                    # same as (time%64) - k.
                     if offset > 9 and offset < 51:
                         bad_messages[id].append(j + begin_chunk)
-        print(len(bad_messages[8]))
+        print '**** Bad messages *****'
+        print(len(bad_messages[8]), 'for tranmitter 8')
         print(len(self.t_stamps[transmitter_ids == 8]))
 
         # read again, but in 16 bit chunks, grab messages
@@ -313,7 +315,7 @@ def main(filename):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main('/Users/Jonathan/Dropbox/M1445362612.ndf')
 
 '''
 ndf.save()

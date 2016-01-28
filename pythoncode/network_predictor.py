@@ -14,10 +14,22 @@ class Predictor():
     Todo:
     '''
 
-    def __init__(self, clf_pickle_path = None, ):
+    def __init__(self, clf_pickle_path=None, fs_dict_path='../pickled_fs_dictionary'):
+
+        self.skipfiles = set('EX150515T11.abf',
+                        'EX180315T14.abf',
+                        'EX180515T4.abf',
+                        'EX200515T4.abf',
+        )
+        self.skip_dir = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ChR2/'
 
         if clf_pickle_path == None:
             clf_pickle_path = '../saved_clf'
+
+        self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
+        for key in self.fs_dict:
+            print key, self.fs_dict[key]
+
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
@@ -25,11 +37,12 @@ class Predictor():
         #print self.r_forest_lda
 
 
-    def assess_states(self,fpath, downsample_rate = None, savestring = 'example', threshold = 65):
-        self.threshold = '65'
+    def assess_states(self, fpath, downsample_rate = None, savestring = 'example', threshold = 65):
+
+        self.threshold = '65' # what is this for? - change name
         self.savestring = savestring
 
-        self.dataobj = SeizureData(fpath, amount_to_downsample = downsample_rate)
+        self.dataobj = SeizureData(fpath, fs_dict = self.fs_dict)
         self.dataobj.load_data()
         #print 'printing filename_list'
         #print self.dataobj.filename_list
@@ -104,7 +117,7 @@ nc.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/Co
                  downsample_rate = 20)
 '''
 x = Predictor( clf_pickle_path = '../pickled_classifier')
-x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/',downsample_rate = 20)
+x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/')
 
 
 #x.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40/c1',downsample_rate=20, savestring = '2015_12_09_predictions_40')
