@@ -982,8 +982,10 @@ if __name__ == '__main__':
         for name in os.listdir(basedir):
             if name[-4:] == '.abf':
                 fs_khz = get_fs(basedir+name)
-                print name, ':', fs_khz, ' khz'
-                fs_dictionary[name] = fs_khz
+                key = name.split('.')[0]
+                print key, ':', fs_khz, ' khz'
+
+                fs_dictionary[key] = fs_khz
                 count += 1
     print 'there are ', count, 'filenames'
     c2 = 0

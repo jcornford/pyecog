@@ -16,19 +16,19 @@ class Predictor():
 
     def __init__(self, clf_pickle_path=None, fs_dict_path='../pickled_fs_dictionary'):
 
-        self.skipfiles = set('EX150515T11.abf',
-                        'EX180315T14.abf',
-                        'EX180515T4.abf',
-                        'EX200515T4.abf',
-        )
+        self.skipfiles = ('EX150515T11',
+                        'EX180315T14',
+                        'EX180515T4',
+                        'EX200515T4.',)
+
         self.skip_dir = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ChR2/'
 
         if clf_pickle_path == None:
             clf_pickle_path = '../saved_clf'
 
         self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
-        for key in self.fs_dict:
-            print key, self.fs_dict[key]
+        #for key in self.fs_dict:
+            #print key, self.fs_dict[key]
 
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
@@ -57,11 +57,28 @@ class Predictor():
         self.predslist = list(self.preds)
         self.predslist[self.predslist == 4] = 'Baseline'
         self.max_preds = np.max(self.pred_table, axis = 1)
-        #self._string_fun()
-        #self._write_to_excel()
+        self._string_fun2()
+        self._write_to_excel()
 
     def plot_traces(self):
         plot_traces(self.norm_data, self.preds, savestring = self.savestring)
+
+    def _string_fun2(self):
+        '''
+        This method is for the full data, vm gave in 2016/01
+        '''
+        self.nameframe =  pd.DataFrame(columns = ['Date', 'ID', 'File Start', 'File End', 'Pulse Time'])
+        for i,f in enumerate(self.dataobj.filename_list):
+
+            f =  f.split('/')[-1]
+            date = f.split('X')[1].split('T')[0]
+            t_start = '0'
+            t_end   = f.split('_')[-1]
+            t_onset = f.split('_')[1]
+            transmitter = f.split('_')[0].split(date)[-1]
+            #print [date, transmitter, t_start, t_end, t_onset]
+            self.nameframe.loc[i] = [date, transmitter, t_start, t_end, t_onset]
+            #print f
 
     def _string_fun(self):
         self.nameframe =  pd.DataFrame(columns = ['Date', 'ID', 'File Start', 'File End', 'Pulse Time'])
@@ -93,7 +110,7 @@ class Predictor():
         frames = [self.nameframe, sheet, max_preds, pred]
         vmsheet = pd.concat(frames,axis = 1)
         print vmsheet.head()
-        writer = pd.ExcelWriter('../'+self.savestring+'.xlsx',engine = 'xlsxwriter')
+        writer = pd.ExcelWriter('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/'+self.savestring+'.xlsx',engine = 'xlsxwriter')
         vmsheet.to_excel(writer,index = True,sheet_name = 'Pulse prediction' )
         workbook = writer.book
         worksheet = writer.sheets['Pulse prediction']
@@ -117,7 +134,7 @@ nc.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/Co
                  downsample_rate = 20)
 '''
 x = Predictor( clf_pickle_path = '../pickled_classifier')
-x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/')
+x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch/ConvertedFiles/', savestring='PV_ARCH_predictions')
 
 
 #x.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40/c1',downsample_rate=20, savestring = '2015_12_09_predictions_40')

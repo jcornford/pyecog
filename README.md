@@ -5,8 +5,8 @@ Currently taking 10 seconds before a light pulse and extracting 22 features from
 
 ## Todo:
 
-1. Predict the mixed event stuff with the classifier
-2. 
+1. Refactor network_loader - bug fix on the window and downsampling
+2. Features are currently linearly dependent. 
 3. Implement feature selection
 4. Sort out the code from early days vs ipython notebook copies etc
 5. 

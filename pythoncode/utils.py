@@ -18,7 +18,7 @@ mc = {'b' :(77, 117, 179),
 
 for key in mc.keys():
     mc[key] = [x / 255.0 for x in mc[key]]
-    print key, mc[key]
+    #print key, mc[key]
 
 def raw_validation_load():
     dirpath1 = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20'
