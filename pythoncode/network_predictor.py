@@ -37,13 +37,23 @@ class Predictor():
         #print self.r_forest_lda
 
 
-    def assess_states(self, fpath, downsample_rate = None, savestring = 'example', threshold = 65):
+    def assess_states(self, raw_path = None, downsample_rate = None, savestring = 'example',
+                      threshold = 65,
+                      raw_load = True,
+                      saved_path = None,
+                      make_pdfs = True):
 
         self.threshold = '65' # what is this for? - change name
         self.savestring = savestring
+        if raw_load:
+            self.dataobj = SeizureData(raw_path, fs_dict = self.fs_dict)
+            self.dataobj.load_data()
+            f = open('../'+savestring+'_saved','wb')
+            pickle.dump(self.dataobj,f)
 
-        self.dataobj = SeizureData(fpath, fs_dict = self.fs_dict)
-        self.dataobj.load_data()
+        else:
+            assert saved_path != None
+            self.dataobj = pickle.load(open(saved_path,'rb'))
         #print 'printing filename_list'
         #print self.dataobj.filename_list
 
@@ -59,9 +69,11 @@ class Predictor():
         self.max_preds = np.max(self.pred_table, axis = 1)
         self._string_fun2()
         self._write_to_excel()
+        if make_pdfs:
+            self.plot_pdfs()
 
-    def plot_traces(self):
-        plot_traces(self.norm_data, self.preds, savestring = self.savestring)
+    def plot_pdfs(self):
+        plot_traces(self.norm_data, self.preds, savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs/'+self.savestring)
 
     def _string_fun2(self):
         '''
@@ -71,7 +83,10 @@ class Predictor():
         for i,f in enumerate(self.dataobj.filename_list):
 
             f =  f.split('/')[-1]
-            date = f.split('X')[1].split('T')[0]
+            try:
+                date = f.split('X')[1].split('T')[0]
+            except IndexError:
+                date = f.split('x')[1].split('T')[0]
             t_start = '0'
             t_end   = f.split('_')[-1]
             t_onset = f.split('_')[1]
@@ -128,20 +143,24 @@ class Predictor():
                                            'format': format1})
         writer.save()
 
-'''
-nc = Predictor( clf_pickle_path = '../pickled_classifier')
-nc.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch_test/ConvertedFiles/',
-                 downsample_rate = 20)
-'''
 x = Predictor( clf_pickle_path = '../pickled_classifier')
-x.assess_states('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch/ConvertedFiles/', savestring='PV_ARCH_predictions')
 
+makepdfs = True
+x.assess_states(raw_path = None,
+                savestring='PV_ARCH_predictions',
+                raw_load = False,
+                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
+                make_pdfs= makepdfs)
 
-#x.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40/c1',downsample_rate=20, savestring = '2015_12_09_predictions_40')
-'''
-x.plot_traces()
+x.assess_states(raw_path = None,
+                savestring='PV_CHR2_predictions',
+                raw_load = False,
+                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_CHR2_pickled_tensec',
+                make_pdfs= makepdfs)
 
-x20 = Predictor()
-x20.assess_states('/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20',downsample_rate=40, savestring = '2015_12_09_predictions_20')
-x20.plot_traces()
-'''
+x.assess_states(raw_path = None,
+                savestring='SOM_CHR2_predictions',
+                raw_load = False,
+                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/SOM_CHR2_pickled_tensec',
+                make_pdfs= makepdfs)
+

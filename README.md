@@ -11,6 +11,9 @@ Currently taking 10 seconds before a light pulse and extracting 22 features from
 4. Sort out the code from early days vs ipython notebook copies etc
 5. 
 
+## Exclusions:
+1 . EX110215T12
+
 
 
 ## Possible features

@@ -83,9 +83,9 @@ class LFPData(object):
 
 
 
-    def _getLightIndexes(self,light, plot = True):
+    def _getLightIndexes(self,light, plot = False):
 
-        threshold =  ((max(light)-min(light))/2)+abs(min(light))
+        threshold =  ((max(light)-min(light))/2)+min(light)
         #threshold = 1000
         print threshold, 'is threshold', self.original_fs
         mask = np.where(light>threshold,1,0)
@@ -104,17 +104,17 @@ class LFPData(object):
             length = lightindexes[i+1]-lightindexes[i]
             if length > 9.5*self.original_fs*1000 and length < 10.5*self.original_fs*1000:
                 pulse = (lightindexes[i]/self.downsample_rate,lightindexes[i+1]/self.downsample_rate)
-                print pulse[1]-pulse[0]
+                #print (pulse[1]-pulse[0])/float(512), 'seconds after ds'
                 light_index_list.append(pulse)
                 color = 'k'
             else:
                 color = 'r'
             if plot:
-                print i, lightindexes[i+1]-lightindexes[i]
+                print i, (lightindexes[i+1]-lightindexes[i])/float(self.original_fs*1000)
                 plt.plot(light[lightindexes[i]-1*self.original_fs*1000:lightindexes[i+1]+1000*self.original_fs], color = color)
             #print light[lightindexes[i]-512], light[lightindexes[i]+512]
-
-        plt.show()
+        if plot:
+            plt.show()
         return light_index_list
 
 class SeizureData(object):

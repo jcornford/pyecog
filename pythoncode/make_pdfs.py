@@ -62,6 +62,7 @@ def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf
 if __name__ == "__main__":
     training_tuple = pickle.load(open('../training_label_traces_tuple','rb'))
     training_tuple = pickle.load(open('../validation_label_traces_tuple','rb'))
+
     labels = training_tuple[0]
     data = training_tuple[1]
     print 'plotting ',data.shape[0], 'traces'
