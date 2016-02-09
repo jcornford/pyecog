@@ -33,7 +33,9 @@ class Predictor():
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
-        #print self.r_forest
+        self.lda = self.classifier.lda
+
+        print self.lda
         #print self.r_forest_lda
 
 
@@ -43,7 +45,7 @@ class Predictor():
                       saved_path = None,
                       make_pdfs = True):
 
-        self.threshold = '65' # what is this for? - change name
+        self.threshold = '65' # 'sureity' threshold
         self.savestring = savestring
         if raw_load:
             self.dataobj = SeizureData(raw_path, fs_dict = self.fs_dict)
@@ -61,19 +63,31 @@ class Predictor():
         feature_obj = FeatureExtractor(self.norm_data)
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
         iss_features = self.classifier.std_scaler.transform(i_features)
+        lda_iss_features = self.lda.transform(iss_features)
+
         np.set_printoptions(precision=3, suppress = True)
-        self.pred_table = self.r_forest.predict_proba(iss_features)*100
-        self.preds = self.r_forest.predict(iss_features)
-        self.predslist = list(self.preds)
+
+        #self.pred_table = self.r_forest.predict_proba(iss_features)*100
+        #self.preds = self.r_forest.predict(iss_features)
+
+        self.pred_table = self.r_forest_lda.predict_proba(lda_iss_features)*100
+        self.preds = self.r_forest_lda.predict(lda_iss_features)
+
+        self.predslist = list(self.preds) # why need this?
         self.predslist[self.predslist == 4] = 'Baseline'
         self.max_preds = np.max(self.pred_table, axis = 1)
+        #print pred_table
+        self.threshold_for_mixed = np.where(self.max_preds < int(self.threshold),1,0) # 1 when below
         self._string_fun2()
         self._write_to_excel()
         if make_pdfs:
             self.plot_pdfs()
 
     def plot_pdfs(self):
-        plot_traces(self.norm_data, self.preds, savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs/'+self.savestring)
+        plot_traces(self.norm_data,
+                    self.preds,
+                    savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs/'+self.savestring,
+                    prob_thresholds= self.threshold_for_mixed)
 
     def _string_fun2(self):
         '''
@@ -151,6 +165,7 @@ x.assess_states(raw_path = None,
                 raw_load = False,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
                 make_pdfs= makepdfs)
+
 
 x.assess_states(raw_path = None,
                 savestring='PV_CHR2_predictions',

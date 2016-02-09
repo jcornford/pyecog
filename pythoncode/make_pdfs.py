@@ -6,9 +6,29 @@ import numpy as np
 from pythoncode import utils
 
 
-def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf"):
+def plot_traces(to_plot,
+                labels = None,
+                savestring = None,
+                format_string = ".pdf",
+                prob_thresholds = None):
+    '''
+
+    Args:
+        to_plot:
+        labels: if None, traces are all assigned with 1's
+        savestring:
+        format_string:
+        prob_thresholds: if not None, used to color code the index (0-sure- "k", 1-unsure "r")
+
+    Returns:
+
+    '''
+
     if labels == None:
         labels = np.ones(to_plot.shape[0])
+    if prob_thresholds == None:
+        prob_thresholds = np.zeros(to_plot.shape[0])
+
     colors = ['b','r','g','k','purple']
     for section in range(int(np.ceil(to_plot.shape[0]/40.0))):
         print str(section*40)+ ' : ' + str((section+1)*40)
@@ -20,13 +40,14 @@ def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf
         mx = np.max(to_plot[section*40:(section+1)*40,:])
         time = np.linspace(1,10,5120)
 
+        annotation_colors = ['k','r']
         try:
             for i in range(40):
                 ax = fig.add_subplot(20,2,i+1)
                 i += (section)*40
                 ax.axis('off')
                 ax.plot(time,to_plot[i,:], color = colors[int(labels[i])-1], linewidth = 0.5)
-                ax.annotate(str(i), xy = (0,0.3), fontsize = 10)
+                ax.annotate(str(i), xy = (0,0.3), fontsize = 10, color = annotation_colors[prob_thresholds[i]])
                 ax.axis('off')
                 ax.set_ylim((mi,mx))
                 ax.set_xlim((0,10))
@@ -44,7 +65,7 @@ def plot_traces(to_plot, labels = None, savestring = None, format_string = ".pdf
                 i += (section)*40
                 ax.axis('off')
                 ax.plot(time,to_plot[i,:], color = colors[int(labels[i])-1], linewidth = 0.5)
-                ax.annotate(str(i), xy = (0,0.3), fontsize = 10)
+                ax.annotate(str(i), xy = (0,0.3), fontsize = 10, color = annotation_colors[prob_thresholds[i]])
                 ax.axis('off')
                 ax.set_ylim((mi,mx))
                 ax.set_xlim((0,10))
