@@ -36,6 +36,10 @@ class NDFLoader:
         self.t_stamps = None
         self.data = {}
         self.time = {}
+        self.time_diff = {}
+        self.time_512hz = {}
+        self.data_512hz = {}
+        self.resampled = {}
 
         self._get_file_properties()
 
@@ -70,51 +74,55 @@ class NDFLoader:
 
 
 
-    def glitch_removal(self, index, x_std_threshold=10, diff_threshold=20, plot_glitches=False, print_output=False):
-        mean_diff = np.mean(abs(np.diff(self.data[index])))
-        if not self.mean_point:
-            self.mean_point = np.mean(self.data[index])
-        std_dev = np.std(self.data[index])
+    def glitch_removal(self, read_id, x_std_threshold=10, diff_threshold=20, plot_glitches=False, print_output=False):
+        if read_id == []:
+            read_id = set(self.tids)
+            read_id.remove(0)
+        for index in read_id:
+            mean_diff = np.mean(abs(np.diff(self.data[index])))
+            if not self.mean_point:
+                self.mean_point = np.mean(self.data[index])
+            std_dev = np.std(self.data[index])
 
-        # identify candidate glitches based on std deviation
-        threshold = std_dev * x_std_threshold + self.mean_point
-        crossing_locations = np.where(self.data[index] > threshold)[0]
+            # identify candidate glitches based on std deviation
+            threshold = std_dev * x_std_threshold + self.mean_point
+            crossing_locations = np.where(self.data[index] > threshold)[0]
 
-        if plot_glitches:
-            plt.plot(self.time[index], self.data[index])
-            plt.title('Full trace')
-            plt.show()
+            if plot_glitches:
+                plt.plot(self.time[index], self.data[index])
+                plt.title('Full trace')
+                plt.show()
 
-        # check local difference is much bigger than the mean difference between points
-        glitch_count = 0
-        for location in crossing_locations:
-            if location == 0:
-                print('Warning: if two glitches at start, correction will fail')
-            i = location - 1
-            ii = location + 1
-            # if abs(np.diff(self.data[i:ii])).all() > mean_diff * diff_threshold:
-            try:
-                if abs(self.data[index][location] - self.data[index][ii]) > 10 * std_dev:
-                    # plot glitche to be removed if plotting option is on
-                    if plot_glitches:
-                        plt.plot(self.time[index][location - 512:location + 512],
-                                 self.data[index][location - 512:location + 512])
-                        plt.show()
-                    try:
-                        value = self.data[index][i] + (self.time[index][location] - self.time[index][i]) * (
-                        self.data[index][ii] - self.data[index][i]) / (self.time[index][ii] - self.time[index][i])
-                        self.data[index][location] = value
-                    except KeyError:
-                        pass
-                    glitch_count += 1
-            except KeyError:
-                pass
+            # check local difference is much bigger than the mean difference between points
+            glitch_count = 0
+            for location in crossing_locations:
+                if location == 0:
+                    print('Warning: if two glitches at start, correction will fail')
+                i = location - 1
+                ii = location + 1
+                # if abs(np.diff(self.data[i:ii])).all() > mean_diff * diff_threshold:
+                try:
+                    if abs(self.data[index][location] - self.data[index][ii]) > 10 * std_dev:
+                        # plot glitche to be removed if plotting option is on
+                        if plot_glitches:
+                            plt.plot(self.time[index][location - 512:location + 512],
+                                     self.data[index][location - 512:location + 512])
+                            plt.show()
+                        try:
+                            value = self.data[index][i] + (self.time[index][location] - self.time[index][i]) * (
+                            self.data[index][ii] - self.data[index][i]) / (self.time[index][ii] - self.time[index][i])
+                            self.data[index][location] = value
+                        except IndexError:
+                            pass
+                        glitch_count += 1
+                except IndexError:
+                    pass
 
-        if print_output:
-            print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of',)# end=' ')
-            print(x_std_threshold, 'times the std deviation. Therefore threshold was:', std_dev * x_std_threshold)
-            print('above mean. Also used local difference between points, glitch was at least', diff_threshold,)# end=' ')
-            print('greater than mean difference.')
+            if print_output:
+                print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of',)# end=' ')
+                print(x_std_threshold, 'times the std deviation. Therefore threshold was:', std_dev * x_std_threshold)
+                print('above mean. Also used local difference between points, glitch was at least', diff_threshold,)# end=' ')
+                print('greater than mean difference.')
 
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
@@ -141,7 +149,7 @@ class NDFLoader:
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
 
-    def save(self, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
+    def save(self, file_name, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
         """
         Default is to save all channels (-1). If you want to specify which channels to save
         pass in a tuple with desired channel numbers. e.g. (1,3,5,9) for channels 1, 3, 5 and 9.
@@ -162,18 +170,23 @@ class NDFLoader:
         """
         print('WARNING: SAVE NOT FINISHED')
 
-        savefile = h5py.File(self.filepath[:-4] + '.hdf5', 'w')
-        hdf5_data = savefile.create_dataset('data', shape=self.data.shape, dtype='float')
-        hdf5_time = savefile.create_dataset('time', shape=self.time.shape, dtype='float')
-        # hdf5_data = savefile.create_dataset(self.file_label+'_data', shape=self.data.shape, dtype='float')
-        # hdf5_time = savefile.create_dataset(self.file_label+'_time', shape = self.time.shape, dtype='float')
-
-        if self.resampled:
-            hdf5_data[:] = self.data_512hz
-            hdf5_time[:] = self.time_512hz
-        else:
-            hdf5_data[:] = self.data
-            hdf5_time[:] = self.time
+        hdf5_data = {}
+        hdf5_time = {}
+        with h5py.File(file_name, 'a') as f:
+            f.attrs['num_channels'] = len(self.data)
+            file_group = f.create_group(self.filepath[:-4])
+            for i in self.data.keys():
+                transmitter_group = file_group.create_group(str(i))
+                resampled = False
+                try:
+                    resampled = self.resampled[i]
+                except KeyError:
+                    pass
+                data_to_save = self.data_512hz[i] if resampled else self.data[i]
+                time_to_save = self.time_512hz[i] if resampled else self.time[i]
+                hdf5_data[i] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
+                hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
+                transmitter_group.attrs["resampled"] = resampled
 
         '''
         #implement multiple processes for saving
@@ -210,9 +223,6 @@ class NDFLoader:
         Returns:
 
         """
-        if read_id == []:
-            read_id = set(self.tids)
-            read_id.remove(0)
 
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
@@ -222,7 +232,9 @@ class NDFLoader:
         transmitter_ids = e_bit_reads[::4]
         self.tids = transmitter_ids
         self.t_stamps = e_bit_reads[3::4]
-
+        if read_id == []:
+            read_id = set(self.tids)
+            read_id.remove(0)
         # Here we find bad message
         bad_messages = {}
         for id in read_id:
@@ -241,9 +253,6 @@ class NDFLoader:
                     # same as (time%64) - k.
                     if offset > 9 and offset < 51:
                         bad_messages[id].append(j + begin_chunk)
-        print '**** Bad messages *****'
-        print(len(bad_messages[8]), 'for tranmitter 8')
-        print(len(self.t_stamps[transmitter_ids == 8]))
 
         # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address + 1)
@@ -262,64 +271,68 @@ class NDFLoader:
             self.time[id] = self.time_array[transmitter_ids == id]
             self.time[id] = np.delete(self.time[id], bad_messages[id])
 
-    def correct_sampling_frequency(self, index, fs=512.0, overwrite=False):
-        # first check that we are not interpolating datapoints for more than 1 second?
-        #assert max(np.diff(self.time[index])) < 1.0
-        self.time_diff = np.diff(self.time[index])
+    def correct_sampling_frequency(self, read_id, fs=512.0, overwrite=False):
+        if read_id == []:
+            read_id = set(self.tids)
+            read_id.remove(0)
+        for index in read_id:
+            # first check that we are not interpolating datapoints for more than 1 second?
+            #assert max(np.diff(self.time[index])) < 1.0
+            self.time_diff[index] = np.diff(self.time[index])
 
-        # do linear interpolation between the points
-        self.time_512hz = np.linspace(0, self.time[index][-1], num=self.time[index][-1] * fs)
-        self.data_512hz = np.interp(self.time_512hz, self.time[index], self.data[index])
-        self.resampled = True
+            # do linear interpolation between the points
+            self.time_512hz[index] = np.linspace(0, self.time[index][-1], num=self.time[index][-1] * fs)
+            self.data_512hz[index] = np.interp(self.time_512hz[index], self.time[index], self.data[index])
+            self.resampled[index] = True
 
-        if overwrite:
-            self.time[index] = self.time_512hz[:]
-            self.data[index] = self.data_512hz[:]
-            print('overwrite')
+            if overwrite:
+                self.time[index] = self.time_512hz[index][:]
+                self.data[index] = self.data_512hz[index][:]
+                print('overwrite')
 
 
 def main(filename):
     print("Reading : " + filename)
     start = time.clock()
     ndf = NDFLoader(filename)
-    ndf.load([8])
-    ndf.glitch_removal(index=8, plot_glitches=False, print_output=True)
+    ndf.load([])
+    ndf.glitch_removal(read_id=[], plot_glitches=False, print_output=False)
     print((time.clock() - start) * 1000, 'ms to load the ndf file')
 
     start2 = time.clock()
-    ndf.correct_sampling_frequency(index=8)
+    ndf.correct_sampling_frequency(read_id=[])
+
+    ndf.save('data.db')
     print((time.clock() - start2) * 1000, 'ms to load resample')
 
-    times = ndf.time[8] * 1000
-    diffs = np.diff(times)
-    fs_ac = 1000.0 / diffs
-    print(times)
-    print(diffs)
+    # times = ndf.time[8] * 1000
+    # diffs = np.diff(times)
+    # fs_ac = 1000.0 / diffs
+    # print(times)
+    # print(diffs)
 
-    plt.figure()
-    plt.hist(fs_ac, bins=50, normed=True)
-    # plt.xlim(0, 700)
-    plt.xlabel('Instantaneous frequency (Hz)')
-    plt.title(filename + ' instantaneous sampling frequencies')
-    # plt.savefig('../../fs distribution.png')
-    plt.show()
+    # plt.figure()
+    # plt.hist(fs_ac, bins=50, normed=True)
+    # # plt.xlim(0, 700)
+    # plt.xlabel('Instantaneous frequency (Hz)')
+    # plt.title(filename + ' instantaneous sampling frequencies')
+    # # plt.savefig('../../fs distribution.png')
+    # plt.show()
 
     # print (ndf.time_diff[:20]*1000)/(1/512.0*1000)
     # print np.std(ndf.time_diff[:20]*1000)
-    print((1 / 512.0) * 1000)
-    print(diffs / ((1 / 512.0) * 1000))
-    # print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
-
-    print(1000.0 / np.max(diffs))
-    print(1000.0 / np.min(diffs))
+    # print((1 / 512.0) * 1000)
+    # print(diffs / ((1 / 512.0) * 1000))
+    # # print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
+    #
+    # print(1000.0 / np.max(diffs))
+    # print(1000.0 / np.min(diffs))
 
 
 if __name__ == "__main__":
-    main('/Users/Jonathan/Dropbox/M1445362612.ndf')
+    main(sys.argv[1])
 
 '''
-ndf.save()
-
 start = time.clock()
 file = h5py.File('/Users/Jonathan/Dropbox/M1445362612.hdf5', 'r')
 data = file['data']
