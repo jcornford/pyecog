@@ -12,7 +12,7 @@ from classifier import NetworkClassifer
 from make_pdfs import plot_traces
 
 ################# Training Data ###################
-reload_training = True
+reload_training = False
 if reload_training:
     training_traces = utils.raw_training_load()
     training_traces_norm = utils.normalise(training_traces)
@@ -37,7 +37,7 @@ for i in range(training_labels.shape[0]):
             training_indexes.append(i)
 
 ################## Test Data ####################
-reload_validation = True
+reload_validation = False
 if reload_validation:
     validation_traces = utils.raw_validation_load()
     validation_traces_norm = utils.normalise(validation_traces)
