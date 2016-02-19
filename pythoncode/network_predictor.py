@@ -54,13 +54,46 @@ class Predictor():
             pickle.dump(self.dataobj,f)
 
         else:
-            assert saved_path != None
+            #assert saved_path != None
+
             self.dataobj = pickle.load(open(saved_path,'rb'))
+            ###################################
+            # adding to the training dataset!
+            for_training = True
+            certified_training = []
+            if for_training:
+                #print 'here'
+                t_labels = pd.read_excel('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/090216_PVArch_test0_7.xlsx').values
+                #print t_labels
+                for i in range(t_labels.shape[0]):
+                    if t_labels[i,1] != 4: # in this excel doc we usde 4 for mixed state! :/ and 0 for baseline
+                        certified_training.append(i)
+
+
+                #print t_labels[certified_training,:]
+                f = open('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/new_training_data_2016_02_09','wb')
+                pickle.dump(self.dataobj.data_array[certified_training,:],f)
+                print self.dataobj.data_array[certified_training,:].shape
+
+                t_labels_vet = t_labels[certified_training,1]
+                t_labels_vet[t_labels_vet==0] = 4 # need to correct to use the baseline index 4, as normal
+                f = open('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/new_training_labels_2016_02_09','wb')
+                pickle.dump(t_labels_vet,f)
+                print t_labels_vet.shape
+                print t_labels_vet
+
+
+
+
+
+
+            ###################################
         #print 'printing filename_list'
         #print self.dataobj.filename_list
 
         self.norm_data = utils.normalise(self.dataobj.data_array)
         feature_obj = FeatureExtractor(self.norm_data)
+
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
         iss_features = self.classifier.std_scaler.transform(i_features)
         lda_iss_features = self.lda.transform(iss_features)
@@ -160,7 +193,7 @@ class Predictor():
 x = Predictor( clf_pickle_path = '../pickled_classifier')
 
 makepdfs = True
-x.assess_states(raw_path = None,
+x.assess_states(raw_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ARCH/ConvertedFiles/',
                 savestring='PV_ARCH_predictions',
                 raw_load = False,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
@@ -178,4 +211,3 @@ x.assess_states(raw_path = None,
                 raw_load = False,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/SOM_CHR2_pickled_tensec',
                 make_pdfs= makepdfs)
-

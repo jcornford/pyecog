@@ -36,6 +36,20 @@ for i in range(training_labels.shape[0]):
         if training_labels[i] != 0:
             training_indexes.append(i)
 
+
+################## Training data added 2016/02/15 after first try outs ################
+lacie_training = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/'
+training_traces2 = pickle.load(open(lacie_training + 'new_training_data_2016_02_09','rb'))
+training_traces2_norm = utils.normalise(training_traces2)
+training_data2 = FeatureExtractor(training_traces2_norm).feature_array
+training_labels2 = pickle.load(open(lacie_training + 'new_training_labels_2016_02_09','rb'))
+
+# now merge:
+updated_training_data = np.vstack((training_data.feature_array[training_indexes,:], training_data2))
+updated_training_labels = np.hstack((training_labels[training_indexes],training_labels2))
+print updated_training_data.shape, 'is updated shape, and labels...',
+print updated_training_labels.shape
+
 ################## Test Data ####################
 reload_validation = False
 if reload_validation:
@@ -63,7 +77,12 @@ for i in range(validation_labels.shape[0]):
 
 np.savetxt('all_traces.csv',np.vstack((validation_traces_norm,training_traces_norm)),delimiter=',')
 np.savetxt('all_cleanup.csv',np.hstack((validation_labels)), delimiter = ',')
-classifier = NetworkClassifer(training_data.feature_array[training_indexes,:],training_labels[training_indexes],
+
+# comment out on 2016/02/15 when using the extra training data!
+#classifier = NetworkClassifer(training_data.feature_array[training_indexes,:],training_labels[training_indexes],
+#                             validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
+
+classifier = NetworkClassifer(updated_training_data,updated_training_labels,
                               validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
 classifier.run()
 
