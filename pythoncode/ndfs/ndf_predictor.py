@@ -1,12 +1,18 @@
 import pickle
-import utils
+import pythoncode.utils as utils
 
 import numpy as np
 import pandas as pd
 
-from network_loader import SeizureData
-from extrator import FeatureExtractor
-from make_pdfs import plot_traces
+from pythoncode.network_loader import SeizureData
+from pythoncode.extrator import FeatureExtractor
+from pythoncode.make_pdfs import plot_traces
+
+
+import matplotlib.pyplot as plt
+import h5py
+
+
 
 class Predictor():
 
@@ -14,23 +20,13 @@ class Predictor():
     Todo:
     '''
 
-    def __init__(self, clf_pickle_path=None, fs_dict_path='../pickled_fs_dictionary'):
+    def __init__(self, clf_pickle_path, fs_dict_path='../pickled_fs_dictionary'):
 
-        self.skipfiles = ('EX150515T11',
-                        'EX180315T14',
-                        'EX180515T4',
-                        'EX200515T4.',)
-
-        self.skip_dir = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ChR2/'
-
-        if clf_pickle_path == None:
-            clf_pickle_path = '../saved_clf'
-
-        self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
+        #self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
         #for key in self.fs_dict:
             #print key, self.fs_dict[key]
-
-        self.classifier = pickle.load(open(clf_pickle_path,'rb'))
+        pickle.load(open('/Volumes/LACIE SHARE/pickled_classifier','rb'))
+        #self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
         self.lda = self.classifier.lda
@@ -47,51 +43,40 @@ class Predictor():
 
         self.threshold = '65' # 'sureity' threshold
         self.savestring = savestring
-        if raw_load:
-            self.dataobj = SeizureData(raw_path, fs_dict = self.fs_dict)
-            self.dataobj.load_data()
-            f = open('../'+savestring+'_saved','wb')
-            pickle.dump(self.dataobj,f)
-
-        else:
-            #assert saved_path != None
-
-            self.dataobj = pickle.load(open(saved_path,'rb'))
-            ###################################
-            # adding to the training dataset!
-            for_training = True
-            certified_training = []
-            if for_training:
-                #print 'here'
-                t_labels = pd.read_excel('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/090216_PVArch_test0_7.xlsx').values
-                #print t_labels
-                for i in range(t_labels.shape[0]):
-                    if t_labels[i,1] != 4: # in this excel doc we usde 4 for mixed state! :/ and 0 for baseline
-                        certified_training.append(i)
 
 
-                #print t_labels[certified_training,:]
-                f = open('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/new_training_data_2016_02_09','wb')
-                pickle.dump(self.dataobj.data_array[certified_training,:],f)
-                print self.dataobj.data_array[certified_training,:].shape
+        with h5py.File('M1455096626.hdf5', 'r') as hf:
 
-                t_labels_vet = t_labels[certified_training,1]
-                t_labels_vet[t_labels_vet==0] = 4 # need to correct to use the baseline index 4, as normal
-                f = open('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/new_training_labels_2016_02_09','wb')
-                pickle.dump(t_labels_vet,f)
-                print t_labels_vet.shape
-                print t_labels_vet
+            for key in hf.attrs.keys():
+                print key, hf.attrs[key]
+            print hf.items()
+
+            for ndfkey in hf.keys():
+                print ndfkey, 'is hf key'
+                datadict = hf.get(ndfkey)
+
+            for tid in datadict.keys():
+
+                time = np.array(datadict[tid]['time'])
+                data = np.array(datadict[tid]['data'])
+                #print npdata.shape
+
+            print data.shape
+
+            index = data.shape[0]/5120
+            print index, 'is divded by 5120'
+
+            data_array = np.reshape(data[:5120*index], (index,5120,))
+            print data_array.shape
+            #plt.figure(figsize = (20,10))
+            #plt.plot(data_array[40,:])
+
+            #plt.show()
+        self.data_array = data_array
 
 
 
-
-
-
-            ###################################
-        #print 'printing filename_list'
-        #print self.dataobj.filename_list
-
-        self.norm_data = utils.normalise(self.dataobj.data_array)
+        self.norm_data = utils.normalise(self.data_array)
         feature_obj = FeatureExtractor(self.norm_data)
 
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
@@ -111,15 +96,15 @@ class Predictor():
         self.max_preds = np.max(self.pred_table, axis = 1)
         #print pred_table
         self.threshold_for_mixed = np.where(self.max_preds < int(self.threshold),1,0) # 1 when below
-        self._string_fun2()
-        self._write_to_excel()
+        #self._string_fun2()
+        #self._write_to_excel()
         if make_pdfs:
             self.plot_pdfs()
 
     def plot_pdfs(self):
         plot_traces(self.norm_data,
                     self.preds,
-                    savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs/'+self.savestring,
+                    savestring = '/Volumes/LACIE SHARE/Andys ndf/pdfs/'+self.savestring,
                     prob_thresholds= self.threshold_for_mixed)
 
     def _string_fun2(self):
@@ -192,22 +177,12 @@ class Predictor():
 
 x = Predictor( clf_pickle_path = '/Users/jonathan/PycharmProjects/networkclassifer/pickled_classifier')
 
-makepdfs = False
-x.assess_states(raw_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ARCH/ConvertedFiles/',
-                savestring='PV_ARCH_predictions',
+makepdfs = True
+
+x.assess_states(raw_path = '/Volumes/LACIE SHARE/Andys ndf/',
+                savestring='ndf_predictions',
                 raw_load = False,
-                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
+                saved_path = '/Volumes/LACIE SHARE/Andys ndf',
                 make_pdfs= makepdfs)
 
 
-x.assess_states(raw_path = None,
-                savestring='PV_CHR2_predictions',
-                raw_load = False,
-                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_CHR2_pickled_tensec',
-                make_pdfs= makepdfs)
-
-x.assess_states(raw_path = None,
-                savestring='SOM_CHR2_predictions',
-                raw_load = False,
-                saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/SOM_CHR2_pickled_tensec',
-                make_pdfs= makepdfs)

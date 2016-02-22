@@ -38,7 +38,7 @@ def plot_traces(to_plot,
         plt.title('Traces '+ str(section*40)+ ':' + str((section+1)*40)+'  1:blue 2:red 3:green B1:black')
         mi = np.min(to_plot[section*40:(section+1)*40,:])
         mx = np.max(to_plot[section*40:(section+1)*40,:])
-        time = np.linspace(1,10,5120)
+        time = np.linspace(1,10,(5120/2))
 
         annotation_colors = ['k','r']
         try:

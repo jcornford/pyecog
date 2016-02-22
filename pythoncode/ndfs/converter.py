@@ -172,9 +172,10 @@ class NDFLoader:
 
         hdf5_data = {}
         hdf5_time = {}
-        with h5py.File(file_name, 'a') as f:
+        print file_name
+        with h5py.File(file_name, 'w') as f:
             f.attrs['num_channels'] = len(self.data)
-            file_group = f.create_group(self.filepath[:-4])
+            file_group = f.create_group(self.filepath.split('/')[-1][:-4])
             for i in self.data.keys():
                 transmitter_group = file_group.create_group(str(i))
                 resampled = False
@@ -187,6 +188,15 @@ class NDFLoader:
                 hdf5_data[i] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
                 hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
                 transmitter_group.attrs["resampled"] = resampled
+
+
+        with h5py.File('M1455096626.hdf5', 'r') as hf:
+            print hf.keys()
+            print hf.attrs['num_channels']
+            print('List of arrays in this file: \n', hf.keys())
+        #data = hf.get('dataset_1')
+        #np_data = np.array(data)
+        #print('Shape of the array dataset_1: \n', np_data.shape)
 
         '''
         #implement multiple processes for saving
@@ -291,18 +301,18 @@ class NDFLoader:
                 print('overwrite')
 
 
-def main(filename):
+def main(filename, id = 2):
     print("Reading : " + filename)
     start = time.clock()
     ndf = NDFLoader(filename)
-    ndf.load([])
-    ndf.glitch_removal(read_id=[], plot_glitches=False, print_output=False)
+    ndf.load([id])
+    ndf.glitch_removal(read_id=[id], plot_glitches=False, print_output=False)
     print((time.clock() - start) * 1000, 'ms to load the ndf file')
 
     start2 = time.clock()
-    ndf.correct_sampling_frequency(read_id=[])
+    ndf.correct_sampling_frequency(read_id=[id])
 
-    ndf.save('data.db')
+    ndf.save('/Volumes/LACIE SHARE/Andys ndf/M1455096626.hdf5')
     print((time.clock() - start2) * 1000, 'ms to load resample')
 
     # times = ndf.time[8] * 1000
@@ -330,7 +340,7 @@ def main(filename):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main('/Volumes/LACIE SHARE/Andys ndf/M1455096626.ndf')
 
 '''
 start = time.clock()
