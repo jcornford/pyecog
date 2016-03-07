@@ -3,14 +3,14 @@ import os
 from os.path import join
 
 import numpy as np
-
+import utils
 import abf_loader
 
 class LFPData(object):
     """
     Class for one section of data before the light pulse.
     """
-    def __init__(self, path,preprocess, window_len, target_fs = 512, label = None, original_fs_dict = {}):
+    def __init__(self, path,preprocess, window_len, target_fs = 512, label = None, original_fs_dict = {}, filter = True, to_dwnsmple = False ):
 
         self.original_fs_dict = original_fs_dict
         self.target_fs = target_fs # this is not being used at the moment
@@ -18,8 +18,10 @@ class LFPData(object):
         self.label = None
         self.filename = path
 
+        print path
         self.alldata = np.load(path)
-
+        print 'here'
+        print self.alldata.shape
         #print self.alldata.shape
         if preprocess:
 
@@ -30,14 +32,29 @@ class LFPData(object):
             except KeyError:
                 print 'Did not find key in fs dictonary!'
                 # insert calculation code!
-                exit(1)
 
-            self.downsample_rate = int(self.original_fs * 1000/ float(self.target_fs)) # for converting between khz to 500
+                if to_dwnsmple:
+                    print 'got a shitty argument INCORRECT!'
+                    self.original_fs =( to_dwnsmple * 500)/1000
+                    print self.original_fs, 'is original rate in seconds'
+
+                else:
+                    exit(1)
+
+
+            self.downsample_rate = int(self.original_fs * 1000/ float(self.target_fs)) # for converting between khz to 500 - in secconds
+
 
             # if more advanced can make a method for this
             #print "downsampled!"
-            print(self.filename[-65:-3]+'...'),
+            print(self.filename[-65:-3]+'...')
             self.fullfs = self.alldata[:,:]
+            print self.alldata.shape, 'is now alldatashape'
+            if filter:
+                print 'filtering!'
+                self.alldata[:,1] = utils.filterArray(self.alldata[:,1])
+                print self.alldata.shape
+                print self.downsample_rate, 'is downsample_rate'
             self.alldata = self.alldata[::self.downsample_rate,:]
             file_len = str(self.alldata.shape[0]/500)
             print file_len
@@ -67,6 +84,7 @@ class LFPData(object):
             #self.data_array -= np.mean(self.data_array,axis = 0)
             # remove glitches
             #print 'remove glitches in lfpdata.py ran '
+            print '*******', self.data_array.shape, 'is data array shape ********'
             self.threshold = np.std(self.data_array, axis = 1)*7
             self.mask = np.where(self.data_array>self.threshold[:,None],0,1)
             self.mask2 = np.where(self.data_array<-self.threshold[:,None],0,1)
@@ -121,11 +139,12 @@ class SeizureData(object):
     '''
     Class to load all files in a base directory
     '''
-    def __init__(self, base_dir_path, fs_dict = {}, target_fs=512):
+    def __init__(self, base_dir_path, fs_dict = {}, target_fs=512,to_dwnsmple = False):
         '''
 
         '''
         self.target_fs = target_fs
+        self.to_dwnsmple = to_dwnsmple # this is bullshit for the training data from vincent
 
         self.original_fs_dict = fs_dict
 
@@ -133,7 +152,7 @@ class SeizureData(object):
             raise ValueError('%s is not a directory.' % base_dir_path)
         self.base_dir = base_dir_path
 
-    def load_data(self, n_states = 3, window = 10, preprocess = True):
+    def load_data(self, n_states = 3, window = 10, preprocess = True,):
         """
         Loads data for a network state and type of data into class variable.
         No output.
@@ -148,12 +167,13 @@ class SeizureData(object):
         self.data_array_list = []
         self.label_colarray_list = []
         self.filename_list = []
+        print self.filenames
 
         for i, filename in enumerate(self.filenames):
             print filename
             #print float(i)/float(len(self.filenames))*100.," percent complete         \r",
             # Each call of _load_data_from_file appends data to features_train
-            self.temp_data,self.temp_label, self.name = self._load_data_from_filename(filename, preprocess=preprocess)
+            self.temp_data,self.temp_label, self.name = self._load_data_from_filename(filename, preprocess=preprocess,to_dwnsmple = self.to_dwnsmple)
             self.data_array_list.append(self.temp_data)
             self.label_colarray_list.append(self.temp_label[:])
             self.filename_list.append(self.name[:])
@@ -170,17 +190,30 @@ class SeizureData(object):
         #print "\nDone"
 
     def _get_filenames(self):
+
         filenames = [join(self.base_dir, name) for name in os.listdir(self.base_dir) if name[-4:] == '.npy']
         #print filenames
+
+        if len(filenames) == 0:
+
+            cfolders =  [os.path.join(self.base_dir, c_string) for c_string in os.listdir(self.base_dir) if c_string[0] == 'c']
+
+            filenames = []
+            for folder in cfolders:
+                for name in os.listdir(folder):
+                    if name[-4:] == '.npy':
+                        filenames.append(os.path.join(folder, name))
+
         return filenames
 
-    def _load_data_from_filename(self,filename, preprocess = True):
+    def _load_data_from_filename(self,filename, preprocess = True,to_dwnsmple = False ):
+
         for i in range(self.n_states):
             if filename.find('c'+str(i+1)) >-1: # in case pre-classified in folders
                 label = i+1
             else:
                 label = 0
-        lfp_data = LFPData(filename,preprocess, self.window, label = label, target_fs=self.target_fs, original_fs_dict=self.original_fs_dict)
+        lfp_data = LFPData(filename,preprocess, self.window, label = label, target_fs=self.target_fs, original_fs_dict=self.original_fs_dict,to_dwnsmple = to_dwnsmple )
 
         return lfp_data.data_array, lfp_data.label_array, lfp_data.name_array
 

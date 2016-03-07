@@ -1,6 +1,7 @@
-import time
 
 import pickle
+import h5py
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -45,10 +46,15 @@ training_data2 = FeatureExtractor(training_traces2_norm).feature_array
 training_labels2 = pickle.load(open(lacie_training + 'new_training_labels_2016_02_09','rb'))
 
 # now merge:
+
+updated_training_data_traces = np.vstack((training_traces[training_indexes,:],training_traces2))
 updated_training_data = np.vstack((training_data.feature_array[training_indexes,:], training_data2))
 updated_training_labels = np.hstack((training_labels[training_indexes],training_labels2))
 print updated_training_data.shape, 'is updated shape, and labels...',
 print updated_training_labels.shape
+print updated_training_data_traces.shape, 'is updated traces shape!'
+
+
 
 ################## Test Data ####################
 reload_validation = False
@@ -75,12 +81,40 @@ for i in range(validation_labels.shape[0]):
         if validation_labels[i] != 0:
             validation_indexes.append(i)
 
-np.savetxt('all_traces.csv',np.vstack((validation_traces_norm,training_traces_norm)),delimiter=',')
-np.savetxt('all_cleanup.csv',np.hstack((validation_labels)), delimiter = ',')
+#np.savetxt('all_traces.csv',np.vstack((validation_traces_norm,training_traces_norm)),delimiter=',')
+#np.savetxt('all_cleanup.csv',np.hstack((validation_labels)), delimiter = ',')
 
 # comment out on 2016/02/15 when using the extra training data!
 #classifier = NetworkClassifer(training_data.feature_array[training_indexes,:],training_labels[training_indexes],
 #                             validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
+
+###### Save the training and test here into hdf5 / databases #######
+hdf5_data = {}
+file_name = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
+
+print file_name
+
+with h5py.File(file_name, 'w') as f:
+    f.name
+
+    training = f.create_group('training')
+    test = f.create_group('test')
+
+    training.create_dataset('data', data = updated_training_data_traces)
+    test.create_dataset('data', data = validation_traces[validation_indexes])
+
+    training.create_dataset('labels', data = updated_training_labels)
+    test.create_dataset('labels', data = validation_labels[validation_indexes])
+
+    training.create_dataset('features', data = updated_training_data)
+    test.create_dataset('features',data = validation_data.feature_array[validation_indexes])
+
+    print training.keys()
+    print test.keys()
+
+    #plt.plot(training['data'][49,:])
+
+#exit()
 
 classifier = NetworkClassifer(updated_training_data,updated_training_labels,
                               validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])

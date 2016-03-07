@@ -1,6 +1,5 @@
 import os
 import struct
-import sys
 import time
 
 import h5py
@@ -13,12 +12,36 @@ class NDFLoader:
     """
     Class to load ndf binary files.
 
-    To implement:
-        - Save as hdf5 file, assess file size in that format - 1mb smaller!
-        - Read time of hdf5 file?
-        - Interpolate missing data for stable 512 hz sampling.
-        - Detect glitches and remove.
-        - Add option to have baseline be one - remove median or something.
+    From open source instruments website:
+    The NDF format is designed to make it easy for us to add one-dimensional data to an existing file. The letters NDF
+    stand for Neuroscience Data Format. The NDF file starts with a header of at least twelve bytes. The first four bytes
+    spell the NDF identifier " ndf".
+
+    Three four-byte numbers follow the identifier. All are big-endian (most significant byte first). The first number is the
+    address of the meta-data string. By address we mean the byte offset from the first byte of the file, so the first byte
+    has address zero and the tenth byte has address nine. Thus the address of the meta-data string is the number of bytes
+    we skip from the start of the file to get to the first character of the meta-data string. This address must be at least
+    16 to avoid the header. The meta-data string is a null-terminated ASCII character string. The second number is the
+    address of the first data byte. The data extends to the end of the file. To determine the length of the data, we obtain
+     the length of the file from the local operating system and subtract the data address. The third number is the actual
+     length of the meta-data string, as it was last written. If this number is zero, any routines dealing with the
+     meta-data string must determine the length of the string themselves.
+
+    The messages in the data recorder's message buffer are each four bytes long. The bytes of each message are listed in
+    the table below. The Channel Number is used to identify the source of the message. Channel number zero is reserved for
+    clock messages. In the case of Subcutaneous Transmitters, the channel number is the Transmitter Identification Number
+    (TIN). Following the channel number, each message contains a sixteen-bit data word. In the case of SCTs, the
+    sixteen-bit data word is a digitized voltage. The last byte of the message is a timestamp.
+
+    Byte	Contents
+    0	Channel Number
+    1	Most Significant Data Byte
+    2	Least Significant Data Byte
+    3	Timestamp or Version Number
+
+    The data recorder will never store a message with channel number zero unless that message comes from the clock.
+    All messages with channel number zero are guaranteed to be clocks.
+
     """
 
     def __init__(self, file_path, time_interval_hours=(0, 1), print_meta=False):
@@ -48,15 +71,15 @@ class NDFLoader:
         self.bit_size = 16
         self.volt_div = self.adc_range / (2 ** self.bit_size) / self.amp_factor * 1e3  # in mV unit
 
-        # firmware dependent check needed in future - this here or above?
+        # firmware dependent check needed in future?
         self.clock_tick_cycle = 7.8125e-3  # per second
         self.clock_division = self.clock_tick_cycle / 256.0
         self.time_interval_hours = time_interval_hours
         self.time_interval = self.time_interval_hours * 3600  # convert hourly interval to seconds
 
     def remove_points_based_on_timestamps(self, indexes=[]):
-        """Remove data points based on timestamp.
-
+        """
+        Remove data points based on timestamp.
         """
         if indexes == []:
             indexes = self.tids
@@ -68,10 +91,7 @@ class NDFLoader:
                 # Read a 2000 long chunk of data
                 begin_chunk = 0*i
                 end_chunk = max(begin_chunk+2000, np.length(self.data[id]))
-                chunck_times = self.time[id][begin_chunk:end_chunk]
-
-
-
+                chunk_times = self.time[id][begin_chunk:end_chunk]
 
 
     def glitch_removal(self, read_id, x_std_threshold=10, diff_threshold=20, plot_glitches=False, print_output=False):
@@ -103,7 +123,7 @@ class NDFLoader:
                 # if abs(np.diff(self.data[i:ii])).all() > mean_diff * diff_threshold:
                 try:
                     if abs(self.data[index][location] - self.data[index][ii]) > 10 * std_dev:
-                        # plot glitche to be removed if plotting option is on
+                        # plot glitches to be removed if plotting option is on
                         if plot_glitches:
                             plt.plot(self.time[index][location - 512:location + 512],
                                      self.data[index][location - 512:location + 512])
@@ -149,20 +169,16 @@ class NDFLoader:
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
 
-    def save(self, file_name, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
+    def save(self, save_file_name, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
         """
         Default is to save all channels (-1). If you want to specify which channels to save
         pass in a tuple with desired channel numbers. e.g. (1,3,5,9) for channels 1, 3, 5 and 9.
         Info on channels and their recording length can be found in the channel_info attribute.
 
         Currently accepting the following savefile format options:
-            - csv
-            - xls
             - hdf5
-            - npy
-            - pickle
 
-        Strongly recommended to save in hdf5 file format
+        Strongly recommended to save in hdf5 file format!
 
         Args:
             file_format:
@@ -170,33 +186,27 @@ class NDFLoader:
         """
         print('WARNING: SAVE NOT FINISHED')
 
-        hdf5_data = {}
-        hdf5_time = {}
-        print file_name
-        with h5py.File(file_name, 'w') as f:
-            f.attrs['num_channels'] = len(self.data)
-            file_group = f.create_group(self.filepath.split('/')[-1][:-4])
-            for i in self.data.keys():
-                transmitter_group = file_group.create_group(str(i))
-                resampled = False
-                try:
-                    resampled = self.resampled[i]
-                except KeyError:
-                    pass
-                data_to_save = self.data_512hz[i] if resampled else self.data[i]
-                time_to_save = self.time_512hz[i] if resampled else self.time[i]
-                hdf5_data[i] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
-                hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
-                transmitter_group.attrs["resampled"] = resampled
+        if file_format == 'hdf5':
+            hdf5_filename = save_file_name + '.' + file_format
+            hdf5_data = {}
+            hdf5_time = {}
+            with h5py.File(hdf5_filename, 'w') as f:
+                f.attrs['num_channels'] = len(self.data)
+                file_group = f.create_group(self.filepath.split('/')[-1][:-4])
+                for i in self.data.keys():
+                    transmitter_group = file_group.create_group(str(i))
+                    resampled = False
+                    try:
+                        resampled = self.resampled[i]
+                    except KeyError:
+                        pass
+                    data_to_save = self.data_512hz[i] if resampled else self.data[i]
+                    time_to_save = self.time_512hz[i] if resampled else self.time[i]
+                    hdf5_data[i] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
+                    hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
+                    transmitter_group.attrs["resampled"] = resampled
 
-
-        with h5py.File('M1455096626.hdf5', 'r') as hf:
-            print hf.keys()
-            print hf.attrs['num_channels']
-            print('List of arrays in this file: \n', hf.keys())
-        #data = hf.get('dataset_1')
-        #np_data = np.array(data)
-        #print('Shape of the array dataset_1: \n', np_data.shape)
+        print 'Saved data as:', hdf5_filename
 
         '''
         #implement multiple processes for saving
@@ -228,7 +238,6 @@ class NDFLoader:
         basically constant over a few seconds.
 
         Args:
-            read_id:
 
         Returns:
 
@@ -301,90 +310,39 @@ class NDFLoader:
                 print('overwrite')
 
 
-def main(filename, id = 2):
-    print("Reading : " + filename)
-    start = time.clock()
+def convert_ndf(filename, savedir, id = -1):
+    # filename is the full filepath
+    print("Reading : " + filename, 'id: '+ str(id))
     ndf = NDFLoader(filename)
     ndf.load([id])
     ndf.glitch_removal(read_id=[id], plot_glitches=False, print_output=False)
-    print((time.clock() - start) * 1000, 'ms to load the ndf file')
-
-    start2 = time.clock()
     ndf.correct_sampling_frequency(read_id=[id])
+    ndf.save(save_file_name = os.path.join(savedir, filename.split('/')[-1][:-4]),
+             file_format= 'hdf5')
 
-    ndf.save('/Volumes/LACIE SHARE/Andys ndf/M1455096626.hdf5')
-    print((time.clock() - start2) * 1000, 'ms to load resample')
+def main(dirpath,id):
+    print 'currently being used for loading a full folder'
+    for filepath in os.listdir(dirpath):
+        if filepath.endswith('.ndf'):
+            # make a save dir
+            if os.path.isdir(dirpath):
+                hdf5_directory = os.path.join(os.path.split(dirpath[:-1])[0], 'hdf5s')
+            if not os.path.exists(hdf5_directory):
+                os.makedirs(hdf5_directory)
 
-    # times = ndf.time[8] * 1000
-    # diffs = np.diff(times)
-    # fs_ac = 1000.0 / diffs
-    # print(times)
-    # print(diffs)
-
-    # plt.figure()
-    # plt.hist(fs_ac, bins=50, normed=True)
-    # # plt.xlim(0, 700)
-    # plt.xlabel('Instantaneous frequency (Hz)')
-    # plt.title(filename + ' instantaneous sampling frequencies')
-    # # plt.savefig('../../fs distribution.png')
-    # plt.show()
-
-    # print (ndf.time_diff[:20]*1000)/(1/512.0*1000)
-    # print np.std(ndf.time_diff[:20]*1000)
-    # print((1 / 512.0) * 1000)
-    # print(diffs / ((1 / 512.0) * 1000))
-    # # print (ndf.time_512hz[:20]*1000)/(1/512.0*1000)
-    #
-    # print(1000.0 / np.max(diffs))
-    # print(1000.0 / np.min(diffs))
+            convert_ndf(filename = os.path.join(dirpath, filepath),
+                        savedir = hdf5_directory,
+                        id = id )
+        else:
+            print('Not converting ', filepath)
 
 
 if __name__ == "__main__":
-    main('/Volumes/LACIE SHARE/Andys ndf/M1455096626.ndf')
-
-'''
-start = time.clock()
-file = h5py.File('/Users/Jonathan/Dropbox/M1445362612.hdf5', 'r')
-data = file['data']
-ndftime = file['time']
-#return data
-print (time.clock()-start)*1000, 'ms to load the hdf5 file'
-
-'''
-
-# plt.plot(data[:5120])
-# plt.show()
+    dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/NDF/'
 
 
-# From open source instruments website
-'''
-The NDF format is designed to make it easy for us to add one-dimensional data to an existing file. The letters NDF
-stand for Neuroscience Data Format. The NDF file starts with a header of at least twelve bytes. The first four bytes
-spell the NDF identifier " ndf".
+    dirpath = '/Volumes/LaCie/Gabriele/full_day'
+    id = 6
+    main(dirpath , id)
 
-Three four-byte numbers follow the identifier. All are big-endian (most significant byte first). The first number is the
-address of the meta-data string. By address we mean the byte offset from the first byte of the file, so the first byte
-has address zero and the tenth byte has address nine. Thus the address of the meta-data string is the number of bytes
-we skip from the start of the file to get to the first character of the meta-data string. This address must be at least
-16 to avoid the header. The meta-data string is a null-terminated ASCII character string. The second number is the
-address of the first data byte. The data extends to the end of the file. To determine the length of the data, we obtain
- the length of the file from the local operating system and subtract the data address. The third number is the actual
- length of the meta-data string, as it was last written. If this number is zero, any routines dealing with the
- meta-data string must determine the length of the string themselves.
 
-The messages in the data recorder's message buffer are each four bytes long. The bytes of each message are listed in
-the table below. The Channel Number is used to identify the source of the message. Channel number zero is reserved for
-clock messages. In the case of Subcutaneous Transmitters, the channel number is the Transmitter Identification Number
-(TIN). Following the channel number, each message contains a sixteen-bit data word. In the case of SCTs, the
-sixteen-bit data word is a digitized voltage. The last byte of the message is a timestamp.
-
-Byte	Contents
-0	Channel Number
-1	Most Significant Data Byte
-2	Least Significant Data Byte
-3	Timestamp or Version Number
-
-The data recorder will never store a message with channel number zero unless that message comes from the clock.
-All messages with channel number zero are guaranteed to be clocks.
-
- '''

@@ -45,7 +45,7 @@ class Predictor():
                       saved_path = None,
                       make_pdfs = True):
 
-        self.threshold = '65' # 'sureity' threshold
+        self.threshold = '50' # 'sureity' threshold
         self.savestring = savestring
         if raw_load:
             self.dataobj = SeizureData(raw_path, fs_dict = self.fs_dict)
@@ -57,6 +57,8 @@ class Predictor():
             #assert saved_path != None
 
             self.dataobj = pickle.load(open(saved_path,'rb'))
+
+            '''
             ###################################
             # adding to the training dataset!
             for_training = True
@@ -82,16 +84,15 @@ class Predictor():
                 print t_labels_vet.shape
                 print t_labels_vet
 
-
-
-
-
+            exit()
 
             ###################################
+            '''
         #print 'printing filename_list'
         #print self.dataobj.filename_list
 
         self.norm_data = utils.normalise(self.dataobj.data_array)
+        self.norm_data = utils.filterArray(self.norm_data, window_size= 7, order=3)
         feature_obj = FeatureExtractor(self.norm_data)
 
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
@@ -111,6 +112,15 @@ class Predictor():
         self.max_preds = np.max(self.pred_table, axis = 1)
         #print pred_table
         self.threshold_for_mixed = np.where(self.max_preds < int(self.threshold),1,0) # 1 when below
+
+        # do the 1st vs 2nd most likely states
+        self.sorted_pred = np.sort(self.pred_table, axis = 1)
+        self.ratio = np.divide(self.sorted_pred[:,2],self.sorted_pred[:,3])
+        self.threshold_for_ratio = np.where(self.ratio > 0.5,1,0) # 1 when below
+
+        # combine the two measures
+        self.combined_pass = np.logical_or(self.threshold_for_mixed,self.threshold_for_ratio)
+
         self._string_fun2()
         self._write_to_excel()
         if make_pdfs:
@@ -119,8 +129,8 @@ class Predictor():
     def plot_pdfs(self):
         plot_traces(self.norm_data,
                     self.preds,
-                    savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs/'+self.savestring,
-                    prob_thresholds= self.threshold_for_mixed)
+                    savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0302/'+self.savestring,
+                    prob_thresholds= self.combined_pass)
 
     def _string_fun2(self):
         '''
@@ -165,11 +175,18 @@ class Predictor():
 
     def _write_to_excel(self):
         sheet = pd.DataFrame(self.pred_table)
+        sheet.columns = ['State1','State2','State3','Baseline']
+
         pred = pd.DataFrame(self.predslist,columns=['Index'])
+
         max_preds = pd.DataFrame(self.max_preds)
         max_preds.columns = ['Max']
-        sheet.columns = ['State1','State2','State3','Baseline']
-        frames = [self.nameframe, sheet, max_preds, pred]
+
+        master_exc =  pd.DataFrame(self.combined_pass,columns=['Exclude'])
+
+        ratio = pd.DataFrame(self.ratio, columns = ['2v1_Ratio'])
+
+        frames = [self.nameframe, sheet, max_preds, ratio, master_exc, pred]
         vmsheet = pd.concat(frames,axis = 1)
         print vmsheet.head()
         writer = pd.ExcelWriter('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/'+self.savestring+'.xlsx',engine = 'xlsxwriter')
@@ -180,34 +197,46 @@ class Predictor():
         format1 = workbook.add_format({'bg_color': '#FFC7CE',
                                'font_color': '#9C0006'})
         worksheet.set_column('G:J',12,percent_fmt)
+
         color_range = "K2:K{}".format(len(self.dataobj.filename_list)+1)
-        #worksheet.conditional_format(color_range, {'type': 'top',
-        #                                   'value': '20',
-        #                                   'format': format1})
         worksheet.conditional_format(color_range, {'type': 'cell',
                                                    'criteria': '<=',
                                            'value': self.threshold,
                                            'format': format1})
+
+        ratio_range = "L2:L{}".format(len(self.dataobj.filename_list)+1)
+        worksheet.conditional_format(ratio_range, {'type': 'cell',
+                                                   'criteria': '>=',
+                                           'value': 0.5,
+                                           'format': format1})
+        ratio_range = "M2:M{}".format(len(self.dataobj.filename_list)+1)
+        worksheet.conditional_format(ratio_range, {'type': 'cell',
+                                                   'criteria': '=',
+                                           'value': 1,
+                                           'format': format1})
         writer.save()
 
-x = Predictor( clf_pickle_path = '/Users/jonathan/PycharmProjects/networkclassifer/pickled_classifier')
+x = Predictor( clf_pickle_path = '/Users/jonathan/PycharmProjects/networkclassifer/pickled_classifier_20160223')
 
-makepdfs = False
+makepdfs = True
 x.assess_states(raw_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ARCH/ConvertedFiles/',
-                savestring='PV_ARCH_predictions',
+                savestring='PV_ARCH_predictions_20160302',
                 raw_load = False,
+                threshold= 50,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
                 make_pdfs= makepdfs)
 
 
 x.assess_states(raw_path = None,
-                savestring='PV_CHR2_predictions',
+                savestring='PV_CHR2_predictions_20160302',
                 raw_load = False,
+                threshold= 50,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_CHR2_pickled_tensec',
                 make_pdfs= makepdfs)
 
 x.assess_states(raw_path = None,
-                savestring='SOM_CHR2_predictions',
+                savestring='SOM_CHR2_predictions_20160302',
                 raw_load = False,
+                threshold= 50,
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/SOM_CHR2_pickled_tensec',
                 make_pdfs= makepdfs)

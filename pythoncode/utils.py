@@ -22,12 +22,12 @@ for key in mc.keys():
 
 def raw_validation_load():
     dirpath1 = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_20'
-    testdataobj20 = SeizureData(dirpath1,amount_to_downsample = 40)
+    testdataobj20 = SeizureData(dirpath1,to_dwnsmple = 40)
     testdataobj20.load_data()
     datasettest20 = testdataobj20.data_array
 
     dirpath2 = '/Users/Jonathan/PhD/Seizure_related/batchSept_UC_40'
-    testdataobj40 = SeizureData(dirpath2,amount_to_downsample = 40)
+    testdataobj40 = SeizureData(dirpath2,to_dwnsmple = 40)
     testdataobj40.load_data()
     datasettest40 = testdataobj40.data_array
     print datasettest40.shape,'is correct data shape'
@@ -38,7 +38,7 @@ def raw_validation_load():
 def raw_training_load():
     ################# 'NEW data' ###################
     dirpath = '/Users/Jonathan/PhD/Seizure_related/20150616'
-    _20150616dataobj = SeizureData(dirpath, amount_to_downsample = 40)
+    _20150616dataobj = SeizureData(dirpath, to_dwnsmple = 40)
     _20150616dataobj.load_data()
     _20150616data = _20150616dataobj.data_array
     _20150616labels = _20150616dataobj.label_colarray
@@ -61,7 +61,7 @@ def raw_training_load():
 
     ################## Original Data ####################
     dirpath = '/Users/Jonathan/PhD/Seizure_related/Classified'
-    dataobj = SeizureData(dirpath,amount_to_downsample = 20)
+    dataobj = SeizureData(dirpath, to_dwnsmple = 20)
     dataobj.load_data()
     dataobj = relabel(dataobj)
     dataobj = reorder(dataobj)
@@ -190,6 +190,39 @@ def prettyNumber(f):
     else:
         return round(fScaled/prev10e) * prev10e
 
+def filterArray(array,window_size = 51,order=3):
+    '''
+    Simple for-loop based indexing for savitzky_golay filter
+
+    Inputs:
+    array:
+    	array.shape[1] are datapoints - each row a trace, columns the datapoints
+    	array should be <= 3d
+    window_size : int
+        the length of the window. Must be an odd integer number.
+    order : int
+        the order of the polynomial used in the filtering.
+        Must be less then `window_size` - 1.
+
+
+    '''
+
+    import copy
+    fData = copy.copy(array)
+    ndimensions = len(fData.shape) # number of dimension
+    if ndimensions == 1:
+        fData = savitzky_golay(array,window_size,order)
+    elif ndimensions == 2:
+         for trace_i in range(array.shape[0]):
+                    fData[trace_i,:] = savitzky_golay(array[trace_i,:],window_size,order)
+    elif ndimensions == 3:
+        for index in range(array.shape[2]):
+                for index2 in range(array.shape[1]):
+                    fData[:,index2,index] = savitzky_golay(array[:,index2,index],window_size,order)
+    else:
+        print "Jonny only bothered too (badly) code up to 3 array dimensions!"
+
+    return fData
 
 def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     r"""Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
