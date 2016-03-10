@@ -3,9 +3,13 @@
 Scripts orginally for classifying network state in a given window before light pulses.
 
 # Usage:
-Scripts for detecting state before light pulse. These are found in /pythoncode
-network_classifier - for training the classifier
-network_predictor 
+Scripts for detecting state before light pulse are found in "/pythoncode".  
+
+network_classifier.py
+ - for training the classifier, supply training data and labels
+ - can output blank pdfs for labelling
+
+network_predictor.py 
   - supply with unlabeled data, options for plotting predictions as pdf.
   - outputs excel file
  

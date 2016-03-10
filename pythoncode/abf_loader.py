@@ -1,3 +1,9 @@
+'''
+This file was taken from internet, massive hammer used to just check the sampling frequency of abf files.
+
+'''
+
+
 #@mfunction("d, si, h")
 import os
 import numpy as np

@@ -1,5 +1,10 @@
-import pickle
+'''
 
+This needs to be made parallel...!
+
+'''
+
+import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 

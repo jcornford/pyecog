@@ -11,10 +11,10 @@ import pickle
 import h5py
 import numpy as np
 
-import utils
-from make_pdfs import plot_traces, plot_traces_hdf5
-from extrator import FeatureExtractor
-from classifier import NetworkClassifer
+import pythoncode.utils
+from pythoncode.make_pdfs import plot_traces, plot_traces_hdf5
+from pythoncode.extrator import FeatureExtractor
+from pythoncode.classifier import NetworkClassifer
 
 def normalise(series):
     #return series
@@ -125,7 +125,7 @@ def check_training_data(plot = True, correct = False):
     with h5py.File(filename, 'r') as f:
         print f.keys()
         train_data_raw = np.array(f['training/data'])
-        train_data = utils.filterArray(train_data_raw,window_size= 7, order=3)
+        train_data = pythoncode.utils.filterArray(train_data_raw, window_size= 7, order=3)
         train_data = normalise(train_data)
         train_labels= np.array(f['training/labels']).astype(int)
 
@@ -167,8 +167,8 @@ def train_classifier():
         test_data_raw = np.array(f['training/data'])
         train_data_raw = np.array(f['training/data'])
 
-        test_data = utils.filterArray(test_data_raw,window_size= 7, order=3)
-        train_data = utils.filterArray(train_data_raw,window_size= 7, order=3)
+        test_data = pythoncode.utils.filterArray(test_data_raw, window_size= 7, order=3)
+        train_data = pythoncode.utils.filterArray(train_data_raw, window_size= 7, order=3)
 
         test_data = normalise(test_data)
         train_data = normalise(train_data)

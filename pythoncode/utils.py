@@ -9,7 +9,6 @@ def normalise(series):
     b = np.max(series, axis=1)
     return np.divide((series - a[:, None]), (b-a)[:,None])
 
-
 mc = {'b' :(77, 117, 179),
       'r' :(210, 88, 88),
       'k' :(38,35,35),

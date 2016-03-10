@@ -1,3 +1,8 @@
+'''
+Old function that was very hacky! Should delete soon - 2016/03/10
+
+'''
+
 def relabel(dataobj):
     '''
     a = [] 

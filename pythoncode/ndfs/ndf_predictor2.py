@@ -13,7 +13,7 @@ from pythoncode.make_pdfs import plot_traces_hdf5
 import matplotlib.pyplot as plt
 import h5py
 
-import utils
+import pythoncode.utils
 
 
 class Predictor():
@@ -78,9 +78,9 @@ class Predictor():
 
 
 
-        self.norm_data = utils.normalise(self.data_array)
+        self.norm_data = pythoncode.utils.normalise(self.data_array)
         #self.norm_data = self.data_array
-        self.norm_data = utils.filterArray(self.norm_data, window_size=7,order = 3)
+        self.norm_data = pythoncode.utils.filterArray(self.norm_data, window_size=7, order = 3)
         feature_obj = FeatureExtractor(self.norm_data)
 
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
