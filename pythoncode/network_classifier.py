@@ -1,3 +1,10 @@
+"""
+This file is now out of date. Use network_classifier_v2.
+
+This was last run to save the training data into a hdf5 file.
+
+"""
+
 
 import pickle
 import h5py
@@ -90,7 +97,7 @@ for i in range(validation_labels.shape[0]):
 
 ###### Save the training and test here into hdf5 / databases #######
 hdf5_data = {}
-file_name = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
+#file_name = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
 
 print file_name
 

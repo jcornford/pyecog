@@ -112,9 +112,12 @@ class Predictor():
     def plot_pdfs(self):
         plot_traces_hdf5(self.norm_data,
                     labels = self.preds,
-                    #savestring = '/Volumes/LaCie/Albert_ndfs/hdf5/pdfs/'+self.raw_path.split('/')[-1][:-5]+'/'+self.savestring,
+                    # should auto create the middle directpry (currently not!
+                    #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.raw_path.split('/')[-1][:-5]+'/'+self.savestring,
+                    savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.savestring,
+
                     #savestring = '/Volumes/LaCie/Albert_ndfs/training_data/rpdfs/'+self.savestring,
-                    savestring  = '/Volumes/LaCie/Gabriele/pdfs_pred/',
+                    #savestring  = '/Volumes/LaCie/Gabriele/pdfs_pred/'+self.savestring
                     prob_thresholds= self.threshold_for_mixed,
                     trace_len_sec= 5)
 
@@ -126,6 +129,7 @@ dirpath = '/Volumes/LaCie/Albert_ndfs/hdf5/'
 dirpath = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
 
 dirpath = '/Volumes/LaCie/Gabriele/hdf5s'  # this is for gabriele's stuff
+dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/hdf5s'
 makepdfs = True
 
 #filepath = dirpath + 'M1453331811.hdf5'
