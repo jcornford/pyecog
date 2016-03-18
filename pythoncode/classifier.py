@@ -1,18 +1,23 @@
+'''
+
+This is messy and needs attending too.. 20160310
+
+'''
+
 import numpy as np
 import pandas as pd
+
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import Imputer, StandardScaler
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.decomposition import PCA
-#from sklearn.lda import LDA
-from sklearn import preprocessing
 from sklearn import cross_validation
 from sklearn.metrics import classification_report
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.cross_validation import StratifiedShuffleSplit
-from sklearn.grid_search import GridSearchCV
+
 
 
 class NetworkClassifer():
@@ -22,11 +27,10 @@ class NetworkClassifer():
         self.feature_labels = ['min','max','mean','skew','std','kurtosis','sum of absolute difference','baseline_n',
                                'baseline_diff','baseline_diff_skew','n_pks','n_vals','av_pk','av_val','av pk val range',
                                '1 hz','5 hz','10 hz','15 hz','20 hz','30 hz','60 hz','90 hz']
-        self.labels = np.ravel(labels)
 
+        self.labels = np.ravel(labels)
         self.validation_features = validation_features
         self.validation_labels = np.ravel(validation_labels)
-
         self.impute_and_scale()
 
     def impute_and_scale(self):
@@ -34,11 +38,11 @@ class NetworkClassifer():
         self.imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
         self.imputer.fit(self.features)
         imputed_features = self.imputer.transform(self.features)
-
-        self.std_scaler = preprocessing.StandardScaler()
+        self.std_scaler = StandardScaler()
         self.std_scaler.fit(imputed_features)
         self.iss_features = self.std_scaler.transform(imputed_features)
         print 'Done'
+
         print 'Scaling and imputing validation features using training dataset...',
         imputed_validation_features = self.imputer.transform(self.validation_features)
         self.iss_validation_features = self.std_scaler.transform(imputed_validation_features)
@@ -112,24 +116,41 @@ class NetworkClassifer():
         np.savetxt('../knndata.csv',self.knndata, delimiter=',')
 
     def lda_run(self, k_folds = 5):
-        self.r_forest_lda = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
-        self.lda_scores = cross_validation.cross_val_score(self.r_forest_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
+        self.r_forest_lda = RandomForestClassifier(n_estimators=2000,
+                                                   n_jobs=5,
+                                                   max_depth=None,
+                                                   min_samples_split=2,
+                                                   random_state =7,
+                                                   max_leaf_nodes=None,
+                                                   min_samples_leaf=2,
+                                                   criterion='gini',
+                                                   max_features='sqrt',
+                                                   class_weight='balanced')
+
+        self.lda_scores = cross_validation.cross_val_score(self.r_forest_lda,
+                                                           self.lda_iss_features,
+                                                           self.labels,
+                                                           cv=k_folds,
+                                                           n_jobs=5)
         print("Cross validation Random Forest performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.lda_scores.mean()*100, self.lda_scores.std()*100))
         self.r_forest_lda.fit(self.lda_iss_features,self.labels)
-        print self.r_forest_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
+        print self.r_forest_lda.score(self.lda_iss_validation_features,
+                                      self.validation_labels)*100, 'LDA test-set performance \n'
 
-        '''
-        C_range = np.logspace(-2, 10, 13)
-        gamma_range = np.logspace(-9, 3, 13)
-        param_grid = dict(gamma=gamma_range, C=C_range)
-        cv = StratifiedShuffleSplit(self.labels, n_iter=5, test_size=0.2, random_state=42)
-        grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
-        grid.fit(self.lda_iss_features, self.labels)
-        print("The best parameters are %s with a score of %0.2f"% (grid.best_params_, grid.best_score_))
-        '''
+        y_true = self.validation_labels
+        y_pred = self.r_forest_lda.predict(self.lda_iss_validation_features)
+        target_names = ['S1','S2','S3','S4']
+        report = classification_report(y_true, y_pred, target_names=target_names)
+        print 'Random forest report lda'
+        print report
+
 
         self.svc_lda = SVC(kernel='rbf',C = 1,gamma = 'auto')
-        self.svc_lda_scores = cross_validation.cross_val_score(self.svc_lda, self.lda_iss_features, self.labels, cv=k_folds,n_jobs=5)
+        self.svc_lda_scores = cross_validation.cross_val_score(self.svc_lda,
+                                                               self.lda_iss_features,
+                                                               self.labels,
+                                                               cv=k_folds,
+                                                               n_jobs=5)
         print("Cross validation SVM performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.svc_lda_scores.mean()*100, self.svc_lda_scores.std()*100))
         self.svc_lda.fit(self.lda_iss_features,self.labels)
         print self.svc_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
@@ -137,9 +158,37 @@ class NetworkClassifer():
         y_true = self.validation_labels
         y_pred = self.svc_lda.predict(self.lda_iss_validation_features)
         target_names = ['S1','S2','S3','S4']
-        t = classification_report(y_true, y_pred, target_names=target_names)
+        report = classification_report(y_true, y_pred, target_names=target_names)
         print 'Support vector report lda'
-        print t
+        print report
+
+
+        ##### Hacky way to export features, so can optimise RF etc ######
+        train_X = pd.DataFrame(self.lda_iss_features)
+        train_y  = pd.DataFrame(self.labels)
+        training = pd.concat([train_X,train_y], axis = 1)
+        training.to_csv('/Volumes/LACIE SHARE/VM_data/training_lda.csv', index = False)
+
+        test_X = pd.DataFrame(self.lda_iss_validation_features)
+        test_y = pd.DataFrame(self.validation_labels)
+        test = pd.concat([test_X,test_y], axis = 1)
+        training.to_csv('/Volumes/LACIE SHARE/VM_data/test_lda.csv', index = False)
+
+        train_X = pd.DataFrame(self.iss_features)
+        train_y  = pd.DataFrame(self.labels)
+        training = pd.concat([train_X,train_y], axis = 1)
+        training.to_csv('/Volumes/LACIE SHARE/VM_data/training.csv', index = False)
+
+        test_X = pd.DataFrame(self.iss_validation_features)
+        test_y = pd.DataFrame(self.validation_labels)
+        test = pd.concat([test_X,test_y], axis = 1)
+        training.to_csv('/Volumes/LACIE SHARE/VM_data/test.csv', index = False)
+
+        print '*******'
+        print self.iss_validation_features.shape
+        print self.validation_features.shape
+
+
 
     def pca_run(self,k_folds = 5):
         self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
@@ -151,12 +200,6 @@ class NetworkClassifer():
 
     def run(self):
 
-        #######################################
-        #r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
-        #self.X_train,self.X_test, self.y_train, self.y_test = cross_validation.train_test_split(self.iss_features, self.labels, test_size=0.5, random_state=3)
-        #r_forest.fit(self.X_train,self.y_train)
-        ########################################
-
         r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
         self._cross_validation(r_forest)
         print("Cross validation RF performance: Accuracy: %0.2f (std %0.2f)" % (self.scores.mean()*100, self.scores.std()*100))
@@ -165,7 +208,6 @@ class NetworkClassifer():
         self.r_forest.fit(self.iss_features,self.labels)
 
         print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
-        #print self.r_forest.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[self.validation_labels==1]), 'randomforest seizure -set performance \n'
 
         y_true = self.validation_labels
         y_pred = self.r_forest.predict(self.iss_validation_features)
@@ -181,7 +223,6 @@ class NetworkClassifer():
         self.svm_clf = SVC()
         self.svm_clf.fit(self.iss_features,self.labels)
         print self.svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
-        #print self.svm_clf.score(self.iss_validation_features[self.validation_labels==1], self.validation_labels[[self.validation_labels==1]]), 'SVC rbf test seizure performance \n'
 
         y_true = self.validation_labels
         y_pred = self.svm_clf.predict(self.iss_validation_features)
@@ -192,15 +233,4 @@ class NetworkClassifer():
         print t
 
         return None
-        n_neighbors = 4
-        knn = KNeighborsClassifier(n_neighbors, weights='distance')
-        knn.fit(self.X_train, self.y_train)
-        print knn.score(self.X_train,self.y_train), 'KNN train performance'
-        print knn.score(self.X_test,self.y_test), 'KNN test performance'
-        print knn.score(self.iss_validation_features, self.validation_labels), 'KNN valdiation set performance \n'
 
-        dtc = DecisionTreeClassifier()
-        dtc.fit(self.X_train, self.y_train)
-        print dtc.score(self.X_train,self.y_train), 'D-tree test performance'
-        print dtc.score(self.X_test,self.y_test), 'D-tree test performance'
-        print dtc.score(self.iss_validation_features, self.validation_labels), 'D-tree valdiation set performance \n'

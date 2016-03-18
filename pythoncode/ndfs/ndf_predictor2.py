@@ -27,7 +27,7 @@ class Predictor():
         #self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
         #for key in self.fs_dict:
             #print key, self.fs_dict[key]
-        pickle.load(open('/Volumes/LACIE SHARE/pickled_classifier','rb'))
+        #pickle.load(open('/Volumes/LACIE SHARE/pickled_classifier','rb'))
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
@@ -114,22 +114,23 @@ class Predictor():
                     labels = self.preds,
                     # should auto create the middle directpry (currently not!
                     #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.raw_path.split('/')[-1][:-5]+'/'+self.savestring,
-                    savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.savestring,
-
+                    #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.savestring,
+                    savestring = '/Volumes/LaCie/Gabriele/all_day_pdfs_id_7/'+self.savestring,
                     #savestring = '/Volumes/LaCie/Albert_ndfs/training_data/rpdfs/'+self.savestring,
                     #savestring  = '/Volumes/LaCie/Gabriele/pdfs_pred/'+self.savestring
                     prob_thresholds= self.threshold_for_mixed,
                     trace_len_sec= 5)
 
-x = Predictor( clf_pickle_path = '/Volumes/LaCie/Albert_ndfs/pickled_classifier_20160302')
+#x = Predictor( clf_pickle_path = '/Volumes/LaCie/Albert_ndfs/pickled_classifier_20160302')
+
 x = Predictor( clf_pickle_path ='/Volumes/LaCie/Albert_ndfs/pickled_classifier_t5dbs')
 
 
 dirpath = '/Volumes/LaCie/Albert_ndfs/hdf5/'
-dirpath = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
+dirpath = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s_/'
 
-dirpath = '/Volumes/LaCie/Gabriele/hdf5s'  # this is for gabriele's stuff
-dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/hdf5s'
+dirpath = '/Volumes/LaCie/Gabriele/hdf5s_id_7'  # this is for gabriele's stuff
+#dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/hdf5s'
 makepdfs = True
 
 #filepath = dirpath + 'M1453331811.hdf5'

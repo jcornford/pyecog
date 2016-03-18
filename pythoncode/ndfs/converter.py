@@ -326,7 +326,7 @@ def main(dirpath,id):
         if filepath.endswith('.ndf'):
             # make a save dir
             if os.path.isdir(dirpath):
-                hdf5_directory = os.path.join(os.path.split(dirpath[:-1])[0], 'hdf5s')
+                hdf5_directory = os.path.join(os.path.split(dirpath[:-1])[0], 'hdf5s_id_2')
             if not os.path.exists(hdf5_directory):
                 os.makedirs(hdf5_directory)
 
@@ -342,7 +342,7 @@ if __name__ == "__main__":
 
 
     dirpath = '/Volumes/LaCie/Gabriele/full_day'
-    id = 6
+    id = 2
     main(dirpath , id)
 
 

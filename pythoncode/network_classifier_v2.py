@@ -1,16 +1,15 @@
 '''
+Simple file, focusing on loading and training on hdf5 stored data.
 
-Simple file, focusing on loading of hdf5 stored data.
 
- - double check the data
- - train the classifier
+- To do:
+  1. Easy appending of new data to training dictionary (work in parralel with the hdf5 stuff)
 '''
 
 import h5py
 import pickle
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import utils
 from make_pdfs import plot_traces
@@ -18,17 +17,14 @@ from extrator import FeatureExtractor
 from classifier import NetworkClassifer
 
 def normalise(series):
-    #return series
     a = np.min(series, axis=1)
     b = np.max(series, axis=1)
     return np.divide((series - a[:, None]), (b-a)[:,None])
 
-
-def check_data():
+def check_data(plot = True):
     '''
-
     This function will load and then plot the data on the pdfs.
-
+    Turn off plot for speed when changing labels!
     '''
 
     filename = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
@@ -47,7 +43,7 @@ def check_data():
         test_labels = np.array(f['test/labels']).astype(int)
         train_labels= np.array(f['training/labels']).astype(int)
 
-        # as a result of eyeballing....
+        # as a result of eyeballing the check data....
         train_labels[605] = 2
         train_labels[494] = 2
         train_labels[26] = 2
@@ -94,54 +90,74 @@ def check_data():
         test_labels[37] = 3
         print train_data.shape
         print train_labels.shape
-
-    plot_traces(test_data,
-                test_labels,
-                savestring = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/'+'norm_filtered_test',
-                prob_thresholds= None)
+    if plot:
+        plot_traces(test_data,
+                    test_labels,
+                    savestring = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/'+'norm_filtered_test',
+                    prob_thresholds= None)
 
     # saveup into new hdf5 file
     newfile = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5'
-    with h5py.File(newfile, 'w') as f:
-        f.name
+    if newfile != filename:
+        with h5py.File(newfile, 'w') as f:
+            f.name
 
-        training = f.create_group('training')
-        test = f.create_group('test')
+            training = f.create_group('training')
+            test = f.create_group('test')
 
-        training.create_dataset('data', data = train_data_raw)
-        test.create_dataset('data', data = test_data_raw)
+            training.create_dataset('data', data = train_data_raw)
+            test.create_dataset('data', data = test_data_raw)
 
-        training.create_dataset('labels', data = train_labels)
-        test.create_dataset('labels', data = test_labels)
+            training.create_dataset('labels', data = train_labels)
+            test.create_dataset('labels', data = test_labels)
 
+def save_feature_hdf5(training_db_path = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5'):
+    print 'to do!'
 
-def train_classifier():
+    filepath = training_db_path
 
-    '''
-
-    Use the hdf5 from the check data to train and assess the output of the classifier!
-
-    '''
-    newfile = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5'
-
-    with h5py.File(newfile, 'r') as f:
+    with h5py.File(filepath, 'r') as f:
         print f.keys()
         test_data_raw = np.array(f['test/data'])
         train_data_raw = np.array(f['training/data'])
 
-        test_data = utils.filterArray(test_data_raw,window_size= 7, order=3)
+        test_data = utils.filterArray(test_data_raw, window_size= 7, order=3)
         train_data = utils.filterArray(train_data_raw,window_size= 7, order=3)
 
         test_data = normalise(test_data)
         train_data = normalise(train_data)
 
+        test_labels = np.array(f['test/labels']).astype(int)
+        train_labels= np.array(f['training/labels']).astype(int)
+
+        training_features = FeatureExtractor(train_data).feature_array
+        test_features = FeatureExtractor(test_data).feature_array
+
+
+def train_classifier(training_db_path = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5'):
+
+    '''
+    Use the hdf5 from the checked data to train and assess the output of the classifier!
+    '''
+    #newfile = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5'
+    filepath = training_db_path
+
+    with h5py.File(filepath, 'r') as f:
+        print f.keys()
+        test_data_raw = np.array(f['test/data'])
+        train_data_raw = np.array(f['training/data'])
+
+        test_data = utils.filterArray(test_data_raw, window_size= 7, order=3)
+        train_data = utils.filterArray(train_data_raw,window_size= 7, order=3)
+
+        test_data = normalise(test_data)
+        train_data = normalise(train_data)
 
         test_labels = np.array(f['test/labels']).astype(int)
         train_labels= np.array(f['training/labels']).astype(int)
 
-
-        training_features = FeatureExtractor(train_data).feature_array#[:,[2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22]]
-        test_features = FeatureExtractor(test_data).feature_array#[:,[2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22]]
+        training_features = FeatureExtractor(train_data).feature_array
+        test_features = FeatureExtractor(test_data).feature_array
 
         classifier = NetworkClassifer(training_features,train_labels, test_features, test_labels)
         classifier.run()

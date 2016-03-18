@@ -38,6 +38,7 @@ def plot_traces(to_plot,
 
     colors = ['b','r','g','k','purple']
     for section in range(int(np.ceil(to_plot.shape[0]/40.0))):
+        plt.close('all')
         print str(section*40)+ ' : ' + str((section+1)*40)
 
         fig = plt.figure(figsize=(8.27, 11.69), dpi=20)

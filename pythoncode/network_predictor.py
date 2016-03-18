@@ -11,11 +11,25 @@ from make_pdfs import plot_traces
 class Predictor():
 
     '''
-    Todo:
+    Class to predict state from unlabeled data
     '''
 
-    def __init__(self, clf_pickle_path=None, fs_dict_path='../pickled_fs_dictionary'):
+    def __init__(self,
+                 clf_pickle_path=None,
+                 fs_dict_path='../pickled_fs_dictionary',
+                 threshold = 50):
 
+        '''
+
+        This currently (messily) using a fs_dict, for sampling frequency of files.
+        And a tuple of skipfiles
+        Args:
+            clf_pickle_path: the pickled classifier to use
+            fs_dict_path: dictionary made by abf_loader
+
+        Returns:
+
+        '''
         self.skipfiles = ('EX150515T11',
                         'EX180315T14',
                         'EX180515T4',
@@ -24,29 +38,44 @@ class Predictor():
         self.skip_dir = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ChR2/'
 
         if clf_pickle_path == None:
-            clf_pickle_path = '../saved_clf'
+            print('Error, no classifier path given!, exiting...')
+            exit()
 
         self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
-        #for key in self.fs_dict:
-            #print key, self.fs_dict[key]
-
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
-        self.r_forest = self.classifier.r_forest
-        self.r_forest_lda = self.classifier.r_forest_lda
+        # N.B only predicting with the lda r_forest at the moment
+        #self.r_forest = self.classifier.r_forest
         self.lda = self.classifier.lda
+        self.r_forest_lda = self.classifier.r_forest_lda
 
-        print self.lda
-        #print self.r_forest_lda
+        self.sg_filter_window_size = 7
+        self.sg_filter_window_order = 3
+        self.threshold = threshold # 'sureity' threshold
 
-
-    def assess_states(self, raw_path = None, downsample_rate = None, savestring = 'example',
-                      threshold = 65,
+    def assess_states(self, raw_path = None,
+                      downsample_rate = None,
+                      savestring = 'example',
+                      pdf_savepath = '../',
                       raw_load = True,
                       saved_path = None,
                       make_pdfs = True):
+        '''
 
-        self.threshold = '50' # 'sureity' threshold
+        Args:
+            raw_path:
+            downsample_rate:
+            savestring:
+            raw_load:
+            saved_path:
+            make_pdfs:
+
+        Returns:
+
+        '''
+
         self.savestring = savestring
+        self.pdf_savepath = pdf_savepath
+
         if raw_load:
             self.dataobj = SeizureData(raw_path, fs_dict = self.fs_dict)
             self.dataobj.load_data()
@@ -54,7 +83,6 @@ class Predictor():
             pickle.dump(self.dataobj,f)
 
         else:
-            #assert saved_path != None
 
             self.dataobj = pickle.load(open(saved_path,'rb'))
 
@@ -88,29 +116,26 @@ class Predictor():
 
             ###################################
             '''
-        #print 'printing filename_list'
-        #print self.dataobj.filename_list
 
         self.norm_data = utils.normalise(self.dataobj.data_array)
-        self.norm_data = utils.filterArray(self.norm_data, window_size= 7, order=3)
+        self.norm_data = utils.filterArray(self.norm_data,
+                                           window_size= self.sg_filter_window_size,
+                                           order=self.sg_filter_window_order)
+
         feature_obj = FeatureExtractor(self.norm_data)
 
         i_features = self.classifier.imputer.transform(feature_obj.feature_array)
         iss_features = self.classifier.std_scaler.transform(i_features)
         lda_iss_features = self.lda.transform(iss_features)
 
-        np.set_printoptions(precision=3, suppress = True)
-
-        #self.pred_table = self.r_forest.predict_proba(iss_features)*100
-        #self.preds = self.r_forest.predict(iss_features)
-
+        # predict probability and also the actual state
         self.pred_table = self.r_forest_lda.predict_proba(lda_iss_features)*100
         self.preds = self.r_forest_lda.predict(lda_iss_features)
 
+        # Make stuff for the excel sheet
         self.predslist = list(self.preds) # why need this?
         self.predslist[self.predslist == 4] = 'Baseline'
         self.max_preds = np.max(self.pred_table, axis = 1)
-        #print pred_table
         self.threshold_for_mixed = np.where(self.max_preds < int(self.threshold),1,0) # 1 when below
 
         # do the 1st vs 2nd most likely states
@@ -124,13 +149,11 @@ class Predictor():
         self._string_fun2()
         self._write_to_excel()
         if make_pdfs:
-            self.plot_pdfs()
-
-    def plot_pdfs(self):
-        plot_traces(self.norm_data,
-                    self.preds,
-                    savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0302/'+self.savestring,
-                    prob_thresholds= self.combined_pass)
+            plot_traces(self.norm_data,
+                        self.preds,
+                        savestring= self.pdf_savepath + self.savestring,
+                        #savestring = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0302/'+self.savestring,
+                        prob_thresholds= self.combined_pass)
 
     def _string_fun2(self):
         '''
@@ -153,6 +176,9 @@ class Predictor():
             #print f
 
     def _string_fun(self):
+        '''
+        This is for the original style of file input...
+        '''
         self.nameframe =  pd.DataFrame(columns = ['Date', 'ID', 'File Start', 'File End', 'Pulse Time'])
 
         for i,f in enumerate(self.dataobj.filename_list):
@@ -216,27 +242,30 @@ class Predictor():
                                            'format': format1})
         writer.save()
 
-x = Predictor( clf_pickle_path = '/Users/jonathan/PycharmProjects/networkclassifer/pickled_classifier_20160223')
+# there is also a pickled classifier in the directory just above here
+x = Predictor( clf_pickle_path = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/pickled_classifier_20160223',
+               threshold= 50)
+
 
 makepdfs = True
 x.assess_states(raw_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_ARCH/ConvertedFiles/',
-                savestring='PV_ARCH_predictions_20160302',
+                savestring='PV_ARCH_predictions_20160310',
                 raw_load = False,
-                threshold= 50,
+                pdf_savepath='/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0310/',
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_ARCH_pickled_tensec',
                 make_pdfs= makepdfs)
 
 
 x.assess_states(raw_path = None,
-                savestring='PV_CHR2_predictions_20160302',
+                savestring='PV_CHR2_predictions_20160310',
                 raw_load = False,
-                threshold= 50,
+                pdf_savepath='/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0310/',
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/PV_CHR2_pickled_tensec',
                 make_pdfs= makepdfs)
 
 x.assess_states(raw_path = None,
-                savestring='SOM_CHR2_predictions_20160302',
+                savestring='SOM_CHR2_predictions_20160310',
                 raw_load = False,
-                threshold= 50,
+                pdf_savepath='/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pdfs0310/',
                 saved_path = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/pickled_tensec_dobj/SOM_CHR2_pickled_tensec',
                 make_pdfs= makepdfs)

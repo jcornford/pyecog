@@ -1,6 +1,8 @@
 '''
 This file was taken from internet, massive hammer used to just check the sampling frequency of abf files.
 
+Makes a fs_dictionary to be used by network predictor.
+
 '''
 
 
@@ -1002,19 +1004,4 @@ if __name__ == '__main__':
     import pickle
     f = open('../pickled_fs_dictionary','wb')
     pickle.dump(fs_dictionary, f)
-
-
-
-    '''f = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/PV_Arch/EX021015T4.abf'
-    abfreader = Abf(f)
-
-
-    d = abfreader.abfload()
-    data_dict = d[1]
-    fs_khz = int(1000.0/data_dict['fADCSampleInterval'])
-    '''
-
-
-
-
 
