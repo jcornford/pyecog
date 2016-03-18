@@ -171,6 +171,18 @@ class ClassifierHandler():
     def assess_classifier(self):
         print 'TODO'
 
+    def tune_classifier(self):
+        '''
+        Pass in dictionary of parameters over which to sweep
+        Choose the type of search
+        Scoring
+
+        Returns:
+            Models according to performance.
+
+        '''
+        print 'TODO'
+
     @ staticmethod
     def _normalise(series):
         a = np.min(series, axis=1)
