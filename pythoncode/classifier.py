@@ -1,6 +1,8 @@
 '''
 
-This is messy and needs attending too.. 20160310
+This is REALLY messy and needs attending too.. 20160310
+Be able to pass in dictionary of params
+be run score method outside of the training.
 
 '''
 

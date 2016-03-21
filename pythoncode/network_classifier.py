@@ -229,8 +229,104 @@ class ClassifierHandler():
         b = np.max(series, axis=1)
         return np.divide((series - a[:, None]), (b-a)[:,None])
 
-        #plot_traces(train_data, train_labels,savestring = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/'+'norm_filtered_check',)
 
+
+    ############ This needs to be split into making pdfs in general for the training#####
+    ####  And the make training hdf5 needs to be one per file, and then you append to the training dataset ####
+    #### Need to have something that lets you exclude traces in the pdf... (if you really really want!)
+
+    def append_to_training(self):
+        print "need to implement!"
+
+
+    def make_pdfs_for_labeling_converted_ndf(self, converted_ndf, save_dir, file_format):
+        with h5py.File(converted_ndf , 'r') as hf:
+                    for ndfkey in hf.keys():
+                        print ndfkey, 'is hf key'
+                        datadict = hf.get(ndfkey)
+
+                    for tid in datadict.keys():
+                        data = np.array(datadict[tid]['data'])
+
+                    print data.shape
+
+                    index = data.shape[0]/ (5120/2)
+                    print index, 'is divded by 5120'
+
+                    data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
+                    print data_array.shape
+        plot_traces(data_array,
+                    savepath = os.path.join(save_dir, converted_ndf.split('/')[-1]+'_'),
+                    format_string = file_format)
+
+    def make_training_hdf5(self):
+
+        basedir = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
+        filepairs = [('state_labels_2016_01_21_19-16.csv','2016_01_21_19:16.hdf5'),
+                     ('state_labels_2016_01_21_13-16.csv','2016_01_21_13:16.hdf5'),
+                     ('state_labels_2016_01_21_11-16.csv','2016_01_21_11:16.hdf5'),
+                     ('state_labels_2016_01_21_10-16.csv','2016_01_21_10:16.hdf5'),
+                     ('state_labels_2016_01_21_08-16.csv','2016_01_21_08:16.hdf5')]
+
+        data_array_list = []
+        label_list = []
+
+        for pair in filepairs:
+            labels = np.loadtxt(os.path.join(basedir, pair[0]),delimiter=',')[:,1]
+            print labels.shape
+
+            converted_ndf = os.path.join(basedir, pair[1])
+
+            with h5py.File(converted_ndf , 'r') as hf:
+
+                    for key in hf.attrs.keys():
+                        print key, hf.attrs[key]
+                    print hf.items()
+
+                    for ndfkey in hf.keys():
+                        print ndfkey, 'is hf key'
+                        datadict = hf.get(ndfkey)
+
+                    for tid in datadict.keys():
+
+                        time = np.array(datadict[tid]['time'])
+                        data = np.array(datadict[tid]['data'])
+                        #print npdata.shape
+
+                    print data.shape
+
+                    index = data.shape[0]/ (5120/2)
+                    print index, 'is divded by 5120'
+
+                    data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
+                    print data_array.shape
+                    #plt.figure(figsize = (20,10))
+                    #plt.plot(data_array[40,:])
+                    data_array_list.append(data_array)
+                    label_list.append(labels)
+                    #plt.show()
+
+        data_array = np.vstack(data_array_list)
+        print data_array.shape, 'is shape of data'
+        labels = np.hstack(label_list)
+        print labels.shape, 'is shape of labels'
+
+        ### Write it up! ###
+        file_name = '/Volumes/LaCie/Albert_ndfs/training_data/training_data_v2.hdf5'
+        with h5py.File(file_name, 'w') as f:
+            f.name
+
+            training = f.create_group('training')
+
+            training.create_dataset('data', data = data_array)
+            training.create_dataset('labels', data = labels)
+
+            print training.keys()
+
+    # Here kind of endss the nonesense.   # #######
+    #######
+            ######
+            #######
 def main():
     handler = ClassifierHandler()
     handler.load_labeled_traces(filename = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5')
