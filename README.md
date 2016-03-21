@@ -1,7 +1,7 @@
 # networkclassifer
 
 Scripts orginally for classifying network state in a given window before light pulses. Now undergoing major overhaul to
-be more general, at to be able to convert "ndf" files. 
+be more general, and to be able to convert "ndf" files. 
 
 # Usage:
 Scripts for detecting state before light pulse are found in "/pythoncode".  
