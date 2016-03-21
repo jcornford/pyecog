@@ -22,7 +22,7 @@ def normalise(series):
     b = np.max(series, axis=1)
     return np.divide((series - a[:, None]), (b-a)[:,None])
 
-def make_pdfs_for_labelling_converted_ndf(converted_ndf, pdf_dir):
+def make_pdfs_for_labeling_converted_ndf(converted_ndf, pdf_dir):
 
     with h5py.File(converted_ndf , 'r') as hf:
                 for ndfkey in hf.keys():
@@ -197,8 +197,8 @@ def train_classifier():
 
 def main():
     #check_training_data(plot = True)
-    train_classifier()
-    #make_training_hdf5()
+    #train_classifier()
+    make_training_hdf5()
     #make_pdfs_for_labelling_converted_ndf('/Volumes/LaCie/Gabriele/hdf5s/M1456848029.hdf5','/Volumes/LaCie/Gabriele/pdfs' )
 
 

@@ -103,18 +103,6 @@ class NetworkClassifer():
             self.lda_iss_features = self.lda.fit_transform(self.iss_features,self.labels)
             self.lda_iss_validation_features = self.lda.transform(self.iss_validation_features)
 
-    def knn_info(self, kmax=100 ):
-        self.knndata = np.zeros((kmax,4))
-        for i in range(kmax):
-            k = i+1
-            knn = KNeighborsClassifier(k, weights='distance')
-            knn.fit(self.X_train, self.y_train)
-            self.knndata[i,0] = k
-            self.knndata[i,1] = knn.score(self.X_train,self.y_train)
-            self.knndata[i,2] = knn.score(self.X_test,self.y_test)
-            self.knndata[i,3] = knn.score(self.iss_validation_features, self.validation_labels)
-        np.savetxt('../knndata.csv',self.knndata, delimiter=',')
-
     def lda_run(self, k_folds = 5):
         self.r_forest_lda = RandomForestClassifier(n_estimators=2000,
                                                    n_jobs=5,
@@ -144,25 +132,6 @@ class NetworkClassifer():
         print 'Random forest report lda'
         print report
 
-
-        self.svc_lda = SVC(kernel='rbf',C = 1,gamma = 'auto')
-        self.svc_lda_scores = cross_validation.cross_val_score(self.svc_lda,
-                                                               self.lda_iss_features,
-                                                               self.labels,
-                                                               cv=k_folds,
-                                                               n_jobs=5)
-        print("Cross validation SVM performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.svc_lda_scores.mean()*100, self.svc_lda_scores.std()*100))
-        self.svc_lda.fit(self.lda_iss_features,self.labels)
-        print self.svc_lda.score(self.lda_iss_validation_features, self.validation_labels)*100, 'LDA test-set performance \n'
-
-        y_true = self.validation_labels
-        y_pred = self.svc_lda.predict(self.lda_iss_validation_features)
-        target_names = ['S1','S2','S3','S4']
-        report = classification_report(y_true, y_pred, target_names=target_names)
-        print 'Support vector report lda'
-        print report
-
-
         ##### Hacky way to export features, so can optimise RF etc ######
         train_X = pd.DataFrame(self.lda_iss_features)
         train_y  = pd.DataFrame(self.labels)
@@ -184,9 +153,7 @@ class NetworkClassifer():
         test = pd.concat([test_X,test_y], axis = 1)
         training.to_csv('/Volumes/LACIE SHARE/VM_data/test.csv', index = False)
 
-        print '*******'
-        print self.iss_validation_features.shape
-        print self.validation_features.shape
+
 
 
 
@@ -217,20 +184,6 @@ class NetworkClassifer():
         print 'Random forest report:'
         print t
 
-        svm_clf = SVC()
-        self.svm_scores = cross_validation.cross_val_score(svm_clf, self.iss_features, self.labels, cv=5,n_jobs=5)
-        print "Cross validation SVM performance: Accuracy: %0.2f (std %0.2f)" %(self.svm_scores.mean()*100, self.svm_scores.std()*100)
-        self.svm_clf = SVC()
-        self.svm_clf.fit(self.iss_features,self.labels)
-        print self.svm_clf.score(self.iss_validation_features, self.validation_labels), 'SVC rbf test set performance \n'
-
-        y_true = self.validation_labels
-        y_pred = self.svm_clf.predict(self.iss_validation_features)
-        target_names = ['inter-ictal', 'ictal']
-        target_names = ['S1','S2','S3','S4']
-        t = classification_report(y_true, y_pred, target_names=target_names)
-        print 'Support vector report'
-        print t
 
         return None
 

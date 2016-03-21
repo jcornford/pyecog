@@ -1,166 +1,249 @@
-"""
-This file is now out of date. Use network_classifier_v2.
-
-This was last run to save the training data into a hdf5 file.
-
-"""
+'''
+Simple file, focusing on loading and training on hdf5 stored data.
 
 
-import pickle
+- To do:
+  1. Easy appending of new data to training dictionary (work in parralel with the hdf5 stuff)
+'''
+
 import h5py
+import pickle
 
-import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.cross_validation import train_test_split
+from sklearn import metrics
+from sklearn import cross_validation
 
 import utils
-from network_loader import SeizureData
-from relabeling_functions import relabel,reorder
+from make_pdfs import plot_traces
 from extrator import FeatureExtractor
 from classifier import NetworkClassifer
-from make_pdfs import plot_traces
 
-################# Training Data ###################
-reload_training = False
-if reload_training:
-    training_traces = utils.raw_training_load()
-    training_traces_norm = utils.normalise(training_traces)
-    training_data = FeatureExtractor(training_traces_norm)
-    #f = open('../full_raw_training','wb')
-    #pickle.dump(training_traces,f)
+class ClassifierHandler():
 
-elif not reload_training:
-    print 'skipping raw training load'
-    training_traces = pickle.load(open('../full_raw_training','rb'))
-    training_traces_norm = utils.normalise(training_traces)
-    training_data = FeatureExtractor(training_traces_norm)
-    np.savetxt('training_traces.csv',training_traces_norm,delimiter=',')
+    def __init__(self):
+        self.annotated_data_path = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
+        self.filename = None
 
-################# Training Labels and mixed event exclusion ###################
-cleanup = np.loadtxt('../Training_cleanup.csv',delimiter=',')
-training_labels = np.array([int(x[1]) for x in cleanup])
-print training_labels.shape
-training_indexes = []
-for i in range(training_labels.shape[0]):
-        if training_labels[i] != 0:
-            training_indexes.append(i)
+        self.train_data_raw = None
+        self.test_data_raw  = None
+        self.test_labels    = None
+        self.train_labels   = None
+
+        # This might be different from raw as normalised or filtered etc
+        self.test_data  = None
+        self.train_data = None
+
+        self.classifier = None
+
+    def load_labeled_traces(self, filename):
+        '''
+
+        Args:
+            filename: File can either already have training and test sets, or just training.
+
+            If just training 25% is taken as test set for future...
+
+        Returns:
+
+        '''
+        self.filename = filename
+
+        with h5py.File(filename, 'r') as f:
+            if len(f.keys()) == 2:
+                self.test_data_raw = np.array(f['test/data'])
+                self.train_data_raw = np.array(f['training/data'])
+                self.test_labels = np.array(f['test/labels']).astype(int)
+                self.train_labels= np.array(f['training/labels']).astype(int)
+            else:
+                print 'Warning: Automatically assigning test and training datasets'
+                self.train_data_raw, self.test_data_raw, self.train_labels, self.test_labels = train_test_split(
+                    np.array(f['training/data']), np.array(f['training/labels']).astype(int), random_state= 7)
+
+            test_data = utils.filterArray(self.test_data_raw, window_size= 7, order=3)
+            train_data = utils.filterArray(self.train_data_raw, window_size= 7, order=3)
+
+            self.test_data = self._normalise(test_data)
+            self.train_data = self._normalise(train_data)
 
 
-################## Training data added 2016/02/15 after first try outs ################
-lacie_training = '/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/labelling_for_training/'
-training_traces2 = pickle.load(open(lacie_training + 'new_training_data_2016_02_09','rb'))
-training_traces2_norm = utils.normalise(training_traces2)
-training_data2 = FeatureExtractor(training_traces2_norm).feature_array
-training_labels2 = pickle.load(open(lacie_training + 'new_training_labels_2016_02_09','rb'))
 
-# now merge:
+    def load_labeled_features(self, filename):
+        '''
 
-updated_training_data_traces = np.vstack((training_traces[training_indexes,:],training_traces2))
-updated_training_data = np.vstack((training_data.feature_array[training_indexes,:], training_data2))
-updated_training_labels = np.hstack((training_labels[training_indexes],training_labels2))
-print updated_training_data.shape, 'is updated shape, and labels...',
-print updated_training_labels.shape
-print updated_training_data_traces.shape, 'is updated traces shape!'
+        Args:
+            filename: File needs to have both test and training
+
+        Returns:
+
+        '''
+
+        with h5py.File(filename, 'r') as f:
+            print f.keys()
+
+            self.train_labels= np.array(f['training/labels']).astype(int)
+            self.test_labels = np.array(f['test/labels']).astype(int)
+
+            self.training_features = np.array(f['training/features'])
+            self.test_features = np.array(f['test/features'])
 
 
 
-################## Test Data ####################
-reload_validation = False
-if reload_validation:
-    validation_traces = utils.raw_validation_load()
-    validation_traces_norm = utils.normalise(validation_traces)
-    validation_data = FeatureExtractor(validation_traces_norm)
-    #f = open('../raw_validation','wb')
-    #pickle.dump(validation_traces,f)
+    def correct_labels(self, correction_tuple_list, set_string):
+        '''
 
-elif not reload_training:
-    print 'skipping raw validation load'
-    validation_traces = pickle.load(open('../raw_validation','rb'))
-    validation_traces_norm = utils.normalise(validation_traces)
-    validation_data = FeatureExtractor(validation_traces_norm)
-    np.savetxt('test_traces.csv',validation_traces_norm,delimiter=',')
+        Args:
+            correction_tuple_list: list containing tuples (index, value)
+            set_string: 'test' or 'train'
 
-################# Validation cleanup ###################
-cleanup = np.loadtxt('../validation_cleanUp.csv',delimiter=',')
-validation_labels = np.array([int(x[1]) for x in cleanup])
+        TODO: Add handling for single tuple and checking for errors
+        '''
+        for tup in correction_tuple_list:
+            index = tup[0]
+            value = tup[1]
+            if set_string == 'test':
+                self.test_labels[index] = value
+            elif set_string == 'train':
+                self.train_labels[index] = value
+            else:
+                print 'Invalid set_string argument:', set_string
+                exit()
 
-validation_indexes = []
-for i in range(validation_labels.shape[0]):
-        if validation_labels[i] != 0:
-            validation_indexes.append(i)
+    def check_trace_labels(self, pdf_savepath, format = '.pdf'):
+        '''
+        This function will load and then plot the data on the pdfs.
 
-#np.savetxt('all_traces.csv',np.vstack((validation_traces_norm,training_traces_norm)),delimiter=',')
-#np.savetxt('all_cleanup.csv',np.hstack((validation_labels)), delimiter = ',')
+        TODO: Be able to specify ranges in future.
+        '''
+        print 'Plotting test set'
+        plot_traces(self.test_data, labels = self.test_labels, savepath = pdf_savepath+'test', format_string = format)
+        print 'Plotting training set'
+        plot_traces(self.train_data, labels = self.train_labels, savepath = pdf_savepath+'train',format_string = format)
 
-# comment out on 2016/02/15 when using the extra training data!
-#classifier = NetworkClassifer(training_data.feature_array[training_indexes,:],training_labels[training_indexes],
-#                             validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
+    def save_labeled_traces(self, filepath, overwrite_flag = False):
 
-###### Save the training and test here into hdf5 / databases #######
-hdf5_data = {}
-#file_name = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223.hdf5'
+        # saveup into new hdf5 file
+        new_filepath = filepath
+        if new_filepath == self.filename:
 
-print file_name
+            if overwrite_flag == False:
+                print ' New filepath will overwrite previous file, please pass overwrite_flag a value of true or' \
+                      ' provide alternative filepath. Exiting...'
+                return 0
 
-with h5py.File(file_name, 'w') as f:
-    f.name
+            with h5py.File(new_filepath, 'w') as f:
+                training = f.create_group('training')
+                test = f.create_group('test')
 
-    training = f.create_group('training')
-    test = f.create_group('test')
+                training.create_dataset('data', data = self.train_data_raw)
+                test.create_dataset('data', data = self.test_data_raw)
 
-    training.create_dataset('data', data = updated_training_data_traces)
-    test.create_dataset('data', data = validation_traces[validation_indexes])
+                training.create_dataset('labels', data = self.train_labels)
+                test.create_dataset('labels', data = self.test_labels)
 
-    training.create_dataset('labels', data = updated_training_labels)
-    test.create_dataset('labels', data = validation_labels[validation_indexes])
+    def save_labeled_features(self, filepath, overwrite_flag = False):
+        '''
+        Method saves a hdf5 file with raw_traces, labels and features:
 
-    training.create_dataset('features', data = updated_training_data)
-    test.create_dataset('features',data = validation_data.feature_array[validation_indexes])
+        TODO: Save the metadata along with the file, so it is documented how the features
+        were extracted from the raw traces.
+        '''
 
-    print training.keys()
-    print test.keys()
+        new_filepath = filepath
+        if new_filepath == self.filename:
 
-    #plt.plot(training['data'][49,:])
+            if overwrite_flag == False:
+                print ' New filepath will overwrite previous file, please pass overwrite_flag a value of true or' \
+                      ' provide alternative filepath. Exiting...'
+                exit()
 
-#exit()
+        with h5py.File(new_filepath, 'w') as f:
+                training = f.create_group('training')
+                test = f.create_group('test')
 
-classifier = NetworkClassifer(updated_training_data,updated_training_labels,
-                              validation_data.feature_array[validation_indexes],validation_labels[validation_indexes])
-classifier.run()
+                training.create_dataset('data', data = self.train_data_raw)
+                test.create_dataset('data', data = self.test_data_raw)
 
-classifier.pca(n_components = 3)
-classifier.lda(n_components = 3, pca_reg = False, reg_dimensions = 9)
-classifier.lda_run()
-classifier.pca_run()
-#classifier.randomforest_info(max_trees=2000, step = 50)
-f = open('../pickled_classifier','wb')
-pickle.dump(classifier,f)
+                training.create_dataset('labels', data = self.train_labels)
+                test.create_dataset('labels', data = self.test_labels)
 
-''' ######## for pdfs of the validation ############ '''
-#f = open('../validation_label_traces_tuple','wb')
-#pickle.dump((validation_labels ,datasettest_norm[ok_indexes,:]),f)
+                training.create_dataset('features', data = self.training_features)
+                test.create_dataset('features', data = self.test_features)
 
-'''######## for pdfs of the original features ############'''
-#training_traces = np.vstack((data0616,dataset301_norm))
-#training_traces = training_data.feature_array[ok_indexes,:]
-#f = open('../training_label_traces_tuple','wb')
-#pickle.dump((training_indexes,training_traces),f)
+    def extract_features(self):
 
-'''
-testname_list = [testdataobj.filename_list[i] for i in range(testdataobj.filename_list.shape[0])]
-len(testname_list)
+        self.training_features = FeatureExtractor(self.train_data).feature_array
+        self.test_features = FeatureExtractor(self.test_data).feature_array
 
-info = []
-for i, name in enumerate(testname_list):
-    #print i,name[-34:]," State:" +str(pred_labels_new[i]), str(np.max(pred_labels_new_pr[i,:])*100)+'%'
-    info.append([i,name[-40:]," State:" +str(pred_labels_new[i]), str(np.max(pred_labels_new_pr[i,:])*100)+'%'])
-info = np.array(info)
-print info.shape
 
-######### Feature selection ###########
-feature_labels = ['0min','1max','2mean','3skew','4std','5kurtosis','6sum of absolute difference','7baseline_n',
-                               '8baseline_diff','9baseline_diff_skew','10n_pks','11n_vals','12av_pk','13av_val','14av pk val range',
-                               '151 hz','165 hz','1710 hz','1815 hz','1920 hz','20_30 hz','21_60 hz','22_90 hz']
-fis = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22]
-fis = [0,1,2,3,4,5,6,7,8,9,12,14,15,16,17,18,19]
+    def train_classifier(self, params = {}):
+        '''
 
-'''
+        Use the hdf5 from the checked data to train and assess the output of the classifier!
+
+        TODO:
+        Assert that it has the features etc
+        Pass the params dictionary to the random forest?!
+        Allow user to choose own classifier
+        '''
+
+        self.classifier = NetworkClassifer(self.training_features, self.train_labels, self.test_features, self.test_labels)
+        # should throw in the params here!
+        self.classifier.run()
+
+        self.classifier.pca(n_components = 3)
+        self.classifier.lda(n_components = 3, pca_reg = False, reg_dimensions = 9)
+        self.classifier.lda_run()
+        self.classifier.pca_run()
+
+    def save_classifier(self, savepath):
+        f = open(savepath,'wb')
+        pickle.dump(self.classifier, f)
+
+    def load_classifier(self, clf_path):
+        self.classifier = pickle.load(open(clf_path,'rb'))
+
+    def tune_classifier(self):
+        '''
+        Pass in dictionary of parameters over which to sweep
+        Choose the type of search - random or
+        Scoring
+
+        Returns:
+            Models according to performance.
+
+        '''
+        print 'TODO - work on this!'
+
+    def score_classifier(self):
+        '''
+        Scores classifier on test set
+        Uses roc_auc and precision-recall.
+        Also prints a classification report.
+        '''
+        self.classifier.score()
+
+    @ staticmethod
+    def _normalise(series):
+        a = np.min(series, axis=1)
+        b = np.max(series, axis=1)
+        return np.divide((series - a[:, None]), (b-a)[:,None])
+
+        #plot_traces(train_data, train_labels,savestring = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/'+'norm_filtered_check',)
+
+def main():
+    handler = ClassifierHandler()
+    handler.load_labeled_traces(filename = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5')
+
+    #handler.correct_labels([(650,3)], 'train')
+    handler.check_trace_labels(pdf_savepath = '/Volumes/LACIE SHARE/VM_data/jonny_playing/'+'norm_filtered_')
+    #handler.save_labelled_traces(filepath='/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5', overwrite_flag=False)
+
+    #handler.extract_features()
+    #handler.save_labeled_features('/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_201603_18_features.hdf5')
+    #handler.load_labeled_features('/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_201603_18_features.hdf5')
+    #handler.train_classifier()
+    #handler.save_classifier('/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/pickled_classifier_20160318')
+
+if __name__ == "__main__":
+    main()

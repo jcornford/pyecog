@@ -1,20 +1,16 @@
 import pickle
 import os
-import pythoncode.utils as utils
 
 import numpy as np
 import pandas as pd
 
-from pythoncode.network_loader import SeizureData
-from pythoncode.extrator import FeatureExtractor
-from pythoncode.make_pdfs import plot_traces_hdf5
-
+import utils
+from extrator import FeatureExtractor
+from make_pdfs import plot_traces_hdf5
+from make_pdfs import plot_traces
 
 import matplotlib.pyplot as plt
 import h5py
-
-import pythoncode.utils
-
 
 class Predictor():
 
@@ -23,30 +19,13 @@ class Predictor():
     '''
 
     def __init__(self, clf_pickle_path, fs_dict_path='../pickled_fs_dictionary'):
-
-        #self.fs_dict  = pickle.load(open(fs_dict_path,'rb'))
-        #for key in self.fs_dict:
-            #print key, self.fs_dict[key]
-        #pickle.load(open('/Volumes/LACIE SHARE/pickled_classifier','rb'))
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
         self.lda = self.classifier.lda
 
-        print self.lda
-        #print self.r_forest_lda
-
-
-    def assess_states(self, raw_path = None, downsample_rate = None, savestring = 'example',
-                      threshold = 65,
-                      raw_load = True,
-                      saved_path = None,
-                      make_pdfs = True):
-        self.raw_path = raw_path
-        self.threshold = '65' # 'sureity' threshold
-        self.savestring = savestring
-
-        with h5py.File(raw_path , 'r') as hf:
+    def load_traces(self, filepath):
+        with h5py.File(filepath , 'r') as hf:
 
             for key in hf.attrs.keys():
                 print key, hf.attrs[key]
@@ -60,30 +39,35 @@ class Predictor():
 
                 time = np.array(datadict[tid]['time'])
                 data = np.array(datadict[tid]['data'])
-                #print npdata.shape
 
-            print data.shape
+                print data.shape
 
-            index = data.shape[0]/ (5120/2)
-            print index, 'is divded by 5120'
+                index = data.shape[0]/ (5120/2)
+                print index, 'is divded by 5120'
 
-            data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-            print data_array.shape
-            #plt.figure(figsize = (20,10))
-            #plt.plot(data_array[40,:])
+                data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
+                print data_array.shape
 
-            #plt.show()
         self.data_array = data_array
+        self.norm_data = utils.normalise(self.data_array)
+        self.norm_data = utils.filterArray(self.norm_data, window_size=7, order = 3)
 
+    def extract_features(self):
+        self.feature_obj = FeatureExtractor(self.norm_data)
 
+    def assess_states(self,
+                      pdf_savedir = 'example',
+                      savestring = 'demo',
+                      threshold = 65,
+                      make_pdfs = True,
+                      format = 'png'):
 
+        self.threshold = '65' # 'sureity' threshold
+        self.savestring = savestring
 
-        self.norm_data = pythoncode.utils.normalise(self.data_array)
         #self.norm_data = self.data_array
-        self.norm_data = pythoncode.utils.filterArray(self.norm_data, window_size=7, order = 3)
-        feature_obj = FeatureExtractor(self.norm_data)
 
-        i_features = self.classifier.imputer.transform(feature_obj.feature_array)
+        i_features = self.classifier.imputer.transform(self.feature_obj.feature_array)
         iss_features = self.classifier.std_scaler.transform(i_features)
         lda_iss_features = self.lda.transform(iss_features)
 
@@ -107,40 +91,49 @@ class Predictor():
             #path_to_create = '/Volumes/LaCie/Albert_ndfs/hdf5/pdfs/'+self.raw_path.split('/')[-1][:-5]
             #print path_to_create
             #os.mkdir(path_to_create,0755)
-            self.plot_pdfs()
+            plot_traces(self.norm_data, labels = self.preds, savepath = pdf_savedir+savestring,format_string = format)
 
     def plot_pdfs(self):
+
+        '''
         plot_traces_hdf5(self.norm_data,
                     labels = self.preds,
                     # should auto create the middle directpry (currently not!
                     #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.raw_path.split('/')[-1][:-5]+'/'+self.savestring,
                     #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.savestring,
-                    savestring = '/Volumes/LaCie/Gabriele/all_day_pdfs_id_7/'+self.savestring,
+                    save = '/Volumes/LaCie/Gabriele/all_day_pdfs_id_7/'+self.savestring,
                     #savestring = '/Volumes/LaCie/Albert_ndfs/training_data/rpdfs/'+self.savestring,
                     #savestring  = '/Volumes/LaCie/Gabriele/pdfs_pred/'+self.savestring
                     prob_thresholds= self.threshold_for_mixed,
                     trace_len_sec= 5)
+        '''
+
+    @ staticmethod
+    def _normalise(series):
+        a = np.min(series, axis=1)
+        b = np.max(series, axis=1)
+        return np.divide((series - a[:, None]), (b-a)[:,None])
 
 #x = Predictor( clf_pickle_path = '/Volumes/LaCie/Albert_ndfs/pickled_classifier_20160302')
 
-x = Predictor( clf_pickle_path ='/Volumes/LaCie/Albert_ndfs/pickled_classifier_t5dbs')
+def main():
+    x = Predictor( clf_pickle_path ='/Volumes/LaCie/Albert_ndfs/pickled_classifier_t5dbs')
 
 
-dirpath = '/Volumes/LaCie/Albert_ndfs/hdf5/'
-dirpath = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s_/'
+    dirpath = '/Volumes/LaCie/Albert_ndfs/hdf5/'
+    dirpath = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s_/'
 
-dirpath = '/Volumes/LaCie/Gabriele/hdf5s_id_7'  # this is for gabriele's stuff
-#dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/hdf5s'
-makepdfs = True
+    #dirpath = '/Volumes/LaCie/Gabriele/hdf5s_id_7'  # this is for gabriele's stuff
+    dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/hdf5s'
+    makepdfs = False
 
-#filepath = dirpath + 'M1453331811.hdf5'
-for filename in os.listdir(dirpath):
-        if filename.endswith('.hdf5'):
-            filepath = os.path.join(dirpath, filename)
+    #filepath = dirpath + 'M1453331811.hdf5'
+    for filename in os.listdir(dirpath):
+            if filename.endswith('.hdf5'):
+                filepath = os.path.join(dirpath, filename)
 
-            x.assess_states(raw_path = filepath,
-                            savestring = 'ndf_pred_'+filepath.split('/')[-1][:-5]+'_',
-                            raw_load = False,
-                            make_pdfs= makepdfs)
+                x.assess_states(savestring = 'ndf_pred_'+filepath.split('/')[-1][:-5]+'_',
+                                make_pdfs= makepdfs)
 
-
+if __name__ == "__main__":
+    main()

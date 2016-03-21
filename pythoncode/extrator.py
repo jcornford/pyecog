@@ -81,7 +81,7 @@ class FeatureExtractor():
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
         print 'DONE', time.clock() - self.start
-        print 'N.B using mean baseline difference - perhaps not best?'
+        #print 'N.B using mean baseline difference - perhaps not best?'
 
     def _peaks_and_valleys(self):
         print ("Extracting peak/valley features..."),
@@ -127,7 +127,7 @@ class FeatureExtractor():
         av_range = np.array(av_range)
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
         print("DONE", time.clock()-self.start)
-        print ('N.B Again - preassign?')
+        #print ('N.B Again - preassign?')
 
     def _wavelet_features(self, fs = 512, frequencies = [1,5,10,15,20,30,60, 90]):
         print("Extracting wavelet features from event dataset..."),
@@ -153,7 +153,7 @@ class FeatureExtractor():
         self.meanpower = np.array(meanpower)
         print("DONE", time.clock()-self.start)
 
-        print("N.B. Still no post crossing power")
+        #print("N.B. Still no post crossing power")
 
     @ staticmethod
     def rolling_window(array, window):

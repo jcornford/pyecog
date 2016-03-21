@@ -1,13 +1,8 @@
-
-import pandas as pd
-import numpy as np
-import h5py
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+import pandas as pd
 
-from pythoncode import utils
-from pythoncode.extrator import FeatureExtractor
-from converter import NDFLoader
+from pythoncode.converter import NDFLoader
 
 
 class Explorer():
