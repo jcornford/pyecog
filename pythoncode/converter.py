@@ -184,7 +184,6 @@ class NDFLoader:
             file_format:
 
         """
-        print('WARNING: SAVE NOT FINISHED')
 
         if file_format == 'hdf5':
             hdf5_filename = save_file_name + '.' + file_format

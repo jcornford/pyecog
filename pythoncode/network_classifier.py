@@ -109,16 +109,32 @@ class ClassifierHandler():
                 print 'Invalid set_string argument:', set_string
                 exit()
 
-    def check_trace_labels(self, pdf_savepath, format = '.pdf'):
+    def check_trace_labels(self, pdf_savepath, range = 'all', format = '.pdf'):
         '''
         This function will load and then plot the data on the pdfs.
 
+        Range: either 'all', or (start, end,'train' or 'test')
+
         TODO: Be able to specify ranges in future.
         '''
-        print 'Plotting test set'
-        plot_traces(self.test_data, labels = self.test_labels, savepath = pdf_savepath+'test', format_string = format)
-        print 'Plotting training set'
-        plot_traces(self.train_data, labels = self.train_labels, savepath = pdf_savepath+'train',format_string = format)
+        if range is 'all':
+            print 'Plotting test set'
+            plot_traces(self.test_data, labels = self.test_labels, savepath = pdf_savepath+'test', format_string = format)
+            print 'Plotting training set'
+            plot_traces(self.train_data, labels = self.train_labels, savepath = pdf_savepath+'train',format_string = format)
+
+        else:
+            print 'here', range[-1]
+            if range[-1] == 'test':
+                print('Plotting test set, from '+str(range[0])+' to '+str(range[1]))
+                plot_traces(self.test_data[range[0]:range[1],:], start= range[0], labels = self.test_labels[range[0]:range[1]], savepath = pdf_savepath+'test', format_string = format)
+
+            elif range[-1] == 'train':
+                print('Plotting training set, from  '+str(range[0])+' to '+str(range[1]))
+                plot_traces(self.train_data[range[0]:range[1],:], start = range[0], labels = self.train_labels[range[0]:range[1]], savepath = pdf_savepath+'test', format_string = format)
+
+            else:
+                print('Please specify test or training set')
 
     def save_labeled_traces(self, filepath, overwrite_flag = False):
 
@@ -239,100 +255,13 @@ class ClassifierHandler():
         print "need to implement!"
 
 
-    def make_pdfs_for_labeling_converted_ndf(self, converted_ndf, save_dir, file_format):
-        with h5py.File(converted_ndf , 'r') as hf:
-                    for ndfkey in hf.keys():
-                        print ndfkey, 'is hf key'
-                        datadict = hf.get(ndfkey)
-
-                    for tid in datadict.keys():
-                        data = np.array(datadict[tid]['data'])
-
-                    print data.shape
-
-                    index = data.shape[0]/ (5120/2)
-                    print index, 'is divded by 5120'
-
-                    data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-                    print data_array.shape
-        plot_traces(data_array,
-                    savepath = os.path.join(save_dir, converted_ndf.split('/')[-1]+'_'),
-                    format_string = file_format)
-
-    def make_training_hdf5(self):
-
-        basedir = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
-        filepairs = [('state_labels_2016_01_21_19-16.csv','2016_01_21_19:16.hdf5'),
-                     ('state_labels_2016_01_21_13-16.csv','2016_01_21_13:16.hdf5'),
-                     ('state_labels_2016_01_21_11-16.csv','2016_01_21_11:16.hdf5'),
-                     ('state_labels_2016_01_21_10-16.csv','2016_01_21_10:16.hdf5'),
-                     ('state_labels_2016_01_21_08-16.csv','2016_01_21_08:16.hdf5')]
-
-        data_array_list = []
-        label_list = []
-
-        for pair in filepairs:
-            labels = np.loadtxt(os.path.join(basedir, pair[0]),delimiter=',')[:,1]
-            print labels.shape
-
-            converted_ndf = os.path.join(basedir, pair[1])
-
-            with h5py.File(converted_ndf , 'r') as hf:
-
-                    for key in hf.attrs.keys():
-                        print key, hf.attrs[key]
-                    print hf.items()
-
-                    for ndfkey in hf.keys():
-                        print ndfkey, 'is hf key'
-                        datadict = hf.get(ndfkey)
-
-                    for tid in datadict.keys():
-
-                        time = np.array(datadict[tid]['time'])
-                        data = np.array(datadict[tid]['data'])
-                        #print npdata.shape
-
-                    print data.shape
-
-                    index = data.shape[0]/ (5120/2)
-                    print index, 'is divded by 5120'
-
-                    data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-                    print data_array.shape
-                    #plt.figure(figsize = (20,10))
-                    #plt.plot(data_array[40,:])
-                    data_array_list.append(data_array)
-                    label_list.append(labels)
-                    #plt.show()
-
-        data_array = np.vstack(data_array_list)
-        print data_array.shape, 'is shape of data'
-        labels = np.hstack(label_list)
-        print labels.shape, 'is shape of labels'
-
-        ### Write it up! ###
-        file_name = '/Volumes/LaCie/Albert_ndfs/training_data/training_data_v2.hdf5'
-        with h5py.File(file_name, 'w') as f:
-            f.name
-
-            training = f.create_group('training')
-
-            training.create_dataset('data', data = data_array)
-            training.create_dataset('labels', data = labels)
-
-            print training.keys()
-
-    # Here kind of endss the nonesense.   # #######
-    #######
-            ######
-            #######
 def main():
     handler = ClassifierHandler()
     handler.load_labeled_traces(filename = '/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5')
 
     #handler.correct_labels([(650,3)], 'train')
-    handler.check_trace_labels(pdf_savepath = '/Volumes/LACIE SHARE/VM_data/jonny_playing/'+'norm_filtered_')
+    handler.check_trace_labels(pdf_savepath = '/Volumes/LACIE SHARE/VM_data/jonny_playing/'+'norm_filtered_',
+                               range=(45,75,'train'))
     #handler.save_labelled_traces(filepath='/Volumes/LACIE SHARE/VM_data/classifier_hdf5data/classifier_test_train_20160223_corrected.hdf5', overwrite_flag=False)
 
     #handler.extract_features()
