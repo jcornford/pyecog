@@ -111,7 +111,7 @@ class DataHandler():
 
                         figure_folder = os.path.join(savedir, path.split('/')[-1].split('.')[0]+'_id'+str(tid))
 
-                        print figure_folder
+                        print(figure_folder)
                         if not os.path.exists(figure_folder):
                             os.makedirs(figure_folder)
 
@@ -195,6 +195,8 @@ class DataHandler():
                     #Add the data
                     data_dset[original_shape[0]:,:] = data_array
                     labels_dset[original_shape[0]:,:] = labels[:,None]
+
+    def make_prediction_dataset(self, fs = 512, timewindow = 5):
 
     def make_annotated_dataset(self, filepairs, savename, fs = 512, timewindow = 5):
 

@@ -149,5 +149,5 @@ if __name__ == "__main__":
 
     labels = training_tuple[0]
     data = training_tuple[1]
-    print('plotting '+ str(data.shape[0))+ 'traces')
+    print('plotting '+ str(data.shape[0])+ 'traces')
     plot_traces(data,labels,savestring='../validation ',format_string='.pdf')

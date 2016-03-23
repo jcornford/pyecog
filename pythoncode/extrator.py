@@ -80,7 +80,7 @@ class FeatureExtractor():
         #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in xrange(dataset.shape[0])]
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
-        print 'DONE', time.clock() - self.start
+        print('DONE'+ str(time.clock() - self.start))
         #print 'N.B using mean baseline difference - perhaps not best?'
 
     def _peaks_and_valleys(self):
@@ -239,7 +239,7 @@ class FeatureExtractor():
         if freqNorm:
             #gstd    = (4/(2*np.pi*f))**2# this is his?
             A = 1.0/np.sqrt((gstd*np.sqrt(np.pi)))
-            print 'freqNorm is :',A,' for', f, ' Hz'
+            print('freqNorm is :'+str(A)+' for'+str(f) +' Hz')
 
         wavelet = A*sine_wave*gauss_win
         #print wavelet.shape

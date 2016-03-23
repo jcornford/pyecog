@@ -29,23 +29,6 @@ class Predictor():
         with h5py.File(filepath , 'r') as hf:
 
 
-            for ndfkey in hf.keys():
-
-                datadict = hf.get(ndfkey)
-
-            for tid in datadict.keys():
-
-                time = np.array(datadict[tid]['time'])
-                data = np.array(datadict[tid]['data'])
-
-
-
-                index = data.shape[0]/ (5120/2)
-
-
-                data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-
-
         self.data_array = data_array
         self.norm_data = utils.normalise(self.data_array)
         self.norm_data = utils.filterArray(self.norm_data, window_size=7, order = 3)
