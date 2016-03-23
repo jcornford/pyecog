@@ -100,11 +100,10 @@ class DataHandler():
                         datadict = hf.get(ndfkey)
 
                     for tid in datadict.keys():
-                        print('plotting transmitter id ' + str(tid))
                         data = np.array(datadict[tid]['data'])
-
                         n_traces = data.shape[0] / (fs * timewindow)
-                        print('There are '+ str(n_traces) + ' traces')
+
+                        print('plotting transmitter id ' + str(tid)+'... There are '+ str(n_traces) + ' traces')
                         dp_lost =  data.shape[0] % (fs * timewindow)
 
                         data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
@@ -127,7 +126,7 @@ class DataHandler():
 
     def append_to_annotated_dataset(self, dataset_path, filepairs,set_type='train', fs = 512, timewindow = 5):
 
-        if filepairs is not list:
+        if type(filepairs) is not list:
             filepairs = [filepairs]
 
         data_array_list = []
@@ -210,7 +209,7 @@ class DataHandler():
         data_array_list = []
         label_list = []
 
-        if filepairs is not list:
+        if type(filepairs) is not list:
             filepairs = [filepairs]
 
         for pair in filepairs:
