@@ -111,6 +111,7 @@ class DataHandler():
                         data_array = self._normalise(data_array)
 
                         figure_folder = os.path.join(savedir, path.split('/')[-1].split('.')[0]+'_id'+str(tid))
+
                         print figure_folder
                         if not os.path.exists(figure_folder):
                             os.makedirs(figure_folder)
@@ -124,90 +125,145 @@ class DataHandler():
                                     trace_len_sec = timewindow)
 
 
-    def append_to_annotated_dataset(self):
-        pass
+    def append_to_annotated_dataset(self, dataset_path, filepairs,set_type='train', fs = 512, timewindow = 5):
 
+        if filepairs is not list:
+            filepairs = [filepairs]
 
-    def make_annotated_dataset(self):
+        data_array_list = []
+        label_list = []
+        for pair in filepairs:
+            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
+            converted_ndf = pair[1]
+
+            with h5py.File(converted_ndf , 'r') as hf:
+                    for ndfkey in hf.keys():
+                        datadict = hf.get(ndfkey)
+
+                    for tid in datadict.keys():
+                        print('transmitter id ' + str(tid))
+                        data = np.array(datadict[tid]['data'])
+
+                        n_traces = data.shape[0] / (fs * timewindow)
+                        dp_lost =  data.shape[0] % (fs * timewindow)
+
+                        data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+
+                    data_array_list.append(data_array)
+                    label_list.append(labels)
+
+        data_array = np.vstack(data_array_list)
+        print(str(data_array.shape)+ ' is shape of dataset to append ')
+        labels = np.hstack(label_list)
+        print(str(labels.shape)+ ' is number of labels to append')
+        assert data_array.shape[0] == labels.shape[0]
+
+        if set_type == 'train':
+            with h5py.File(dataset_path, 'r+') as db:
+                data_dset =  db['training/data']
+                labels_dset =  db['training/labels']
+
+                # resize the dataset
+                original_shape =  data_dset.shape
+                new_shape = original_shape[0] + data_array.shape[0]
+                print('original training shape was: ' + str(original_shape))
+                data_dset.resize(new_shape, axis = 0)
+                labels_dset.resize(new_shape, axis = 0)
+                print('shape is now '+str(data_dset.shape))
+
+                #Add the data
+                data_dset[original_shape[0]:,:] = data_array
+                labels_dset[original_shape[0]:,:] = labels[:,None]
+
+        if set_type == 'test':
+            with h5py.File(dataset_path, 'r+') as db:
+                if 'test' not in db.keys():
+                    print('Added test dataset to file')
+                    test = db.create_group('test')
+                    test.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
+                    test.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
+                else:
+                    data_dset =  db['test/data']
+                    labels_dset =  db['test/labels']
+                    original_shape =  data_dset.shape
+
+                    new_shape = original_shape[0] + data_array.shape[0]
+
+                    print('original test shape was: ' + str(original_shape))
+                    data_dset.resize(new_shape, axis = 0)
+                    labels_dset.resize(new_shape, axis = 0)
+                    print('shape is now '+str(data_dset.shape))
+
+                    #Add the data
+                    data_dset[original_shape[0]:,:] = data_array
+                    labels_dset[original_shape[0]:,:] = labels[:,None]
+
+    def make_annotated_dataset(self, filepairs, savename, fs = 512, timewindow = 5):
 
         '''
-        This needs to be done...!
+        WARNING: CURRENTLY NOT HANDLING MULTPLE TIDS
+        filepairs: a tuple, or list of tuples in the
+        format [(labels.csv, converted_ndf)]
 
         '''
-
-        basedir = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
-        filepairs = [('state_labels_2016_01_21_19-16.csv','2016_01_21_19:16.hdf5'),
-                     ('state_labels_2016_01_21_13-16.csv','2016_01_21_13:16.hdf5'),
-                     ('state_labels_2016_01_21_11-16.csv','2016_01_21_11:16.hdf5'),
-                     ('state_labels_2016_01_21_10-16.csv','2016_01_21_10:16.hdf5'),
-                     ('state_labels_2016_01_21_08-16.csv','2016_01_21_08:16.hdf5')]
 
         data_array_list = []
         label_list = []
 
+        if filepairs is not list:
+            filepairs = [filepairs]
+
         for pair in filepairs:
-            labels = np.loadtxt(os.path.join(basedir, pair[0]),delimiter=',')[:,1]
-            print labels.shape
+            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
 
-            converted_ndf = os.path.join(basedir, pair[1])
-
+            converted_ndf = pair[1]
             with h5py.File(converted_ndf , 'r') as hf:
-
-                    for key in hf.attrs.keys():
-                        print key, hf.attrs[key]
-                    print hf.items()
-
                     for ndfkey in hf.keys():
-                        print ndfkey, 'is hf key'
                         datadict = hf.get(ndfkey)
 
                     for tid in datadict.keys():
-
-                        time = np.array(datadict[tid]['time'])
+                        print('transmitter id ' + str(tid))
                         data = np.array(datadict[tid]['data'])
-                        #print npdata.shape
 
-                    print data.shape
+                        n_traces = data.shape[0] / (fs * timewindow)
+                        print('There are '+ str(n_traces) + ' traces')
+                        dp_lost =  data.shape[0] % (fs * timewindow)
 
-                    index = data.shape[0]/ (5120/2)
-                    print index, 'is divded by 5120'
+                        data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
 
-                    data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-                    print data_array.shape
-                    #plt.figure(figsize = (20,10))
-                    #plt.plot(data_array[40,:])
                     data_array_list.append(data_array)
                     label_list.append(labels)
-                    #plt.show()
+
 
         data_array = np.vstack(data_array_list)
-        print data_array.shape, 'is shape of data'
+        print(str(data_array.shape)+ ' is shape of dataset ')
         labels = np.hstack(label_list)
-        print labels.shape, 'is shape of labels'
+        print(str(labels.shape)+ ' is number of labels')
 
         ### Write it up! ###
-        file_name = '/Volumes/LaCie/Albert_ndfs/training_data/training_data_v2.hdf5'
-        with h5py.File(file_name, 'w') as f:
-            f.name
+        with h5py.File(savename, 'w') as f:
 
             training = f.create_group('training')
-
-            training.create_dataset('data', data = data_array)
-            training.create_dataset('labels', data = labels)
-
-            print training.keys()
-
-    # Here kind of endss the nonesense.   # #######
-    #######
-            ######
-
+            training.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
+            training.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
 
 
 
 def main():
     handler = DataHandler()
     #handler.convert_ndf('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/NDF/', ids = 14)
-    handler.make_figures_for_labeling_ndfs('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/converted_ndfs/M1454346216.hdf5',
-                                           timewindow=5)
+    #handler.make_figures_for_labeling_ndfs('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/converted_ndfs/M1454346216.hdf5', timewindow=5)
+
+    basedir = '/Volumes/LaCie/Albert_ndfs/training_data/raw_hdf5s/'
+    filepairs = [('state_labels_2016_01_21_19-16.csv','2016_01_21_19:16.hdf5'),
+                     ('state_labels_2016_01_21_13-16.csv','2016_01_21_13:16.hdf5'),
+                     ('state_labels_2016_01_21_11-16.csv','2016_01_21_11:16.hdf5'),
+                     ('state_labels_2016_01_21_10-16.csv','2016_01_21_10:16.hdf5'),
+                     ('state_labels_2016_01_21_08-16.csv','2016_01_21_08:16.hdf5')]
+    pair = (os.path.join(basedir,'state_labels_2016_01_21_19-16.csv'), os.path.join(basedir,'2016_01_21_19:16.hdf5'))
+    pair2 = (os.path.join(basedir,'state_labels_2016_01_21_13-16.csv'), os.path.join(basedir,'2016_01_21_13:16.hdf5'))
+    db_name = '/Volumes/LaCie/Albert_ndfs/training_data/training_data_v2_jonny_playing.hdf5'
+    #handler.make_annotated_dataset(pair, db_name)
+    handler.append_to_annotated_dataset(db_name,pair2, set_type='test')
 if __name__ == "__main__":
     main()
