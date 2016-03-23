@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import struct
 import time
@@ -205,7 +206,7 @@ class NDFLoader:
                     hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
                     transmitter_group.attrs["resampled"] = resampled
 
-        print 'Saved data as:', hdf5_filename
+        print('Saved data as:'+str(hdf5_filename))
 
         '''
         #implement multiple processes for saving
@@ -320,7 +321,7 @@ def convert_ndf(filename, savedir, id = -1):
              file_format= 'hdf5')
 
 def main(dirpath,id):
-    print 'currently being used for loading a full folder'
+    print('currently being used for loading a full folder')
     for filepath in os.listdir(dirpath):
         if filepath.endswith('.ndf'):
             # make a save dir

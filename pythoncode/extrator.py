@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import sys
 
@@ -20,17 +21,16 @@ class FeatureExtractor():
         self._peaks_and_valleys()
         self._wavelet_features(fs = 512, frequencies = [1,5,10,15,20,30,60, 90])
 
-        print("Stacking up..."),
+        print("Stacking up...")
         self.feature_array = np.hstack([self.event_stats,self.baseline_features,
                                    self.pkval_stats,self.meanpower])
-        print 'DONE!'
 
-        print self.feature_array.shape
-        print 'took ', time.clock()-self.start, ' seconds to extract ', dataset.shape[0], 'feature vectors'
+        print(str(self.feature_array.shape))
+        print('took '+ str(time.clock()-self.start)+ ' seconds to extract '+ str(dataset.shape[0])+ 'feature vectors')
 
 
     def _event_dataset_stats(self):
-        print("Extracting stats on event dataset..."),
+        print("Extracting stats on event dataset...")
         self.event_stats = np.zeros((len(self.event_dataset),7))
         self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
 
@@ -48,7 +48,7 @@ class FeatureExtractor():
                  # if all baseline
                 self.event_stats[i,:] = np.NaN
 
-        print "DONE", time.clock() - self.start
+        print("DONE"+ str(time.clock() - self.start))
 
     def _baseline(self, subtract_baseline = True, threshold = 0.04, window_size = 100):
         '''
@@ -58,7 +58,7 @@ class FeatureExtractor():
               defined as being baseline using a rolling std deviation window and threshold
             - baseline_mean_diff is the second list and is the mean difference between baseline datapoint indexes.
         '''
-        print 'Extracting baseline via rolling std...',
+        print('Extracting baseline via rolling std...')
         array_std = np.std(self.rolling_window(self.dataset,window=window_size),-1)
         array_window = np.zeros([self.dataset.shape[0],window_size-1])
         rolling_std_array = np.hstack((array_window,array_std))

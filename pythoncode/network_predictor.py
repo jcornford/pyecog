@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 import utils
 
@@ -168,7 +169,7 @@ class Predictor():
 
         frames = [self.nameframe, sheet, max_preds, ratio, master_exc, pred]
         vmsheet = pd.concat(frames,axis = 1)
-        print vmsheet.head()
+        #print vmsheet.head()
         writer = pd.ExcelWriter('/Volumes/LACIE SHARE/VM_data/All_Data_Jan_2016/'+self.savestring+'.xlsx',engine = 'xlsxwriter')
         vmsheet.to_excel(writer,index = True,sheet_name = 'Pulse prediction' )
         workbook = writer.book

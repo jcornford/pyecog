@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import pandas as pd
 import numpy as np
@@ -126,7 +127,7 @@ class Main():
             #print i_features[key][:]
             i_secs += i_features[key].shape[0]
 
-        print ii_secs, 'interictal seconds and ', i_secs, 'ictal seconds'
+        #print ii_secs, 'interictal seconds and ', i_secs, 'ictal seconds'
         self.annotated_array = np.zeros(shape =(ii_secs+i_secs,24) )
         i = 0
         for key in ii_features.keys():
@@ -152,8 +153,8 @@ class Main():
 
         self.labels = np.ravel(self.annotated_array[:,-1])
 
-        print self.iss_features.shape, 'is feature matrix'
-        print self.labels.shape, 'is labels number'
+        #print self.iss_features.shape, 'is feature matrix'
+        #print self.labels.shape, 'is labels number'
 
 
     def run_lda(self, n_components = 3):
@@ -188,8 +189,8 @@ class Main():
 
 
     def _extract_features_load_inter_ictal_hdf5(self):
-        print 'going to lose time on cutting into arrays'
-        print 'no normalisation'
+        #print 'going to lose time on cutting into arrays'
+        #print 'no normalisation'
         f = h5py.File('inter_ictal_file.hdf5', 'r')
         if_f = h5py.File('inter_ictal_features.hdf5', 'w')
         for key in f.keys():
@@ -205,8 +206,8 @@ class Main():
             #print extractor.feature_array.shape
 
     def _extract_features_load_ictal_hdf5(self):
-        print 'going to lose time on cutting into arrays'
-        print 'no normalisation'
+        #print 'going to lose time on cutting into arrays'
+        #print 'no normalisation'
         f = h5py.File('ictal_file.hdf5', 'r')
         if_f = h5py.File('ictal_features.hdf5', 'w')
         for key in f.keys():
@@ -229,7 +230,7 @@ class Main():
             fname = self.annotations.iloc[i,0]
             start = self.annotations.iloc[i,1]
             end   = self.annotations.iloc[i,2]
-            print fname, end , start
+            #print fname, end , start
 
             ndf =  NDFLoader(self.dir_path+'ndf/'+fname, print_meta=True)
             ndf.load(8)
@@ -259,7 +260,7 @@ class Main():
             fname = self.annotations.iloc[i,0]
             start = self.annotations.iloc[i,1]
             end   = self.annotations.iloc[i,2]
-            print fname, end , start
+            #print fname, end , start
 
             ndf =  NDFLoader(self.dir_path+'ndf/'+fname, print_meta=True)
             ndf.load(8)

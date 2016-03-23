@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 
 import matplotlib.gridspec as gridspec
@@ -14,7 +15,7 @@ def main():
     treedata = np.loadtxt('../treedata500.csv',delimiter = ',')
     #treedata = np.loadtxt('../knndata.csv',delimiter = ',')
 
-    print treedata.shape
+
 
     #figure = plt.figure(figsize=(8.27, 11.69),facecolor='white')
     figure = plt.figure(figsize=(10, 12),facecolor='white')
@@ -76,7 +77,7 @@ def main():
 
     ax4.plot(n_trees, classifier.treedata[:, 4], color=phd.mc['r'],linestyle='-', linewidth = lw,  label='CV LDA 3d')
     ax4.plot(n_trees, classifier.treedata[:, 6], color = phd.mc['r'],linestyle = '--',linewidth = lw,  label ='Test LDA 3d')
-    print classifier.treedata[:,6]
+
 
     ax4.plot(n_trees, classifier.treedata[:, 7], color = phd.mc['b'],linestyle = '-', linewidth = lw, label ='CV PCA 3d')
     ax4.plot(n_trees, classifier.treedata[:, 9], color = phd.mc['b'],linestyle = '--', linewidth = lw, label ='Test PCA 3d')
@@ -266,7 +267,7 @@ def scatter_plot_matrix():
     fig = plt.figure(figsize=(8, 11))
     sns.set_palette(mc2)
     df = pd.DataFrame(X, columns =['Feature'+str(i+1) for i in range(X.shape[1])])
-    print classifier.labels.shape
+
     df['Network States'] = classifier.labels
     pg = sns.PairGrid(df,
                   vars=['Feature'+str(i+1) for i in range(X.shape[1])],
@@ -300,7 +301,7 @@ def perfomance():
 
     ax1.plot(n_trees, classifier.treedata[:, 4], color=phd.mc['r'],linestyle='-', linewidth = lw,  label='CV LDA 3d')
     ax1.plot(n_trees, classifier.treedata[:, 6], color = phd.mc['r'],linestyle = '--',linewidth = lw,  label ='Test LDA 3d')
-    print classifier.treedata[:,6]
+
 
     ax1.plot(n_trees, classifier.treedata[:, 7], color = phd.mc['b'],linestyle = '-', linewidth = lw, label ='CV PCA 3d')
     ax1.plot(n_trees, classifier.treedata[:, 9], color = phd.mc['b'],linestyle = '--', linewidth = lw, label ='Test PCA 3d')

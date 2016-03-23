@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 import h5py
 import os
 
@@ -122,7 +122,6 @@ class DataHandler():
                                     filename = path.split('/')[-1].split('.')[0],
                                     format_string = format,
                                     trace_len_sec = timewindow)
-
 
     def append_to_annotated_dataset(self, dataset_path, filepairs,set_type='train', fs = 512, timewindow = 5):
 

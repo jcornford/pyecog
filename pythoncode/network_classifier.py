@@ -5,9 +5,11 @@ Simple file, focusing on loading and training on hdf5 stored data.
 - To do:
   1. Easy appending of new data to training dictionary (work in parralel with the hdf5 stuff)
 '''
-
+from __future__ import print_function
 import h5py
 import pickle
+import os
+
 
 import numpy as np
 from sklearn.cross_validation import train_test_split
@@ -47,16 +49,17 @@ class ClassifierHandler():
         Returns:
 
         '''
+        #self.filename = os.path.abspath(filename)
         self.filename = filename
 
-        with h5py.File(filename, 'r') as f:
+        with h5py.File(self.filename, 'r') as f:
             if len(f.keys()) == 2:
                 self.test_data_raw = np.array(f['test/data'])
                 self.train_data_raw = np.array(f['training/data'])
                 self.test_labels = np.array(f['test/labels']).astype(int)
                 self.train_labels= np.array(f['training/labels']).astype(int)
             else:
-                print 'Warning: Automatically assigning test and training datasets'
+                print('Warning: Automatically assigning test and training datasets')
                 self.train_data_raw, self.test_data_raw, self.train_labels, self.test_labels = train_test_split(
                     np.array(f['training/data']), np.array(f['training/labels']).astype(int), random_state= 7)
 
@@ -79,14 +82,13 @@ class ClassifierHandler():
         '''
 
         with h5py.File(filename, 'r') as f:
-            print f.keys()
+            print(f.keys())
 
             self.train_labels= np.array(f['training/labels']).astype(int)
             self.test_labels = np.array(f['test/labels']).astype(int)
 
             self.training_features = np.array(f['training/features'])
             self.test_features = np.array(f['test/features'])
-
 
 
     def correct_labels(self, correction_tuple_list, set_string):
@@ -106,10 +108,10 @@ class ClassifierHandler():
             elif set_string == 'train':
                 self.train_labels[index] = value
             else:
-                print 'Invalid set_string argument:', set_string
-                exit()
+                print('Invalid set_string argument:', set_string)
+                return 0
 
-    def check_trace_labels(self, pdf_savepath, range = 'all', format = '.pdf'):
+    def check_trace_labels(self, savedir = None, range = 'all', format = '.pdf'):
         '''
         This function will load and then plot the data on the pdfs.
 
@@ -117,21 +119,30 @@ class ClassifierHandler():
 
         TODO: Be able to specify ranges in future.
         '''
+        if savedir is None:
+            path =  os.path.abspath(self.filename)
+            savedir = os.path.join(os.path.dirname(path), str(self.filename)+'_plots')
+
+
+        if not os.path.exists(savedir):
+            os.makedirs(savedir)
+
         if range is 'all':
-            print 'Plotting test set'
-            plot_traces(self.test_data, labels = self.test_labels, savepath = pdf_savepath+'test', format_string = format)
-            print 'Plotting training set'
-            plot_traces(self.train_data, labels = self.train_labels, savepath = pdf_savepath+'train',format_string = format)
+            print('Plotting test set')
+            plot_traces(self.test_data, labels = self.test_labels, savepath = savedir, filename = 'test', format_string = format)
+            print('Plotting training set')
+            plot_traces(self.train_data, labels = self.train_labels, savepath = savedir,filename = 'train', format_string = format)
 
         else:
-            print 'here', range[-1]
             if range[-1] == 'test':
-                print('Plotting test set, from '+str(range[0])+' to '+str(range[1]))
-                plot_traces(self.test_data[range[0]:range[1],:], start= range[0], labels = self.test_labels[range[0]:range[1]], savepath = pdf_savepath+'test', format_string = format)
+                print('Plotting test set, from '+str(range[0])+' to '+str(range[1])+ ' will start at figure number '+str((range[0]+1)/40))
+                plot_traces(self.test_data[range[0]:range[1],:], start= range[0], labels = self.test_labels[range[0]:range[1]],
+                            savepath = savedir, filename = 'test', format_string = format)
 
             elif range[-1] == 'train':
-                print('Plotting training set, from  '+str(range[0])+' to '+str(range[1]))
-                plot_traces(self.train_data[range[0]:range[1],:], start = range[0], labels = self.train_labels[range[0]:range[1]], savepath = pdf_savepath+'test', format_string = format)
+                print('Plotting training set, from  '+str(range[0])+' to '+str(range[1])+' will start at figure number '+str((range[0]+1)/40))
+                plot_traces(self.train_data[range[0]:range[1],:], start = range[0], labels = self.train_labels[range[0]:range[1]],
+                            savepath = savedir, filename = 'train', format_string = format)
 
             else:
                 print('Please specify test or training set')
@@ -139,23 +150,23 @@ class ClassifierHandler():
     def save_labeled_traces(self, filepath, overwrite_flag = False):
 
         # saveup into new hdf5 file
-        new_filepath = filepath
+        new_filepath = os.path.abspath(filepath)
+        print('saving database at '+ new_filepath)
         if new_filepath == self.filename:
 
             if overwrite_flag == False:
-                print ' New filepath will overwrite previous file, please pass overwrite_flag a value of true or' \
-                      ' provide alternative filepath. Exiting...'
+                print(' New filepath will overwrite previous file, please pass overwrite_flag a value of true or provide alternative filepath. Exiting...')
                 return 0
 
-            with h5py.File(new_filepath, 'w') as f:
-                training = f.create_group('training')
-                test = f.create_group('test')
+        with h5py.File(new_filepath, 'w') as f:
+            training = f.create_group('training')
+            test = f.create_group('test')
 
-                training.create_dataset('data', data = self.train_data_raw)
-                test.create_dataset('data', data = self.test_data_raw)
+            training.create_dataset('data', data = self.train_data_raw)
+            test.create_dataset('data', data = self.test_data_raw)
 
-                training.create_dataset('labels', data = self.train_labels)
-                test.create_dataset('labels', data = self.test_labels)
+            training.create_dataset('labels', data = self.train_labels)
+            test.create_dataset('labels', data = self.test_labels)
 
     def save_labeled_features(self, filepath, overwrite_flag = False):
         '''
@@ -169,8 +180,7 @@ class ClassifierHandler():
         if new_filepath == self.filename:
 
             if overwrite_flag == False:
-                print ' New filepath will overwrite previous file, please pass overwrite_flag a value of true or' \
-                      ' provide alternative filepath. Exiting...'
+                print(' New filepath will overwrite previous file, please pass overwrite_flag a value of true or provide alternative filepath. Exiting...')
                 exit()
 
         with h5py.File(new_filepath, 'w') as f:
@@ -252,7 +262,7 @@ class ClassifierHandler():
     #### Need to have something that lets you exclude traces in the pdf... (if you really really want!)
 
     def append_to_training(self):
-        print "need to implement!"
+        print("need to implement!")
 
 
 def main():

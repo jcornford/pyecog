@@ -1,7 +1,8 @@
+from __future__ import print_function
 import numpy as np
 
 from network_loader import SeizureData
-#
+
 
 def normalise(series):
     #return series
@@ -29,7 +30,7 @@ def raw_validation_load():
     testdataobj40 = SeizureData(dirpath2,to_dwnsmple = 40)
     testdataobj40.load_data()
     datasettest40 = testdataobj40.data_array
-    print datasettest40.shape,'is correct data shape'
+    #print datasettest40.shape,'is correct data shape'
 
     datasettest = np.vstack([datasettest20,datasettest40])
     return datasettest
@@ -43,10 +44,10 @@ def raw_training_load():
     _20150616labels = _20150616dataobj.label_colarray
     _20150616data_norm = normalise(_20150616data)
 
-    print _20150616dataobj.filename_list.shape
+    #print _20150616dataobj.filename_list.shape
     _20150616dataobj.filenames_list = [_20150616dataobj.filename_list[i] for i in range(_20150616dataobj.filename_list.shape[0])]
-    for name in _20150616dataobj.filenames_list[0:20]:
-        print name[-34:]
+    #for name in _20150616dataobj.filenames_list[0:20]:
+    #    print name[-34:]
 
     # select out the stuff we want
     #inds = np.loadtxt('0901_400newdata.csv', delimiter=',')
@@ -218,8 +219,8 @@ def filterArray(array,window_size = 51,order=3):
         for index in range(array.shape[2]):
                 for index2 in range(array.shape[1]):
                     fData[:,index2,index] = savitzky_golay(array[:,index2,index],window_size,order)
-    else:
-        print "Jonny only bothered too (badly) code up to 3 array dimensions!"
+    #else:
+        #print "Jonny only bothered too (badly) code up to 3 array dimensions!"
 
     return fData
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 import os
 
@@ -27,12 +28,9 @@ class Predictor():
     def load_traces(self, filepath):
         with h5py.File(filepath , 'r') as hf:
 
-            for key in hf.attrs.keys():
-                print key, hf.attrs[key]
-            print hf.items()
 
             for ndfkey in hf.keys():
-                print ndfkey, 'is hf key'
+
                 datadict = hf.get(ndfkey)
 
             for tid in datadict.keys():
@@ -40,13 +38,13 @@ class Predictor():
                 time = np.array(datadict[tid]['time'])
                 data = np.array(datadict[tid]['data'])
 
-                print data.shape
+
 
                 index = data.shape[0]/ (5120/2)
-                print index, 'is divded by 5120'
+
 
                 data_array = np.reshape(data[:(5120/2)*index], (index,(5120/2),))
-                print data_array.shape
+
 
         self.data_array = data_array
         self.norm_data = utils.normalise(self.data_array)

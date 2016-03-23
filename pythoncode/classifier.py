@@ -5,7 +5,7 @@ Be able to pass in dictionary of params
 be run score method outside of the training.
 
 '''
-
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 
@@ -36,30 +36,30 @@ class NetworkClassifer():
         self.impute_and_scale()
 
     def impute_and_scale(self):
-        print 'Scaling and imputing training dataset...',
+        print('Scaling and imputing training dataset...')
         self.imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
         self.imputer.fit(self.features)
         imputed_features = self.imputer.transform(self.features)
         self.std_scaler = StandardScaler()
         self.std_scaler.fit(imputed_features)
         self.iss_features = self.std_scaler.transform(imputed_features)
-        print 'Done'
+        print('Done')
 
-        print 'Scaling and imputing validation features using training dataset...',
+        print('Scaling and imputing validation features using training dataset...')
         imputed_validation_features = self.imputer.transform(self.validation_features)
         self.iss_validation_features = self.std_scaler.transform(imputed_validation_features)
-        print 'Done'
+        print('Done')
 
     def _cross_validation(self,clf, k_folds = 5):
         self.scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
 
     def randomforest_info(self, max_trees = 1000, step = 40, k_folds = 5):
-        print 'Characterising R_forest. Looping through trees: ',
+        print('Characterising R_forest. Looping through trees: ')
         self.treedata = np.zeros((max_trees/step, 10))
         for i,n_trees in enumerate(np.arange(0, max_trees,step)):
             if n_trees == 0:
                 n_trees = 1
-            print n_trees,
+
             r_forest = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
             scores = cross_validation.cross_val_score(r_forest, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
             r_forest_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
@@ -77,7 +77,7 @@ class NetworkClassifer():
             self.treedata[i,4] = lda_scores.mean()
             self.treedata[i,5] = lda_scores.std()
             self.treedata[i,6] = r_forest_lda_full.score(self.lda_iss_validation_features, self.validation_labels)
-            print self.treedata[i,6]
+
 
             r_forest_pca = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
             r_forest_pca_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
@@ -124,15 +124,15 @@ class NetworkClassifer():
                                                            n_jobs=5)
         print("Cross validation Random Forest performance LDA: Accuracy: %0.2f (std %0.2f)" % (self.lda_scores.mean()*100, self.lda_scores.std()*100))
         self.r_forest_lda.fit(self.lda_iss_features,self.labels)
-        print self.r_forest_lda.score(self.lda_iss_validation_features,
-                                      self.validation_labels)*100, 'LDA test-set performance \n'
+        print(str(self.r_forest_lda.score(self.lda_iss_validation_features,
+                                      self.validation_labels)*100)+ 'LDA test-set performance')
 
         y_true = self.validation_labels
         y_pred = self.r_forest_lda.predict(self.lda_iss_validation_features)
         target_names = ['S1','S2','S3','S4']
         report = classification_report(y_true, y_pred, target_names=target_names)
-        print 'Random forest report lda'
-        print report
+        print('Random forest report lda')
+        print(report)
 
         ##### Hacky way to export features, so can optimise RF etc ######
         train_X = pd.DataFrame(self.lda_iss_features)
@@ -165,7 +165,7 @@ class NetworkClassifer():
         print("Cross validation RF performance PCA: Accuracy: %0.2f (std %0.2f)" % (self.pca_scores.mean()*100, self.pca_scores.std()*100))
 
         self.r_forest_pca.fit(self.pca_iss_features,self.labels)
-        print self.r_forest_pca.score(self.pca_iss_validation_features, self.validation_labels), 'PCA test-set performance \n'
+        print(str(self.r_forest_pca.score(self.pca_iss_validation_features, self.validation_labels))+ 'PCA test-set performance ')
 
     def run(self):
 
@@ -176,15 +176,15 @@ class NetworkClassifer():
         self.r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
         self.r_forest.fit(self.iss_features,self.labels)
 
-        print self.r_forest.score(self.iss_validation_features, self.validation_labels), 'randomforest test-set performance \n'
+        print(str(self.r_forest.score(self.iss_validation_features, self.validation_labels))+ 'randomforest test-set performance')
 
         y_true = self.validation_labels
         y_pred = self.r_forest.predict(self.iss_validation_features)
         target_names = ['inter-ictal', 'ictal']
         target_names = ['S1','S2','S3','S4']
         t = classification_report(y_true, y_pred, target_names=target_names)
-        print 'Random forest report:'
-        print t
+        print('Random forest report:')
+        print(t)
 
 
         return None
