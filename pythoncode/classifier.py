@@ -155,10 +155,6 @@ class NetworkClassifer():
         test = pd.concat([test_X,test_y], axis = 1)
         training.to_csv('/Volumes/LACIE SHARE/VM_data/test.csv', index = False)
 
-
-
-
-
     def pca_run(self,k_folds = 5):
         self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
         self.pca_scores = cross_validation.cross_val_score(self.r_forest_pca, self.pca_iss_features, self.labels, cv=k_folds,n_jobs=5)

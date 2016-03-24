@@ -19,7 +19,7 @@ class Predictor():
     Todo:
     '''
 
-    def __init__(self, clf_pickle_path, fs_dict_path='../pickled_fs_dictionary'):
+    def __init__(self, clf_pickle_path):
         self.classifier = pickle.load(open(clf_pickle_path,'rb'))
         self.r_forest = self.classifier.r_forest
         self.r_forest_lda = self.classifier.r_forest_lda
@@ -28,10 +28,9 @@ class Predictor():
     def load_traces(self, filepath):
         with h5py.File(filepath , 'r') as hf:
 
-
-        self.data_array = data_array
-        self.norm_data = utils.normalise(self.data_array)
-        self.norm_data = utils.filterArray(self.norm_data, window_size=7, order = 3)
+            self.data_array = data_array
+            self.norm_data = utils.normalise(self.data_array)
+            self.norm_data = utils.filterArray(self.norm_data, window_size=7, order = 3)
 
     def extract_features(self):
         self.feature_obj = FeatureExtractor(self.norm_data)
@@ -73,21 +72,6 @@ class Predictor():
             #print path_to_create
             #os.mkdir(path_to_create,0755)
             plot_traces(self.norm_data, labels = self.preds, savepath = pdf_savedir+savestring,format_string = format)
-
-    def plot_pdfs(self):
-
-        '''
-        plot_traces_hdf5(self.norm_data,
-                    labels = self.preds,
-                    # should auto create the middle directpry (currently not!
-                    #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.raw_path.split('/')[-1][:-5]+'/'+self.savestring,
-                    #savestring = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'+self.savestring,
-                    save = '/Volumes/LaCie/Gabriele/all_day_pdfs_id_7/'+self.savestring,
-                    #savestring = '/Volumes/LaCie/Albert_ndfs/training_data/rpdfs/'+self.savestring,
-                    #savestring  = '/Volumes/LaCie/Gabriele/pdfs_pred/'+self.savestring
-                    prob_thresholds= self.threshold_for_mixed,
-                    trace_len_sec= 5)
-        '''
 
     @ staticmethod
     def _normalise(series):

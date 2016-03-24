@@ -3,6 +3,7 @@ import h5py
 import os
 
 import numpy as np
+import pandas as pd
 
 from converter import NDFLoader
 from make_pdfs import plot_traces_hdf5, plot_traces
@@ -223,7 +224,6 @@ class DataHandler():
         if not os.path.exists(savedir):
             os.makedirs(savedir)
 
-
         #print(converted_ndf)
         with h5py.File(converted_ndf, 'r') as hf:
             for ndfkey in hf.keys():
@@ -254,6 +254,94 @@ class DataHandler():
                         with h5py.File(savename, 'a') as f:
                             group = f.create_group(ndfkey+'_id_'+str(tid))
                             group.create_dataset('data', data = data_array)
+
+    def get_annotated_set_from_df(self, df, file_dir, fs = 512, timewindow = 5):
+        '''
+        Should only have to pass in pandas dataframe, and the converted filedirectory
+        df.NDF
+
+        The annotation will be inccorect based on the timewindow coarseness!
+        Currently finding the start by start/timewindom -- end/timewindow
+        remember with floor division
+        Returns:
+            only seizure (1) and non seizure(0)
+
+        '''
+        converted_names = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
+        converted_tags = [os.path.split(f)[1].split('.')[0] for f in converted_names]
+
+        n_converted = len(converted_tags)
+
+        seizures = []
+        count = 0
+        for row in df.iterrows():
+            fname = row[1].NDF
+            name = fname.split('.')[0]
+            if name in converted_tags:
+                start = row[1]['Seizure Start']
+                end = row[1]['Seizure End']
+                s_path = os.path.join(file_dir,name+'.hdf5')
+                seizures.append({'fname' : s_path,
+                                 'start' : start,
+                                 'end'   : end})
+
+                count += 1
+
+        print('of the '+str(n_converted)+' converted ndfs, '+str(count)+' were overlapped with the dataframe')
+
+        for entry in seizures:
+            self._make_dataset_from_seizure_dict(entry, fs, timewindow)
+
+    def _make_dataset_from_seizure_dict(self, sdict, fs, timewindow, savedir = None):
+        if savedir is None:
+            savedir = os.path.join(os.path.dirname(os.path.dirname(sdict['fname'])), 'df_generated_training')
+            #print(savedir)
+
+        if not os.path.exists(savedir):
+            os.makedirs(savedir)
+
+        with h5py.File(sdict['fname'], 'r') as hf:
+                    for ndfkey in hf.keys():
+                        datadict = hf.get(ndfkey)
+                        savename = os.path.join(savedir, ndfkey + '_df_gen_training_db.hdf5')
+
+                        # inefficient to re calculate this repeateldy but running with it!
+                        for tid in datadict.keys():
+                            data = np.array(datadict[tid]['data'])
+                            n_traces = data.shape[0] / (fs * timewindow)
+                            dp_lost =  data.shape[0] % (fs * timewindow)
+                            if dp_lost > 0:
+                                data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+                            else:
+                                data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
+                            labels = np.zeros(shape = (data_array.shape[0]))
+                            start_i = sdict['start']/5
+                            end_i = sdict['end']/5
+                            labels[start_i:end_i] = 1
+
+
+
+        #print(str(data_array.shape)+ ' is shape of dataset ')
+        #print(savename)
+        #print(str(labels.shape)+ ' is number of labels')
+        ### Write it up!
+        if os.path.exists(savename):
+            with h5py.File(savename, 'r+') as f:
+                # just need to edit the labels
+                labels =  f['annotated/labels']
+                labels[start_i:end_i] = 1
+                print(savename)
+                #print(np.array(labels))
+        else:
+            # file doesnt exist!
+            with h5py.File(savename, 'a') as f:
+                group = f.create_group('annotated')
+                group.create_dataset('data', data = data_array)
+                group.create_dataset('labels', data = labels[:, None])
+
+
+
+
 
 
 
@@ -328,8 +416,11 @@ def main():
     dir_n = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs'
     fn = 'M1453331811.hdf5'
     fn = 'M1453364211.hdf5'
-    handler.make_prediction_dataset('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs/M1453393011.hdf5', verbose=True)
+    #handler.make_prediction_dataset('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs/M1453393011.hdf5', verbose=True)
     #handler.make_prediction_dataset(os.path.join(dir_n, fn))
+    dname = '/Volumes/LaCie/Albert_ndfs/'
+    df = pd.read_excel(dname+'Animal 93.14.xlsx', sheetname=2)
+    handler.get_annotated_set_from_df(df,dir_n )
 
 if __name__ == "__main__":
     main()
