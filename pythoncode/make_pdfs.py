@@ -125,7 +125,7 @@ def plot_traces_hdf5(to_plot,
             ax = fig.add_subplot(20,2,(i%40)+1)
             ax.annotate(str(i), xy = (0,0.5), fontsize = 10,color = 'black', fontproperties=prop)
 
-            ax.plot(time, to_plot[i,:], color = colors[int(labels[i])-1], linewidth = 0.5)
+            ax.plot(time, to_plot[i,:], color = colors[int(labels[i])], linewidth = 0.5)
             ax.set_title(str(i*trace_len_sec), fontsize = 8, fontproperties=prop)
             ax.axis('off')
             ax.set_xlim((0,10))

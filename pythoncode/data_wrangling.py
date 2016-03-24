@@ -103,6 +103,7 @@ class DataHandler():
                         datadict = hf.get(ndfkey)
 
                     for tid in datadict.keys():
+                        print(tid)
                         data = np.array(datadict[tid]['data'])
                         n_traces = data.shape[0] / (fs * timewindow)
 
@@ -203,7 +204,9 @@ class DataHandler():
 
                     #Add the data
                     data_dset[original_shape[0]:,:] = data_array
-                    labels_dset[original_shape[0]:,:] = labels[:,None]
+                    labels_dset[original_shape[0]:,:] = labels[:, None]
+
+
 
     def make_prediction_dataset(self, converted_ndf, savedir = None, fs = 512, timewindow = 5, verbose = False):
         '''
@@ -290,7 +293,60 @@ class DataHandler():
         print('of the '+str(n_converted)+' converted ndfs, '+str(count)+' were overlapped with the dataframe')
 
         for entry in seizures:
-            self._make_dataset_from_seizure_dict(entry, fs, timewindow)
+            savedir = self._make_dataset_from_seizure_dict(entry, fs, timewindow)
+
+        #self._group_into_test_train_set(savedir, test_size = 0.5)
+
+    @staticmethod
+    def _fullpath_listdir(d):
+        return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
+    @staticmethod
+    def _get_h5py_contents(f):
+        with h5py.File(f, 'r') as hf:
+            assert len(hf.keys()) == 1
+            group = hf.get(hf.keys()[0])
+            #for key in group.keys():
+            #    data = np.array(group[key]))
+            #print(group.keys())
+            data = np.array(group['data'])
+            labels = np.array(group['labels'])
+        return data, labels
+
+
+    def group_into_test_train_set(self, savedir, test_size = 0.25):
+        files = self._fullpath_listdir(savedir)
+        n_files = len(files)
+
+        data_array_list = []
+        label_list = []
+        for f in files:
+            data, labels = self._get_h5py_contents(f)
+            data_array_list.append(data)
+            label_list.append(np.ravel(labels))
+
+        index = int(n_files*test_size)
+        #print(index, n_files)
+        test = np.vstack(data_array_list)
+        train_data_array = np.vstack(data_array_list[:index])
+        train_labels = np.hstack(label_list[:index])
+
+        test_data_array = np.vstack(data_array_list[index:])
+        test_labels = np.hstack(label_list[index:])
+        print('testing: ',test_data_array.shape)
+        print('training:',train_data_array.shape)
+        print('shouldbe',test.shape)
+
+        filename = os.path.join(os.path.dirname(os.path.dirname(savedir)), 'grouped_annotated_db.hdf5')
+        with h5py.File(filename,'w') as f:
+            group = f.create_group('training')
+            group.create_dataset('data', data = train_data_array)
+            group.create_dataset('labels', data = train_labels)
+
+            group = f.create_group('test')
+            group.create_dataset('data', data = test_data_array)
+            group.create_dataset('labels', data = test_labels)
+
+
 
     def _make_dataset_from_seizure_dict(self, sdict, fs, timewindow, savedir = None):
         if savedir is None:
@@ -319,8 +375,6 @@ class DataHandler():
                             end_i = sdict['end']/5
                             labels[start_i:end_i] = 1
 
-
-
         #print(str(data_array.shape)+ ' is shape of dataset ')
         #print(savename)
         #print(str(labels.shape)+ ' is number of labels')
@@ -338,6 +392,7 @@ class DataHandler():
                 group = f.create_group('annotated')
                 group.create_dataset('data', data = data_array)
                 group.create_dataset('labels', data = labels[:, None])
+        return savedir
 
 
 
@@ -418,9 +473,11 @@ def main():
     fn = 'M1453364211.hdf5'
     #handler.make_prediction_dataset('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs/M1453393011.hdf5', verbose=True)
     #handler.make_prediction_dataset(os.path.join(dir_n, fn))
-    dname = '/Volumes/LaCie/Albert_ndfs/'
-    df = pd.read_excel(dname+'Animal 93.14.xlsx', sheetname=2)
-    handler.get_annotated_set_from_df(df,dir_n )
+    #dname = '/Volumes/LaCie/Albert_ndfs/'
+    #df = pd.read_excel(dname+'Animal 93.14.xlsx', sheetname=2)
+    #handler.get_annotated_set_from_df(df,dir_n )
+    handler.group_into_test_train_set(savedir='/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/df_generated_training/',
+                                      test_size=0.5)
 
 if __name__ == "__main__":
     main()
