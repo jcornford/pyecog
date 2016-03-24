@@ -12,6 +12,8 @@ class DataHandler():
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
+    - refactor h5py handling into a new function
+    - why do we always lose three datapoints
      - Smooth out id handling on converter and fs
      - handle the unix timestamps better.
      - speed back up the converter!
@@ -145,7 +147,13 @@ class DataHandler():
                         n_traces = data.shape[0] / (fs * timewindow)
                         dp_lost =  data.shape[0] % (fs * timewindow)
 
-                        data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+                        if dp_lost > 0:
+                            print('still')
+                            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+                        else:
+                            print('here')
+
+                            data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
 
                     data_array_list.append(data_array)
                     label_list.append(labels)
@@ -196,7 +204,58 @@ class DataHandler():
                     data_dset[original_shape[0]:,:] = data_array
                     labels_dset[original_shape[0]:,:] = labels[:,None]
 
-    def make_prediction_dataset(self, fs = 512, timewindow = 5):
+    def make_prediction_dataset(self, converted_ndf, savedir = None, fs = 512, timewindow = 5, verbose = False):
+        '''
+
+        Args:
+            fs:
+            timewindow:
+
+        Returns:
+             - we need a way to keep track of filename...
+             1. Either a new dataset per file (easiest)
+             2. HDF5 file with keys...
+        '''
+        if savedir is None:
+            savedir = os.path.join(os.path.dirname(os.path.dirname(converted_ndf)), 'to_predict')
+            #print(savedir)
+
+        if not os.path.exists(savedir):
+            os.makedirs(savedir)
+
+
+        #print(converted_ndf)
+        with h5py.File(converted_ndf, 'r') as hf:
+            for ndfkey in hf.keys():
+                datadict = hf.get(ndfkey)
+
+                for tid in datadict.keys():
+
+
+                        data = np.array(datadict[tid]['data'])
+                        n_traces = data.shape[0] / (fs * timewindow)
+
+                        dp_lost =  data.shape[0] % (fs * timewindow)
+
+                        if verbose:
+                            print('shape', data.shape)
+                            print('dp lost', str(dp_lost))
+                            print('There are '+ str(n_traces) + ' traces')
+                            print('transmitter id ' + str(tid))
+
+                        if dp_lost > 0:
+                            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+                        else:
+                            data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
+
+                        ### Write it up! ###
+                        savename = os.path.join(savedir, ndfkey+'_id_'+str(tid)+'_pred_db.hdf5')
+                        #print(savename)
+                        with h5py.File(savename, 'a') as f:
+                            group = f.create_group(ndfkey+'_id_'+str(tid))
+                            group.create_dataset('data', data = data_array)
+
+
 
     def make_annotated_dataset(self, filepairs, savename, fs = 512, timewindow = 5):
 
@@ -264,6 +323,13 @@ def main():
     pair2 = (os.path.join(basedir,'state_labels_2016_01_21_13-16.csv'), os.path.join(basedir,'2016_01_21_13:16.hdf5'))
     db_name = '/Volumes/LaCie/Albert_ndfs/training_data/training_data_v2_jonny_playing.hdf5'
     #handler.make_annotated_dataset(pair, db_name)
-    handler.append_to_annotated_dataset(db_name,pair2, set_type='test')
+    #handler.append_to_annotated_dataset(db_name,pair2, set_type='test')
+
+    dir_n = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs'
+    fn = 'M1453331811.hdf5'
+    fn = 'M1453364211.hdf5'
+    handler.make_prediction_dataset('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs/M1453393011.hdf5', verbose=True)
+    #handler.make_prediction_dataset(os.path.join(dir_n, fn))
+
 if __name__ == "__main__":
     main()
