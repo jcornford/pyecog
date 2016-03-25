@@ -5,7 +5,7 @@ import sys
 import pickle
 import numpy as np
 import scipy.stats as st
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the peakdet method

@@ -17,7 +17,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report
 
 from pythoncode import utils
-from pythoncode.extrator import FeatureExtractor
+from pythoncode.extractor import FeatureExtractor
 from converter import NDFLoader
 from pythoncode.classifier import NetworkClassifer
 

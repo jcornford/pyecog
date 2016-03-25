@@ -52,7 +52,7 @@ class NetworkClassifer():
         print('Done')
 
     def _cross_validation(self,clf, k_folds = 5):
-        self.scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
+        self.scores = cross_validation.cross_val_score(clf, self.iss_features, self.labels, cv=k_folds,n_jobs=5, scoring = 'roc_auc')
 
     def randomforest_info(self, max_trees = 1000, step = 40, k_folds = 5):
         print('Characterising R_forest. Looping through trees: ')
@@ -61,7 +61,7 @@ class NetworkClassifer():
             if n_trees == 0:
                 n_trees = 1
 
-            r_forest = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+            r_forest = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0, )
             scores = cross_validation.cross_val_score(r_forest, self.iss_features, self.labels, cv=k_folds,n_jobs=5)
             r_forest_full = RandomForestClassifier(n_estimators=n_trees, n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
             r_forest_full.fit(self.iss_features,self.labels)
@@ -166,11 +166,11 @@ class NetworkClassifer():
 
     def run(self):
 
-        r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
+        r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0, class_weight='balanced')
         self._cross_validation(r_forest)
         print("Cross validation RF performance: Accuracy: %0.2f (std %0.2f)" % (self.scores.mean()*100, self.scores.std()*100))
 
-        self.r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0)
+        self.r_forest = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state=0, class_weight='balanced')
         self.r_forest.fit(self.iss_features,self.labels)
 
         print(str(self.r_forest.score(self.iss_validation_features, self.validation_labels))+ 'randomforest test-set performance')

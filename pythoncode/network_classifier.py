@@ -18,7 +18,7 @@ from sklearn import cross_validation
 
 import utils
 from make_pdfs import plot_traces
-from extrator import FeatureExtractor
+from extractor import FeatureExtractor
 from classifier import NetworkClassifer
 
 class ClassifierHandler():
@@ -37,6 +37,8 @@ class ClassifierHandler():
         self.train_data = None
 
         self.classifier = None
+
+
 
     def load_labeled_traces(self, filename):
         '''
@@ -68,8 +70,6 @@ class ClassifierHandler():
 
             self.test_data = self._normalise(test_data)
             self.train_data = self._normalise(train_data)
-
-
 
     def load_labeled_features(self, filename):
         '''

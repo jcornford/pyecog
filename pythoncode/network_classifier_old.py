@@ -15,7 +15,7 @@ import numpy as np
 import utils
 from network_loader import SeizureData
 from relabeling_functions import relabel,reorder
-from extrator import FeatureExtractor
+from extractor import FeatureExtractor
 from classifier import NetworkClassifer
 from make_pdfs import plot_traces
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from network_loader import SeizureData
-from extrator import FeatureExtractor
+from extractor import FeatureExtractor
 from make_pdfs import plot_traces
 
 class Predictor():

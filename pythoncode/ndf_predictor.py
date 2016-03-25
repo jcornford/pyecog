@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 import utils
-from extrator import FeatureExtractor
+from extractor import FeatureExtractor
 from make_pdfs import plot_traces_hdf5
 from make_pdfs import plot_traces
 
