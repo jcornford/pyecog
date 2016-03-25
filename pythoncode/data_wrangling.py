@@ -6,13 +6,15 @@ import numpy as np
 import pandas as pd
 
 from converter import NDFLoader
-from make_pdfs import plot_traces_hdf5, plot_traces
+#from make_pdfs import plot_traces_hdf5, plot_traces
 
 class DataHandler():
     '''
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
+    - how we handle the csv filepairs is changing, the annotated dataset will be a tags
+    and labels. Do not assign the training or test.
     - refactor h5py handling into a new function
     - why do we always lose three datapoints
      - Smooth out id handling on converter and fs
@@ -75,90 +77,96 @@ class DataHandler():
         ndf.correct_sampling_frequency(read_id=[ids], fs = 512.0)
         ndf.save(save_file_name= os.path.join(savedir, filename.split('/')[-1][:-4]), file_format= 'hdf5')
 
-    @ staticmethod
-    def _normalise(series):
-        a = np.min(series, axis=1)
-        b = np.max(series, axis=1)
-        return np.divide((series - a[:, None]), (b-a)[:,None])
-
-    def make_figures_for_labeling_ndfs(self,path, fs = 512, timewindow = 5,
+    # CSV related handling....
+    def make_figures_for_labeling_ndfs(self, path, fs = 512, timewindow = 5,
                                        save_directory = None, format = 'pdf'):
         '''
         Args:
-            path: converted ndf path
-            save_directory:
+            path: converted ndf path, not directory at the moment
+            save_directory: where to put the figures
 
         Makes figures in supplied savedirectory, or makes a folder above
 
-        ToDo: Make individual folders for each ndf
         '''
-        # Sort out save directory
+        # Sort out save for all of the files
         if save_directory is None:
             savedir = os.path.join(os.path.dirname(os.path.dirname(path)), 'figures_for_labelling')
         if not os.path.exists(savedir):
             os.makedirs(savedir)
 
-        with h5py.File(path , 'r') as hf:
-                    for ndfkey in hf.keys():
-                        datadict = hf.get(ndfkey)
+        data = self._get_converted_h5py_data(path)
+        data_array = self._make_array_from_data(data, fs= fs, timewindow=5)
 
-                    for tid in datadict.keys():
-                        print(tid)
-                        data = np.array(datadict[tid]['data'])
-                        n_traces = data.shape[0] / (fs * timewindow)
+        # make folders within the figures for labelling
+        figure_folder = os.path.join(savedir, path.split('/')[-1].split('.')[0]+'_id'+str(tid))
+        print(figure_folder)
+        if not os.path.exists(figure_folder):
+            os.makedirs(figure_folder)
 
-                        print('plotting transmitter id ' + str(tid)+'... There are '+ str(n_traces) + ' traces')
-                        dp_lost =  data.shape[0] % (fs * timewindow)
+        black = np.ones((data.shape[0]))
+        plot_traces_hdf5(data_array,
+                    labels = black,
+                    savepath = figure_folder,
+                    filename = path.split('/')[-1].split('.')[0],
+                    format_string = format,
+                    trace_len_sec = timewindow)
 
-                        data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
-                        data_array = self._normalise(data_array)
+    def make_annotated_dataset(self, filepairs, savename, fs = 512, timewindow = 5):
 
-                        figure_folder = os.path.join(savedir, path.split('/')[-1].split('.')[0]+'_id'+str(tid))
+        '''
+        filepairs: a tuple, or list of tuples in the
+        format [(labels.csv, converted_ndf_path)]
 
-                        print(figure_folder)
-                        if not os.path.exists(figure_folder):
-                            os.makedirs(figure_folder)
+        TODO: Change to have the saved the correct format
+        '''
 
-                        black = np.ones((data.shape[0]))
-                        plot_traces_hdf5(data_array,
-                                    labels = black,
-                                    savepath = figure_folder,
-                                    filename = path.split('/')[-1].split('.')[0],
-                                    format_string = format,
-                                    trace_len_sec = timewindow)
-
-    def append_to_annotated_dataset(self, dataset_path, filepairs,set_type='train', fs = 512, timewindow = 5):
+        data_array_list = []
+        label_list = []
 
         if type(filepairs) is not list:
             filepairs = [filepairs]
 
-        data_array_list = []
-        label_list = []
         for pair in filepairs:
             labels = np.loadtxt(pair[0],delimiter=',')[:,1]
-            converted_ndf = pair[1]
 
-            with h5py.File(converted_ndf , 'r') as hf:
-                    for ndfkey in hf.keys():
-                        datadict = hf.get(ndfkey)
+            converted_ndf_path = pair[1]
+            data = self._get_converted_h5py_data(converted_ndf_path)
+            data_array = self._make_array_from_data(data, fs=512,timewindow=5)
 
-                    for tid in datadict.keys():
-                        print('transmitter id ' + str(tid))
-                        data = np.array(datadict[tid]['data'])
+            data_array_list.append(data_array)
+            label_list.append(labels)
 
-                        n_traces = data.shape[0] / (fs * timewindow)
-                        dp_lost =  data.shape[0] % (fs * timewindow)
+        data_array = np.vstack(data_array_list)
+        print(str(data_array.shape)+ ' is shape of dataset ')
+        labels = np.hstack(label_list)
+        print(str(labels.shape)+ ' is number of labels')
 
-                        if dp_lost > 0:
-                            print('still')
-                            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
-                        else:
-                            print('here')
+        #Save with flexible shape
+        with h5py.File(savename, 'w') as f:
+            training = f.create_group('training')
+            training.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
+            training.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
 
-                            data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
+    def append_to_annotated_dataset(self, dataset_path, filepairs, set_type='train', fs = 512, timewindow = 5):
+        '''
+        This is using CSV and converted ndf filepaths:
+        Again, change to have saved in the correct format. Actually not appending in the same way at all.
+        Should change this to just adding another group/ustamp_id
+        '''
+        data_array_list = []
+        label_list = []
 
-                    data_array_list.append(data_array)
-                    label_list.append(labels)
+        if type(filepairs) is not list:
+            filepairs = [filepairs]
+
+        for pair in filepairs:
+            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
+            converted_ndf_path = pair[1]
+            data = self._get_converted_h5py_data(converted_ndf_path)
+            data_array = self._make_array_from_data(data, fs=512,timewindow=5)
+
+            data_array_list.append(data_array)
+            label_list.append(labels)
 
         data_array = np.vstack(data_array_list)
         print(str(data_array.shape)+ ' is shape of dataset to append ')
@@ -206,73 +214,44 @@ class DataHandler():
                     data_dset[original_shape[0]:,:] = data_array
                     labels_dset[original_shape[0]:,:] = labels[:, None]
 
-
-
-    def make_prediction_dataset(self, converted_ndf, savedir = None, fs = 512, timewindow = 5, verbose = False):
+    def make_prediction_dataset(self, converted_ndf_path, savedir = None, fs = 512, timewindow = 5, verbose = False):
         '''
-
         Args:
+            converted_ndf_path:
             fs:
             timewindow:
-
-        Returns:
-             - we need a way to keep track of filename...
-             1. Either a new dataset per file (easiest)
-             2. HDF5 file with keys...
         '''
         if savedir is None:
             savedir = os.path.join(os.path.dirname(os.path.dirname(converted_ndf)), 'to_predict')
-            #print(savedir)
 
         if not os.path.exists(savedir):
             os.makedirs(savedir)
 
-        #print(converted_ndf)
-        with h5py.File(converted_ndf, 'r') as hf:
-            for ndfkey in hf.keys():
-                datadict = hf.get(ndfkey)
+        data = self._get_converted_h5py_data(converted_ndf_path)
+        data_array = self._make_array_from_data(data, fs = 512, timewindow = 5)
 
-                for tid in datadict.keys():
+        # Write it up! #this isnt going to work at the moment
+        savename = os.path.join(savedir, ndfkey+'_id_'+str(tid)+'_pred_db.hdf5')
+        print(savename)
+        with h5py.File(savename, 'a') as f:
+            group = f.create_group(ndfkey+'_id_'+str(tid))
+            group.create_dataset('data', data = data_array)
 
-
-                        data = np.array(datadict[tid]['data'])
-                        n_traces = data.shape[0] / (fs * timewindow)
-
-                        dp_lost =  data.shape[0] % (fs * timewindow)
-
-                        if verbose:
-                            print('shape', data.shape)
-                            print('dp lost', str(dp_lost))
-                            print('There are '+ str(n_traces) + ' traces')
-                            print('transmitter id ' + str(tid))
-
-                        if dp_lost > 0:
-                            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
-                        else:
-                            data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
-
-                        ### Write it up! ###
-                        savename = os.path.join(savedir, ndfkey+'_id_'+str(tid)+'_pred_db.hdf5')
-                        #print(savename)
-                        with h5py.File(savename, 'a') as f:
-                            group = f.create_group(ndfkey+'_id_'+str(tid))
-                            group.create_dataset('data', data = data_array)
-
-    def get_annotated_set_from_df(self, df, file_dir, fs = 512, timewindow = 5):
+    def make_annotated_set_from_df(self, df, file_dir, fs = 512, timewindow = 5):
         '''
-        Should only have to pass in pandas dataframe, and the converted filedirectory
-        df.NDF
+        Pass in pandas dataframe, and the converted ndf directory
 
         The annotation will be inccorect based on the timewindow coarseness!
         Currently finding the start by start/timewindom -- end/timewindow
         remember with floor division
-        Returns:
-            only seizure (1) and non seizure(0)
+
+        Labels only seizure (1) and non seizure(0)
 
         '''
+        annotated_database_name = os.path.dirname(file_dir)+'annotated_database_need_to_add_tag'
+
         converted_names = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
         converted_tags = [os.path.split(f)[1].split('.')[0] for f in converted_names]
-
         n_converted = len(converted_tags)
 
         seizures = []
@@ -284,34 +263,117 @@ class DataHandler():
                 start = row[1]['Seizure Start']
                 end = row[1]['Seizure End']
                 s_path = os.path.join(file_dir,name+'.hdf5')
-                seizures.append({'fname' : s_path,
-                                 'start' : start,
-                                 'end'   : end})
-
+                seizures.append({'fname': s_path, 'start': start, 'end': end})
                 count += 1
-
         print('of the '+str(n_converted)+' converted ndfs, '+str(count)+' were overlapped with the dataframe')
 
         for entry in seizures:
-            savedir = self._make_dataset_from_seizure_dict(entry, fs, timewindow)
+            savedir = self._make_labelled_array_from_seizure_dict(entry, fs, timewindow)
 
         #self._group_into_test_train_set(savedir, test_size = 0.5)
+        self._bundle_labelled_array_files(savedir)
+
+    def _bundle_labelled_array_files(self, file_directory, bundle_name= 'bundled_annotations.h5py', calculate_features = True, filter_order = 3, filter_window = 7):
+        '''
+        makes a single hdf5 file with traces, labels, and potentially features!
+        '''
+        files = self._fullpath_listdir(file_directory)
+        save_dir = os.path.dirname(file_directory)
+
+        bundle_fpath = os.path.join(save_dir,bundle_name)
+        print(bundle_fpath)
+        print(str(len(files))+' files to bundle up')
+        with h5py.File(bundle_fpath, 'w') as bf:
+            # make it after lunch...!
+            for f in files:
+                data, labels = self._get_dataset_h5py_contents(f)
+                ustamp = os.path.split(f)[1].split('.')[0]
+                print(data.shape, ustamp)
+                ## Now build db file.!! levae test train for later
+
 
     @staticmethod
-    def _fullpath_listdir(d):
-        return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
-    @staticmethod
-    def _get_h5py_contents(f):
+    def _get_dataset_h5py_contents(f):
+        '''
+        This is used on the grouping method, the saved h5py
+        '''
         with h5py.File(f, 'r') as hf:
             assert len(hf.keys()) == 1
+            #print(hf.keys())
             group = hf.get(hf.keys()[0])
-            #for key in group.keys():
-            #    data = np.array(group[key]))
-            #print(group.keys())
+
             data = np.array(group['data'])
             labels = np.array(group['labels'])
         return data, labels
 
+    def _make_labelled_array_from_seizure_dict(self, sdict, fs, timewindow, savedir = None):
+        '''
+        Method grabs data from the flat converted ndf h5py, and uses the sdict to label
+        correctly.
+
+        At this point I should add the feature extraction.
+
+        '''
+        if savedir is None:
+            savedir = os.path.join(os.path.dirname(os.path.dirname(sdict['fname'])), 'df_generated_annotated')
+            #print(savedir)
+
+        if not os.path.exists(savedir):
+            os.makedirs(savedir)
+
+        data = self._get_converted_h5py_data(sdict['fname'])
+        data_array = self._make_array_from_data(data, fs = 512, timewindow = 5)
+
+        # now use the start and end times to make labels
+        labels = np.zeros(shape = (data_array.shape[0]))
+        start_i = sdict['start']/5
+        end_i = sdict['end']/5
+
+        # Save file
+        savename = os.path.join(savedir, os.path.split(sdict['fname'])[1])
+
+        # if we are relabeling an exisiting file (two seizures)
+        if os.path.exists(savename):
+            with h5py.File(savename, 'r+') as f:
+                labels =  f['annotated/labels']
+                labels[start_i:end_i] = 1
+                print('2nd label round', savename)
+        # else the file hasn't been made yet
+        else:
+            with h5py.File(savename, 'a') as f:
+                labels[start_i:end_i] = 1
+                group = f.create_group('annotated')
+                group.create_dataset('data', data = data_array)
+                group.create_dataset('labels', data = labels[:, None])
+        return savedir # so the join method knows where to find them
+
+    @staticmethod
+    def _make_array_from_data(data, fs, timewindow):
+        n_traces = data.shape[0] / (fs * timewindow)
+        dp_lost =  data.shape[0] % (fs * timewindow)
+        if dp_lost > 0:
+            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
+        else:
+            data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
+        return data_array
+
+    @staticmethod
+    def _get_converted_h5py_data(f):
+        '''
+        pulling out data only here
+        only handling a flat structure at the moment, therefore asserts
+        '''
+        with h5py.File(f, 'r') as hf:
+
+            assert len(hf.keys()) == 1
+            for timestamp in hf.keys():
+                M_stamp = hf.get(timestamp)
+
+                assert len(M_stamp.keys()) == 1
+                for tid in M_stamp.keys():
+                    data = M_stamp.get(tid)['data']
+
+                    return np.array(data)
 
     def group_into_test_train_set(self, savedir, test_size = 0.25):
         files = self._fullpath_listdir(savedir)
@@ -320,7 +382,7 @@ class DataHandler():
         data_array_list = []
         label_list = []
         for f in files:
-            data, labels = self._get_h5py_contents(f)
+            data, labels = self._get_dataset_h5py_contents(f)
             data_array_list.append(data)
             label_list.append(np.ravel(labels))
 
@@ -334,7 +396,7 @@ class DataHandler():
         test_labels = np.hstack(label_list[index:])
         print('testing: ',test_data_array.shape)
         print('training:',train_data_array.shape)
-        print('shouldbe',test.shape)
+        print('shouldbe', test.shape)
 
         filename = os.path.join(os.path.dirname(os.path.dirname(savedir)), 'grouped_annotated_db.hdf5')
         with h5py.File(filename,'w') as f:
@@ -348,110 +410,23 @@ class DataHandler():
 
 
 
-    def _make_dataset_from_seizure_dict(self, sdict, fs, timewindow, savedir = None):
-        if savedir is None:
-            savedir = os.path.join(os.path.dirname(os.path.dirname(sdict['fname'])), 'df_generated_training')
-            #print(savedir)
-
-        if not os.path.exists(savedir):
-            os.makedirs(savedir)
-
-        with h5py.File(sdict['fname'], 'r') as hf:
-                    for ndfkey in hf.keys():
-                        datadict = hf.get(ndfkey)
-                        savename = os.path.join(savedir, ndfkey + '_df_gen_training_db.hdf5')
-
-                        # inefficient to re calculate this repeateldy but running with it!
-                        for tid in datadict.keys():
-                            data = np.array(datadict[tid]['data'])
-                            n_traces = data.shape[0] / (fs * timewindow)
-                            dp_lost =  data.shape[0] % (fs * timewindow)
-                            if dp_lost > 0:
-                                data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
-                            else:
-                                data_array = np.reshape(data, newshape = (n_traces, (fs * timewindow)))
-                            labels = np.zeros(shape = (data_array.shape[0]))
-                            start_i = sdict['start']/5
-                            end_i = sdict['end']/5
-                            labels[start_i:end_i] = 1
-
-        #print(str(data_array.shape)+ ' is shape of dataset ')
-        #print(savename)
-        #print(str(labels.shape)+ ' is number of labels')
-        ### Write it up!
-        if os.path.exists(savename):
-            with h5py.File(savename, 'r+') as f:
-                # just need to edit the labels
-                labels =  f['annotated/labels']
-                labels[start_i:end_i] = 1
-                print(savename)
-                #print(np.array(labels))
-        else:
-            # file doesnt exist!
-            with h5py.File(savename, 'a') as f:
-                group = f.create_group('annotated')
-                group.create_dataset('data', data = data_array)
-                group.create_dataset('labels', data = labels[:, None])
-        return savedir
 
 
 
 
+    @staticmethod
+    def _fullpath_listdir(d):
+        return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-
-
-    def make_annotated_dataset(self, filepairs, savename, fs = 512, timewindow = 5):
-
-        '''
-        WARNING: CURRENTLY NOT HANDLING MULTPLE TIDS
-        filepairs: a tuple, or list of tuples in the
-        format [(labels.csv, converted_ndf)]
-
-        '''
-
-        data_array_list = []
-        label_list = []
-
-        if type(filepairs) is not list:
-            filepairs = [filepairs]
-
-        for pair in filepairs:
-            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
-
-            converted_ndf = pair[1]
-            with h5py.File(converted_ndf , 'r') as hf:
-                    for ndfkey in hf.keys():
-                        datadict = hf.get(ndfkey)
-
-                    for tid in datadict.keys():
-                        print('transmitter id ' + str(tid))
-                        data = np.array(datadict[tid]['data'])
-
-                        n_traces = data.shape[0] / (fs * timewindow)
-                        print('There are '+ str(n_traces) + ' traces')
-                        dp_lost =  data.shape[0] % (fs * timewindow)
-
-                        data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, (fs * timewindow)))
-
-                    data_array_list.append(data_array)
-                    label_list.append(labels)
-
-
-        data_array = np.vstack(data_array_list)
-        print(str(data_array.shape)+ ' is shape of dataset ')
-        labels = np.hstack(label_list)
-        print(str(labels.shape)+ ' is number of labels')
-
-        ### Write it up! ###
-        with h5py.File(savename, 'w') as f:
-
-            training = f.create_group('training')
-            training.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
-            training.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
-
+    @ staticmethod
+    def _normalise(series):
+        a = np.min(series, axis=1)
+        b = np.max(series, axis=1)
+        return np.divide((series - a[:, None]), (b-a)[:,None])
 
 
 def main():
+    '''
     handler = DataHandler()
     #handler.convert_ndf('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/NDF/', ids = 14)
     #handler.make_figures_for_labeling_ndfs('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/converted_ndfs/M1454346216.hdf5', timewindow=5)
@@ -473,11 +448,20 @@ def main():
     fn = 'M1453364211.hdf5'
     #handler.make_prediction_dataset('/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/converted_ndfs/M1453393011.hdf5', verbose=True)
     #handler.make_prediction_dataset(os.path.join(dir_n, fn))
-    #dname = '/Volumes/LaCie/Albert_ndfs/'
-    #df = pd.read_excel(dname+'Animal 93.14.xlsx', sheetname=2)
-    #handler.get_annotated_set_from_df(df,dir_n )
-    handler.group_into_test_train_set(savedir='/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/df_generated_training/',
-                                      test_size=0.5)
+    '''
+    dname = '/Users/Jonathan/Desktop/temp_nc/'
+    df = pd.read_excel(dname+'Animal 93.14.xlsx', sheetname=2)
+
+    handler = DataHandler()
+    #handler.convert_ndf(dname+'NDF/', ids=14)
+    dir_n = dname+'converted_ndfs'
+    handler.make_annotated_set_from_df(df,dir_n )
+
+    #handler.group_into_test_train_set(savedir='/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/df_generated_training/',test_size=0.5)
+
+    #td = '/Volumes/LaCie/Albert_ndfs/Data_03032016/for_testing/M1453331811.hdf5'
+    #handler.get_converted_h5py_data(td)
+
 
 if __name__ == "__main__":
     main()

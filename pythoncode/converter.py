@@ -4,7 +4,7 @@ import struct
 import time
 
 import h5py
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 

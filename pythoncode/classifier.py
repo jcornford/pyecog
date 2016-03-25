@@ -4,6 +4,7 @@ This is REALLY messy and needs attending too.. 20160310
 Be able to pass in dictionary of params
 be run score method outside of the training.
 
+
 '''
 from __future__ import print_function
 import numpy as np
@@ -138,22 +139,22 @@ class NetworkClassifer():
         train_X = pd.DataFrame(self.lda_iss_features)
         train_y  = pd.DataFrame(self.labels)
         training = pd.concat([train_X,train_y], axis = 1)
-        training.to_csv('/Volumes/LACIE SHARE/VM_data/training_lda.csv', index = False)
+        training.to_csv('/Users/Jonathan/Dropbox/Data_sharing_VMJC/training_lda.csv', index = False)
 
         test_X = pd.DataFrame(self.lda_iss_validation_features)
         test_y = pd.DataFrame(self.validation_labels)
         test = pd.concat([test_X,test_y], axis = 1)
-        training.to_csv('/Volumes/LACIE SHARE/VM_data/test_lda.csv', index = False)
+        test.to_csv('/Users/Jonathan/Dropbox/Data_sharing_VMJC/test_lda.csv', index = False)
 
         train_X = pd.DataFrame(self.iss_features)
         train_y  = pd.DataFrame(self.labels)
         training = pd.concat([train_X,train_y], axis = 1)
-        training.to_csv('/Volumes/LACIE SHARE/VM_data/training.csv', index = False)
+        training.to_csv('/Users/Jonathan/Dropbox/Data_sharing_VMJC/training.csv', index = False)
 
         test_X = pd.DataFrame(self.iss_validation_features)
         test_y = pd.DataFrame(self.validation_labels)
         test = pd.concat([test_X,test_y], axis = 1)
-        training.to_csv('/Volumes/LACIE SHARE/VM_data/test.csv', index = False)
+        test.to_csv('/Users/Jonathan/Dropbox/Data_sharing_VMJC/test.csv', index = False)
 
     def pca_run(self,k_folds = 5):
         self.r_forest_pca = RandomForestClassifier(n_estimators=2000,n_jobs=5, max_depth=None, min_samples_split=1, random_state =0)
