@@ -3,15 +3,12 @@ import pickle
 import os
 
 import numpy as np
-import pandas as pd
+import h5py
 
 import utils
-from extractor import FeatureExtractor
-from make_pdfs import plot_traces_hdf5
-from make_pdfs import plot_traces
+from pythoncode.light_code.extractor import FeatureExtractor
+from pythoncode.light_code.make_pdfs import plot_traces
 
-import matplotlib.pyplot as plt
-import h5py
 
 class Predictor():
 

@@ -1,13 +1,14 @@
 from __future__ import print_function
 import pickle
-import utils
 
 import numpy as np
 import pandas as pd
 
-from network_loader import SeizureData
-from extractor import FeatureExtractor
-from make_pdfs import plot_traces
+import utils
+from pythoncode.light_code.network_loader import SeizureData
+from pythoncode.light_code.extractor import FeatureExtractor
+from pythoncode.light_code.make_pdfs import plot_traces
+
 
 class Predictor():
 

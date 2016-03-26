@@ -1,13 +1,13 @@
 
 from __future__ import print_function
-import h5py
 import pickle
-import os
 
+import h5py
 import numpy as np
-from sklearn.metrics import roc_curve, auc,classification_report
+from sklearn.metrics import classification_report
 
-from classifier import NetworkClassifer
+from pythoncode.light_code.classifier import NetworkClassifer
+
 
 class NDFClassifier():
 

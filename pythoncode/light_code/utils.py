@@ -1,7 +1,8 @@
 from __future__ import print_function
+
 import numpy as np
 
-from network_loader import SeizureData
+from pythoncode.light_code.network_loader import SeizureData
 
 
 def normalise(series):

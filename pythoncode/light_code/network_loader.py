@@ -1,10 +1,10 @@
-
 import os
 from os.path import join
 
 import numpy as np
+
 import utils
-import abf_loader
+
 
 class LFPData(object):
     """

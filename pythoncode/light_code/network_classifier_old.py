@@ -5,19 +5,15 @@ This was last run to save the training data into a hdf5 file.
 
 """
 
-
 import pickle
-import h5py
 
-import matplotlib.pyplot as plt
+import h5py
 import numpy as np
 
 import utils
-from network_loader import SeizureData
-from relabeling_functions import relabel,reorder
-from extractor import FeatureExtractor
-from classifier import NetworkClassifer
-from make_pdfs import plot_traces
+from pythoncode.light_code.extractor import FeatureExtractor
+from pythoncode.light_code.classifier import NetworkClassifer
+
 
 ################# Training Data ###################
 reload_training = False

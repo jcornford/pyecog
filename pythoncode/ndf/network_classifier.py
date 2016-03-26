@@ -6,20 +6,18 @@ Simple file, focusing on loading and training on hdf5 stored data.
   1. Easy appending of new data to training dictionary (work in parralel with the hdf5 stuff)
 '''
 from __future__ import print_function
-import h5py
 import pickle
 import os
 
-
+import h5py
 import numpy as np
 from sklearn.cross_validation import train_test_split
-from sklearn import metrics
-from sklearn import cross_validation
 
 import utils
-from make_pdfs import plot_traces
-from extractor import FeatureExtractor
-from classifier import NetworkClassifer
+from pythoncode.light_code.make_pdfs import plot_traces
+from pythoncode.light_code.extractor import FeatureExtractor
+from pythoncode.light_code.classifier import NetworkClassifer
+
 
 class ClassifierHandler():
 

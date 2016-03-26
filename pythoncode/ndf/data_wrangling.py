@@ -1,13 +1,14 @@
 from __future__ import print_function
-import h5py
 import os
 
+import h5py
 import numpy as np
 import pandas as pd
 
-from converter import NDFLoader
+from pythoncode.ndf.converter import NDFLoader
 from extractor import FeatureExtractor
 from utils import filterArray
+
 #from make_pdfs import plot_traces_hdf5, plot_traces
 
 class DataHandler():

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pythoncode.converter import NDFLoader
+from pythoncode.ndf.converter import NDFLoader
 
 
 class Explorer():
