@@ -82,11 +82,11 @@ class NDFClassifier():
 def main():
     clf_handler = NDFClassifier()
     dname = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.14/'
-    clf_handler.load_annotated_h5(dname+'bundled_annotations.h5py')
+    clf_handler.load_annotated_h5(dname+'bundled_93.14_all')
     clf_handler.train_clf()
     clf_handler.save_clf()
 
-    other_animal_annotations = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/bundled_annotations_93_8.h5py'
+    other_animal_annotations = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/bundled_annotations'
 
     clf_handler.load_clf('clf_dlog.p')
     print (clf_handler.classifier)
