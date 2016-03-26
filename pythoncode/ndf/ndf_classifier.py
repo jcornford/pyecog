@@ -51,8 +51,6 @@ class NDFClassifier():
         print(report)
 
 
-
-
     def train_clf(self):
 
         self.classifier = NetworkClassifer(self.train_features, self.train_labels, self.test_features, self.test_labels)
