@@ -1,27 +1,25 @@
-# networkclassifer
+# PyECoG
+This modulde is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
+Currently under heavy constructions.
 
-Scripts orginally for classifying network state in a given window before light pulses. Now undergoing major overhaul to
-be more general, and to be able to convert "ndf" files. 
+## Grown out of "networkclassifer"
+This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in "lightcode" incase needed.
 
 # Usage:
-Scripts for detecting state before light pulse are found in "/pythoncode".  
-
-network_classifier.py
- - for training the classifier, supply training data and labels
- - can output blank pdfs for labelling
-
-network_predictor.py 
-  - supply with unlabeled data, options for plotting predictions as pdf.
-  - outputs excel file
- 
 
 ## Todo:
-1. Refactor network_loader - bug fix on the window and downsampling
+* package this bad boy up into pip
+* currently very ndf file heavy
+* gui for visualising traces and storing annotations
 
-## Possible features to implement
-* Stationarity testing
-* Potential features:
-* Vector strength of cross freq coulping 
-* AR coefs, paper putting them through a svm?
-* Eigenvalues, hines used no?
+## Todo - more minor things
+* AR coefs.
+* Normalisation options
+* Allow easy insertion of custom features
+* speed up file conversion
+* handle errors better
+* make tests
+* decide on how to store data in hdf5 files, currently in favour of one file per transmitter_id
+* bad message filtering for fs != 512
+
 
