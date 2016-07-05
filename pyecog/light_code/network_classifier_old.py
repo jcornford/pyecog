@@ -11,8 +11,8 @@ import h5py
 import numpy as np
 
 import utils
-from pythoncode.light_code.extractor import FeatureExtractor
-from pythoncode.light_code.classifier import NetworkClassifer
+from pyecog.light_code.extractor import FeatureExtractor
+from pyecog.light_code.classifier import NetworkClassifer
 
 
 ################# Training Data ###################

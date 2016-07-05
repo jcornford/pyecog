@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 from sklearn.metrics import classification_report
 
-from pythoncode.light_code.classifier import NetworkClassifer
+from pyecog.light_code.classifier import NetworkClassifer
 
 
 class NDFClassifier():

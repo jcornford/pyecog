@@ -6,8 +6,8 @@ import numpy as np
 import h5py
 
 import utils
-from pythoncode.light_code.extractor import FeatureExtractor
-from pythoncode.light_code.make_pdfs import plot_traces
+from pyecog.light_code.extractor import FeatureExtractor
+from pyecog.light_code.make_pdfs import plot_traces
 
 
 class Predictor():

@@ -14,9 +14,9 @@ import numpy as np
 from sklearn.cross_validation import train_test_split
 
 import utils
-from pythoncode.light_code.make_pdfs import plot_traces
-from pythoncode.light_code.extractor import FeatureExtractor
-from pythoncode.light_code.classifier import NetworkClassifer
+from pyecog.light_code.make_pdfs import plot_traces
+from pyecog.light_code.extractor import FeatureExtractor
+from pyecog.light_code.classifier import NetworkClassifer
 
 
 class ClassifierHandler():

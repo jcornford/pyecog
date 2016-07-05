@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from pythoncode.ndf.converter import NDFLoader
+from pyecog.ndf.converter import NDFLoader
 from extractor import FeatureExtractor
 from utils import filterArray
 

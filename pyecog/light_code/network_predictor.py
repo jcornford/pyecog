@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 
 import utils
-from pythoncode.light_code.network_loader import SeizureData
-from pythoncode.light_code.extractor import FeatureExtractor
-from pythoncode.light_code.make_pdfs import plot_traces
+from pyecog.light_code.network_loader import SeizureData
+from pyecog.light_code.extractor import FeatureExtractor
+from pyecog.light_code.make_pdfs import plot_traces
 
 
 class Predictor():

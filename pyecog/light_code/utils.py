@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from pythoncode.light_code.network_loader import SeizureData
+from pyecog.light_code.network_loader import SeizureData
 
 
 def normalise(series):
