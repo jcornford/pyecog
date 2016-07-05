@@ -5,18 +5,18 @@ Currently under heavy construction.
 ### Installing PyECoG
 pip install pyecog
 
-## Originally "networkclassifer"
+### Originally "networkclassifer"
 This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in the "lightcode" directory in case needed again.
 
 
-## Usage:
+### Usage:
 
-## Todo:
+### Todo:
 * package this bad boy up into pip
 * currently very ndf file heavy
 * gui for visualising traces and storing annotations
 
-## Todo - more minor things
+### Todo - more minor things
 * AR coefs.
 * Normalisation options
 * Allow easy insertion of custom features
