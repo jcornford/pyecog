@@ -5,6 +5,9 @@ Currently under heavy construction.
 ### Originally "networkclassifer"
 This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in the "lightcode" directory in case needed again.
 
+# Installation
+### pip install pyecog
+
 # Usage:
 
 ## Todo:
