@@ -10,27 +10,31 @@ import scipy.stats as st
 
 from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the peakdet method
 
-
 class FeatureExtractor():
 
-    def __init__(self, dataset, subtract_baseline = True):
+    def __init__(self, dataset, subtract_baseline = True,verbose_flag = False):
+        self.verbose = verbose_flag
         self.start = time.clock()
         self.dataset = dataset
+
+
         self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()
         self._peaks_and_valleys()
         self._wavelet_features(fs = 512, frequencies = [1,5,10,15,20,30,60, 90])
 
-        print("Stacking up...")
+
         self.feature_array = np.hstack([self.event_stats,self.baseline_features,
                                    self.pkval_stats,self.meanpower])
-
-        print(str(self.feature_array.shape))
-        print('took '+ str(time.clock()-self.start)+ ' seconds to extract '+ str(dataset.shape[0])+ 'feature vectors')
+        if self.verbose:
+            print("Stacking up...")
+            print(str(self.feature_array.shape))
+            print('took '+ str(time.clock()-self.start)+ ' seconds to extract '+ str(dataset.shape[0])+ 'feature vectors')
 
 
     def _event_dataset_stats(self):
-        print("Extracting stats on event dataset...")
+        if self.verbose:
+            print("Extracting stats on event dataset...")
         self.event_stats = np.zeros((len(self.event_dataset),7))
         self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
 
@@ -47,8 +51,8 @@ class FeatureExtractor():
             else:
                  # if all baseline
                 self.event_stats[i,:] = np.NaN
-
-        print("DONE"+ str(time.clock() - self.start))
+        if self.verbose:
+            print("DONE"+ str(time.clock() - self.start))
 
     def _baseline(self, subtract_baseline = True, threshold = 0.04, window_size = 100):
         '''
@@ -58,10 +62,14 @@ class FeatureExtractor():
               defined as being baseline using a rolling std deviation window and threshold
             - baseline_mean_diff is the second list and is the mean difference between baseline datapoint indexes.
         '''
-        print('Extracting baseline via rolling std...')
+        if self.verbose:
+            print('Extracting baseline via rolling std...')
+
         array_std = np.std(self.rolling_window(self.dataset,window=window_size),-1)
+
         array_window = np.zeros([self.dataset.shape[0],window_size-1])
         rolling_std_array = np.hstack((array_window,array_std))
+
         masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, self.dataset)
         mean_baseline_vector = np.mean(masked_std_below_threshold,axis = 1)
 
@@ -72,19 +80,25 @@ class FeatureExtractor():
 
         masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, dataset_after_subtraction_option)
         indexes = np.array(np.arange(self.dataset.shape[1]))
+        #print(self.dataset.shape[0], 'is dset shape 0')
 
-        self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in xrange(self.dataset.shape[0])]
-        baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in xrange(self.dataset.shape[0])]
-        baseline_diff_skew = [st.skew(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(self.dataset.shape[0])]
-        baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i].mask)])) for i in xrange(self.dataset.shape[0])]
-        #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in xrange(dataset.shape[0])]
+        self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in range(self.dataset.shape[0])]
+        baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in range(self.dataset.shape[0])]
+
+        baseline_diff_skew = [st.skew(np.diff(indexes[np.logical_not(masked_std_below_threshold[i,:].mask)])) for i in range(self.dataset.shape[0])]
+        baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i,:].mask)])) for i in range(self.dataset.shape[0])]
+
+
+        #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in range(dataset.shape[0])]
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
-        print('DONE'+ str(time.clock() - self.start))
+        if self.verbose:
+            print('DONE'+ str(time.clock() - self.start))
         #print 'N.B using mean baseline difference - perhaps not best?'
 
     def _peaks_and_valleys(self):
-        print ("Extracting peak/valley features..."),
+        if self.verbose:
+            print ("Extracting peak/valley features..."),
         pk_nlist = []
         val_nlist = []
 
@@ -126,11 +140,13 @@ class FeatureExtractor():
         av_val = np.array(av_val)
         av_range = np.array(av_range)
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
-        print("DONE", time.clock()-self.start)
+        if self.verbose:
+            print("DONE", time.clock()-self.start)
         #print ('N.B Again - preassign?')
 
     def _wavelet_features(self, fs = 512, frequencies = [1,5,10,15,20,30,60, 90]):
-        print("Extracting wavelet features from event dataset..."),
+        if self.verbose:
+            print("Extracting wavelet features from event dataset..."),
         window = int(fs*0.5)
         waveletList = []
         for freq in frequencies:
@@ -151,7 +167,8 @@ class FeatureExtractor():
                 power.append(np.ones((len(frequencies)))*np.NaN)
                 meanpower.append(np.ones((len(frequencies)))*np.NaN)
         self.meanpower = np.array(meanpower)
-        print("DONE", time.clock()-self.start)
+        if self.verbose:
+            print("DONE", time.clock()-self.start)
 
         #print("N.B. Still no post crossing power")
 

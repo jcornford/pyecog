@@ -1,13 +1,15 @@
-from __future__ import print_function
-import os
+import sys
 import struct
-import time
+import os
 
+import pandas as pd
 import h5py
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 
+if sys.version_info < (3,):
+    range = xrange
 
 class NDFLoader:
     """
@@ -58,12 +60,14 @@ class NDFLoader:
         self.data_dict = None
         self.tids = None
         self.t_stamps = None
-        self.data = {}
-        self.time = {}
-        self.time_diff = {}
-        self.time_512hz = {}
-        self.data_512hz = {}
-        self.resampled = {}
+        self.data = None
+        self.time = None
+        self.time_diff = None
+        self.time_resampled = None
+        self.data_resampled = None
+        self.resampled = None
+        self.resampled_fs = None
+        self.read_id = None
 
         self._get_file_properties()
 
@@ -78,72 +82,140 @@ class NDFLoader:
         self.time_interval_hours = time_interval_hours
         self.time_interval = self.time_interval_hours * 3600  # convert hourly interval to seconds
 
-    def remove_points_based_on_timestamps(self, indexes=[]):
+    def _mad_based_outlier(self, thresh=3.5):
         """
-        Remove data points based on timestamp.
+        Not being used:
+
+        points : An numobservations by numdimensions array of observations
+        thresh : The modified z-score to use as a threshold. Observations with
+            a modified z-score (based on the median absolute deviation) greater
+            than this value will be classified as outliers.
         """
-        if indexes == []:
-            indexes = self.tids
+        points = self.data
+        if len(points.shape) == 1:
+            points = points[:,None]
+        median = np.median(points, axis=0)
+        diff = np.sum((points - median)**2, axis=-1)
+        diff = np.sqrt(diff)
+        med_abs_deviation = np.median(diff)
 
-        for id in indexes:
-            begin_chunk = 0
-            end_chunk = begin_chunk + 2000
-            for i in range(np.length(self.data[id])//2000):
-                # Read a 2000 long chunk of data
-                begin_chunk = 0*i
-                end_chunk = max(begin_chunk+2000, np.length(self.data[id]))
-                chunk_times = self.time[id][begin_chunk:end_chunk]
+        modified_z_score = 0.6745 * diff / med_abs_deviation
+
+        return modified_z_score > thresh
+
+    def _rolling_median(self, threshold = 1, plot_glitches=False, print_output=False):
+        if len(self.data.shape) == 1:
+            self.data_4med = self.data[:, None]
+        df = pd.DataFrame(self.data_4med, columns=['raw'])
+        df['rolling'] = df['raw'].rolling(window=10, center =
+        True).median().fillna(method='bfill').fillna(method='ffill')
+        difference = np.abs(df['raw'] - df['rolling'])
+        inlier_idx = difference < threshold
+        outlier_idx = difference > threshold
+        n_glitch = sum(abs(outlier_idx))
+        if n_glitch > 200:
+            print ('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
+        return outlier_idx
+
+    def _check_glitch_candidates(self,diff_threshold=10,):
+        std_dev = np.std(self.data)
+        self.n_possible_glitches += len(self.crossing_locations)
+        # check local difference is much bigger than the mean difference between points
+        glitch_count = 0
+        for location in self.crossing_locations: # std threshold crossings
+            if location == 0:
+                pass
+                #print('Warning: if two glitches at start, correction will fail')
+            i = location - 1
+            ii = location + 1
+            try:
+                if abs(self.data[location] - self.data[ii]) > diff_threshold * std_dev:
+                    # plot glitches to be removed if plotting option is on
+                    if self.plot_each_glitch:
+                        plt.figure(figsize = (15, 4))
+                        plt.plot(self.time[location - 512:location + 512],
+                                 self.data[location - 512:location + 512], 'k')
+                        plt.ylabel('Time (s)'); plt.title('Glitch '+str(glitch_count+1))
+                        plt.show()
+                    try:
+                        value = self.data[i] + (self.time[location] - self.time[i]) * (
+                        self.data[ii] - self.data[i]) / (self.time[ii] - self.time[i])
+                        self.data[location] = value
+                    except IndexError:
+                        pass
+                    glitch_count += 1
+
+            except IndexError:
+                pass
+        self.glitch_count += glitch_count
 
 
-    def glitch_removal(self, read_id, x_std_threshold=10, diff_threshold=20, plot_glitches=False, print_output=False):
-        if read_id == []:
-            read_id = set(self.tids)
-            read_id.remove(0)
-        for index in read_id:
-            mean_diff = np.mean(abs(np.diff(self.data[index])))
+    def glitch_removal(self, x_std_threshold=10, plot_glitches=False, print_output=False, plot_sub_glitches = False, tactic = 'big_guns'):
+        """
+        Seperate method, in order to adjust the thresholds manually
+        """
+        std_dev = np.std(self.data)
+        self.n_possible_glitches = 0
+        self.glitch_count        = 0
+        self.plot_each_glitch = plot_sub_glitches
+        if plot_glitches:
+            plt.figure(figsize = (15, 4))
+            plt.plot(self.time, self.data, 'k')
+            plt.title('Full raw trace');plt.xlabel('Time (seconds)')
+            plt.xlim(0,self.time[-1])
+            plt.show()
+
+        if tactic == 'old':
+            mean_diff = np.mean(abs(np.diff(self.data)))
             if not self.mean_point:
-                self.mean_point = np.mean(self.data[index])
-            std_dev = np.std(self.data[index])
-
+                self.mean_point = np.mean(self.data)
             # identify candidate glitches based on std deviation
             threshold = std_dev * x_std_threshold + self.mean_point
-            crossing_locations = np.where(self.data[index] > threshold)[0]
+            crossing_locations = np.where(self.data > threshold)[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
 
-            if plot_glitches:
-                plt.plot(self.time[index], self.data[index])
-                plt.title('Full trace')
-                plt.show()
 
-            # check local difference is much bigger than the mean difference between points
-            glitch_count = 0
-            for location in crossing_locations:
-                if location == 0:
-                    print('Warning: if two glitches at start, correction will fail')
-                i = location - 1
-                ii = location + 1
-                # if abs(np.diff(self.data[i:ii])).all() > mean_diff * diff_threshold:
-                try:
-                    if abs(self.data[index][location] - self.data[index][ii]) > 10 * std_dev:
-                        # plot glitches to be removed if plotting option is on
-                        if plot_glitches:
-                            plt.plot(self.time[index][location - 512:location + 512],
-                                     self.data[index][location - 512:location + 512])
-                            plt.show()
-                        try:
-                            value = self.data[index][i] + (self.time[index][location] - self.time[index][i]) * (
-                            self.data[index][ii] - self.data[index][i]) / (self.time[index][ii] - self.time[index][i])
-                            self.data[index][location] = value
-                        except IndexError:
-                            pass
-                        glitch_count += 1
-                except IndexError:
-                    pass
+        elif tactic == 'mad':
+            crossing_locations = np.where(self._mad_based_outlier())[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
 
-            if print_output:
-                print('Removed', glitch_count, 'datapoints detected as glitches, with a threshold of',)# end=' ')
-                print(x_std_threshold, 'times the std deviation. Therefore threshold was:', std_dev * x_std_threshold)
-                print('above mean. Also used local difference between points, glitch was at least', diff_threshold,)# end=' ')
-                print('greater than mean difference.')
+        elif tactic == 'roll_med':
+            crossing_locations = np.where(self._rolling_median())[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
+
+        elif tactic == 'big_guns':
+            crossing_locations = np.where(self._rolling_median())[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
+
+            crossing_locations = np.where(self._mad_based_outlier())[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
+            mean_diff = np.mean(abs(np.diff(self.data)))
+            if not self.mean_point:
+                self.mean_point = np.mean(self.data)
+            # identify candidate glitches based on std deviation
+            threshold = std_dev * x_std_threshold + self.mean_point
+            crossing_locations = np.where(self.data > threshold)[0]
+            self.crossing_locations = crossing_locations
+            self._check_glitch_candidates()
+        else:
+            print ('Please specify detection tactic: ("mad","roll_med","big_guns", "old")')
+            raise
+
+        if print_output:
+            print('Removed', self.glitch_count, 'datapoints detected as glitches. There were',self.n_possible_glitches, 'possible glitches.')
+
+        if plot_glitches:
+            plt.figure(figsize = (15, 4))
+            plt.plot(self.time, self.data, 'k')
+            plt.title('De-glitched trace');plt.xlabel('Time (seconds)')
+            plt.xlim(0,self.time[-1])
+            plt.show()
+        self.data = np.ravel(self.data)
 
     def _get_file_properties(self):
         with open(self.filepath, 'rb') as f:
@@ -170,10 +242,8 @@ class NDFLoader:
             file_size = os.path.getsize(self.filepath)
             self.data_size = file_size - self.data_address
 
-    def save(self, save_file_name, file_format='hdf5', channels_to_save=(-1), fs=512, sec_per_row=1, minimum_seconds=1):
+    def save(self, save_file_name = None, file_format='hdf5', sec_per_row=1, minimum_seconds=1):
         """
-        Default is to save all channels (-1). If you want to specify which channels to save
-        pass in a tuple with desired channel numbers. e.g. (1,3,5,9) for channels 1, 3, 5 and 9.
         Info on channels and their recording length can be found in the channel_info attribute.
 
         Currently accepting the following savefile format options:
@@ -182,44 +252,39 @@ class NDFLoader:
         Strongly recommended to save in hdf5 file format!
 
         Args:
+            save_file_name:
             file_format:
 
         """
-
+        #self.resampled_fs
         if file_format == 'hdf5':
-            hdf5_filename = save_file_name + '.' + file_format
+            if not save_file_name:
+                hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+str(self.read_id) + '.' + file_format
+            else:
+                hdf5_filename = save_file_name + '.' + file_format
             hdf5_data = {}
             hdf5_time = {}
             with h5py.File(hdf5_filename, 'w') as f:
                 f.attrs['num_channels'] = len(self.data)
                 file_group = f.create_group(self.filepath.split('/')[-1][:-4])
-                for i in self.data.keys():
-                    transmitter_group = file_group.create_group(str(i))
-                    resampled = False
-                    try:
-                        resampled = self.resampled[i]
-                    except KeyError:
-                        pass
-                    data_to_save = self.data_512hz[i] if resampled else self.data[i]
-                    time_to_save = self.time_512hz[i] if resampled else self.time[i]
-                    hdf5_data[i] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
-                    hdf5_time[i] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
-                    transmitter_group.attrs["resampled"] = resampled
+
+                transmitter_group = file_group.create_group(str(self.read_id))
+
+                data_to_save = self.data_resampled if self.resampled else self.data
+                time_to_save = self.time_resampled if self.resampled else self.time
+                hdf5_data = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
+                hdf5_time = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
+                transmitter_group.attrs["resampled"] = self.resampled
 
         print('Saved data as:'+str(hdf5_filename))
 
-        '''
-        #implement multiple processes for saving
-        dp_per_row = int(fs*sec_per_row)# could end up changing what they ask for...
-        array = np.array(ndf.data_dict['9'])
-        print 'cutting',array.shape[0]%dp_per_row, 'datapoints'
-        row_index = array.shape[0]/dp_per_row # remeber floor division if int
-        save_array = np.reshape(array[:row_index*dp_per_row],newshape = (row_index,dp_per_row))
-        #probs dont need to change into an array before saving - but if new view, probs not big deal?
-        '''
 
-    def load(self, read_id=[]):
+    def load(self, read_id, auto_glitch_removal = False):
         """
+        Args:
+            - read_id: Transmitter id to be read from the ndf file.
+        Returns:
+
         This is based on the following analysis :
         The time stamps for messages in a given channel fall at K + (64 x N) where N = 0, 1, 2 or 3, and K is an offset
         that drifts slowly over the course of an entire ndf but is reasonably stable for a few seconds at a time.
@@ -237,11 +302,8 @@ class NDFLoader:
         board the transmitter drifts relative to the computer clock, but usually without discontinuities, so it is
         basically constant over a few seconds.
 
-        Args:
-
-        Returns:
-
         """
+        self.read_id = read_id
 
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
@@ -251,27 +313,25 @@ class NDFLoader:
         transmitter_ids = e_bit_reads[::4]
         self.tids = transmitter_ids
         self.t_stamps = e_bit_reads[3::4]
-        if read_id == []:
-            read_id = set(self.tids)
-            read_id.remove(0)
+
+        '''
         # Here we find bad message
-        bad_messages = {}
-        for id in read_id:
-            bad_messages[id] = []
-            transmitter_timestamps = self.t_stamps[transmitter_ids==id]
-            begin_chunk = 0
-            end_chunk = begin_chunk + 2000
-            for i in range(transmitter_timestamps.size//2000):
-                # Read a 2000 long chunk of data
-                begin_chunk = 2000*i
-                end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
-                chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
-                mode_k = stats.mode(chunk_times % 64).mode[0] # 64 as 8*64 is 256 - should be 8 messages ber time reset.
-                for j in range(chunk_times.size):
-                    offset = (int(chunk_times[j]) - mode_k) % 64 # actual offset minus most common offset
-                    # same as (time%64) - k.
-                    if offset > 9 and offset < 51:
-                        bad_messages[id].append(j + begin_chunk)
+        bad_messages = []
+        transmitter_timestamps = self.t_stamps[transmitter_ids==read_id]
+        begin_chunk = 0
+        end_chunk = begin_chunk + 2000
+        for i in range(transmitter_timestamps.size//2000):
+            # Read a 2000 long chunk of data
+            begin_chunk = 2000*i
+            end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
+            chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
+            mode_k = stats.mode(chunk_times % 64).mode[0] # 64 as 8*64 is 256 - should be 8 messages per time reset.
+            for j in range(chunk_times.size):
+                offset = (int(chunk_times[j]) - mode_k) % 64 # actual offset minus most common offset
+                # same as (time%64) - k.
+                if offset > 9 and offset < 51:
+                    bad_messages.append(j + begin_chunk)
+        '''
 
         # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address + 1)
@@ -284,65 +344,46 @@ class NDFLoader:
         fine_time_array = self.t_stamps * self.clock_division
         self.time_array = fine_time_array + clock_data
 
-        for id in read_id:
-            self.data[id] = self.messages[transmitter_ids == id] * self.volt_div
-            self.data[id] = np.delete(self.data[id], bad_messages[id])
-            self.time[id] = self.time_array[transmitter_ids == id]
-            self.time[id] = np.delete(self.time[id], bad_messages[id])
+        self.data = self.messages[transmitter_ids == read_id] * self.volt_div
+        self.time = self.time_array[transmitter_ids == read_id]
 
-    def correct_sampling_frequency(self, read_id, fs=512.0, overwrite=False):
-        if read_id == []:
-            read_id = set(self.tids)
-            read_id.remove(0)
-        for index in read_id:
-            # first check that we are not interpolating datapoints for more than 1 second?
-            #assert max(np.diff(self.time[index])) < 1.0
-            self.time_diff[index] = np.diff(self.time[index])
+        bad_messages = []
+        transmitter_timestamps = self.t_stamps[transmitter_ids==read_id]
+        begin_chunk = 0
+        end_chunk = begin_chunk + 2000
+        for i in range(transmitter_timestamps.size//2000):
+            # Read a 2000 long chunk of data
+            begin_chunk = 2000*i
+            end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
+            chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
+            mode_k = stats.mode(chunk_times % 64).mode[0] # 64 as 8*64 is 512 - should be 8 messages per time reset.
+            for j in range(chunk_times.size):
+                offset = (int(chunk_times[j]) - mode_k) % 64 # actual offset minus most common offset
+                # same as (time%64) - k.
+                if offset > 9 and offset < 51:
+                    bad_messages.append(j + begin_chunk)
 
-            # do linear interpolation between the points
-            self.time_512hz[index] = np.linspace(0, self.time[index][-1], num=self.time[index][-1] * fs)
-            self.data_512hz[index] = np.interp(self.time_512hz[index], self.time[index], self.data[index])
-            self.resampled[index] = True
+        self.data = np.delete(self.data, bad_messages)
+        self.time = np.delete(self.time, bad_messages)
 
-            if overwrite:
-                self.time[index] = self.time_512hz[index][:]
-                self.data[index] = self.data_512hz[index][:]
-                print('overwrite')
+        if auto_glitch_removal:
+            self.glitch_removal()
 
+    def correct_sampling_frequency(self, resampling_fs=512.0, overwrite=False):
+        # first check that we are not interpolating datapoints for more than 1 second?
+        try:
+            assert max(np.diff(self.time)) < 1.0
+        except:
+            print  ('oh fucky, you interpolated for greater than one second!')
+        self.time_diff = np.diff(self.time)
 
-def convert_ndf(filename, savedir, id = -1):
-    # filename is the full filepath
-    print("Reading : " + filename, 'id: '+ str(id))
-    ndf = NDFLoader(filename)
-    ndf.load([id])
-    ndf.glitch_removal(read_id=[id], plot_glitches=False, print_output=False)
-    ndf.correct_sampling_frequency(read_id=[id])
-    ndf.save(save_file_name = os.path.join(savedir, filename.split('/')[-1][:-4]),
-             file_format= 'hdf5')
+        # do linear interpolation between the points
+        self.time_resampled = np.linspace(0, self.time[-1], num=self.time[-1] * resampling_fs)
+        self.data_resampled = np.interp(self.time_resampled, self.time, self.data)
+        self.resampled = True
 
-def main(dirpath,id):
-    print('currently being used for loading a full folder')
-    for filepath in os.listdir(dirpath):
-        if filepath.endswith('.ndf'):
-            # make a save dir
-            if os.path.isdir(dirpath):
-                hdf5_directory = os.path.join(os.path.split(dirpath[:-1])[0], 'hdf5s_id_2')
-            if not os.path.exists(hdf5_directory):
-                os.makedirs(hdf5_directory)
-
-            convert_ndf(filename = os.path.join(dirpath, filepath),
-                        savedir = hdf5_directory,
-                        id = id )
-        else:
-            print('Not converting ', filepath)
-
-
-if __name__ == "__main__":
-    dirpath = '/Volumes/LaCie/Albert_ndfs/Data_03032016/Animal_93.8/NDF/'
-
-
-    dirpath = '/Volumes/LaCie/Gabriele/full_day'
-    id = 2
-    main(dirpath , id)
-
+        if overwrite:
+            self.time = self.time_resampled[:]
+            self.data = self.time_resampled[:]
+            print('overwrite')
 

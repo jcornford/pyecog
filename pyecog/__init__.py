@@ -1,1 +1,1 @@
-from ndf import *
+from .ndf import *
