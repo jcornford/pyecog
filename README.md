@@ -1,9 +1,9 @@
 # PyECoG
-This modulde is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
+This module is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
 Currently under heavy constructions.
 
-## Grown out of "networkclassifer"
-This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in "lightcode" incase needed.
+### Originally "networkclassifer"
+This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in the "lightcode" directory in case needed again.
 
 # Usage:
 
