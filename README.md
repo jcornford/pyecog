@@ -1,4 +1,4 @@
-[![PyPI version](https://badge.fury.io/py/pyflux.svg)](https://badge.fury.io/py/pyflux)
+[![PyPI version](https://badge.fury.io/py/pyecog.svg)](https://badge.fury.io/py/pyecog)
 ## PyECoG
 This module is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
 Currently under heavy construction.
