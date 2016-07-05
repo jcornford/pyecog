@@ -1,9 +1,12 @@
+[![PyPI version](https://badge.fury.io/py/pyflux.svg)](https://badge.fury.io/py/pyflux)
 ## PyECoG
 This module is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
 Currently under heavy construction.
 
 ### Installing PyECoG
+```{bash}
 pip install pyecog
+```
 
 ### Originally "networkclassifer"
 This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in the "lightcode" directory in case needed again.
