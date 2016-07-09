@@ -347,27 +347,66 @@ class NDFLoader:
         self.data = self.messages[transmitter_ids == read_id] * self.volt_div
         self.time = self.time_array[transmitter_ids == read_id]
 
+        '''
+        # this is the bad message part...
         bad_messages = []
-        transmitter_timestamps = self.t_stamps[transmitter_ids==read_id]
+        transmitter_timestamps = self.t_stamps_256[self.transmitter_ids==read_id] # change this back?
         begin_chunk = 0
-        end_chunk = begin_chunk + 2000
-        for i in range(transmitter_timestamps.size//2000):
+        end_chunk = begin_chunk + 1024
+        modes = []
+        for i in list(range(transmitter_timestamps.size//1024)):
             # Read a 2000 long chunk of data
-            begin_chunk = 2000*i
-            end_chunk = min(begin_chunk+2000, transmitter_timestamps.size)
+            begin_chunk = 1024*i
+            end_chunk = min(begin_chunk+1024, transmitter_timestamps.size)
+            
             chunk_times = transmitter_timestamps[begin_chunk:end_chunk]
-            mode_k = stats.mode(chunk_times % 64).mode[0] # 64 as 8*64 is 512 - should be 8 messages per time reset.
+            #plt.plot(stats.mode(chunk_times % 64)[0][0])
+            mode_k = stats.mode(chunk_times % 64)[0][0] # 64 as 8*64 is 512 - should be 8 messages per time reset.
+            modes.append(mode_k)
+            #print mode_k, 'is mod k ali'
             for j in range(chunk_times.size):
+                #print chunk_times[j]%64,
                 offset = (int(chunk_times[j]) - mode_k) % 64 # actual offset minus most common offset
+                #print offset
+                
                 # same as (time%64) - k.
                 if offset > 9 and offset < 51:
                     bad_messages.append(j + begin_chunk)
-
+                    #print (j + begin_chunk),
+        #print (len(bad_messages), 'is number of bad messages')
+        #print (bad_messages[38500:38900] == self.bad_message_locs[38500:38900])
+        #print bad_messages[38900:]
+        #print self.bad_message_locs[38900:]
         self.data = np.delete(self.data, bad_messages)
         self.time = np.delete(self.time, bad_messages)
-
-        if auto_glitch_removal:
-            self.glitch_removal()
+    '''
+    def _correct_bad_messages(self):
+        '''
+        Vectorised
+        '''
+        transmitter_timestamps = self.t_stamps_256[self.transmitter_ids==self.read_id]
+        timestamp_residuals = transmitter_timestamps%64 # as 60% 64 = 60, need to
+        # use double ended threshold later! (>9 and <51)
+        
+        n_rows = int(self.fs*4)
+        n_fullcols = int(timestamp_residuals.size//n_rows)
+        n_extra_stamps = timestamp_residuals.shape[0] - (n_rows*n_fullcols)
+        end_residuals = timestamp_residuals[-n_extra_stamps:]
+        reshaped_residuals = np.reshape(timestamp_residuals[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
+        # order F reshaped in a "fortran manner, first axis changing fastest"
+        
+        end_mode = stats.mode(end_residuals)[0][0]
+        offset_end = (end_residuals - end_mode)%64
+        
+        mode_vector = stats.mode(reshaped_residuals, axis = 0)[0][0]
+        offset_array = (reshaped_residuals - mode_vector )%64   
+        flattened_offset = np.concatenate([np.ravel(offset_array, order = 'F'), offset_end])
+        bad_message_locs = np.where(np.logical_and(flattened_offset > 9,flattened_offset < 51 ))[0]
+        
+        self.data = np.delete(self.data, bad_message_locs)
+        self.time = np.delete(self.time, bad_message_locs)
+        if self.verbose:
+            print ('Detected '+ str(len(self.bad_message_locs)) + ' bad messages.')
 
     def correct_sampling_frequency(self, resampling_fs=512.0, overwrite=False):
         # first check that we are not interpolating datapoints for more than 1 second?
