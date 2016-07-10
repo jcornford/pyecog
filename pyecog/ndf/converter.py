@@ -32,6 +32,7 @@ class NDFLoader:
     """
     TODO:
      - FILTERING!
+     - Bad message seems unfinished (the theory at least)
      - Code up indexing the ndf instead of using load
      - Potentially need to inherit from class that can also be used for h5 loading (also .plot()?)
 
