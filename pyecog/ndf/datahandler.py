@@ -20,6 +20,7 @@ class DataHandler():
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
+    THIS NEEDS WORK NOW!
     - how we handle the csv filepairs is changing, the annotated dataset will be a tags
     and labels. Do not assign the training or test at this point.
 

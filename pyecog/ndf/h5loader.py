@@ -25,7 +25,7 @@ class H5Dataset():
         print ('Placeholder: Plot method to implement!')
         # have indexing argument...
 
-class H5file():
+class H5File():
     def __init__(self, filepath):
         self.filepath = filepath
         self.tid_dict = {} # holding all the data (not just voltage) for each tid
@@ -44,6 +44,6 @@ class H5file():
         return self.tid_dict[item]
 start = time.time()
 fpath = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/M1457172030_Tid_[1, 2, 6, 7].h5'
-h5 = H5file(fpath)
+h5 = H5File(fpath)
 h5[2].data
 print time.time()-start

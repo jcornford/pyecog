@@ -10,6 +10,9 @@ from pyecog.light_code.classifier import NetworkClassifer
 
 
 class NDFClassifier():
+    """
+    Currently deprecated
+    """
 
     def __init__(self):
         pass

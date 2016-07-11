@@ -12,8 +12,10 @@ from pyecog.light_code.make_pdfs import plot_traces
 
 class Predictor():
 
+
     '''
-    Todo:
+    CURRENTLY DEPRICATED
+
     '''
 
     def __init__(self, clf_pickle_path):

@@ -1,6 +1,7 @@
 '''
 
 Make this into a class!
+CHANGE TO POMEMGRANATE - CHECK WORKS ON PIP
 '''
 import yahmm
 from sklearn.preprocessing import normalize
