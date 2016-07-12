@@ -8,12 +8,12 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
-from line_profiler import LineProfiler
+#from line_profiler import LineProfiler
 
 
 if sys.version_info < (3,):
     range = xrange
-
+'''
 def lprofile():
     def inner(func):
         def profiled_func(*args, **kwargs):
@@ -27,7 +27,7 @@ def lprofile():
                 profiler.print_stats()
         return profiled_func
     return inner
-
+'''
 class NDFLoader:
     """
     TODO:
@@ -80,7 +80,7 @@ class NDFLoader:
 
     """
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, verbose = False):
 
         self.filepath = file_path
 
@@ -113,7 +113,7 @@ class NDFLoader:
         self._plot_each_glitch    = None
         self.read_id = None
 
-        self.verbose = True
+        self.verbose = verbose
 
         self.file_time_len_sec = 3600
         adc_range = 2.7
@@ -303,7 +303,7 @@ class NDFLoader:
             try:
                 assert max(np.diff(self.tid_raw_time_dict[tid])) < 1.0
             except:
-                print  ('oh fucky, you interpolated for greater than one second!')
+                print  ('WARNING: You interpolated for greater than one second!')
 
             # do linear interpolation between the points
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
@@ -342,8 +342,8 @@ class NDFLoader:
                 hdf5_time[tid] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
                 transmitter_group.attrs["resampled"] = self._resampled
             #print f.attrs['fs_dict']
-
-        print('Saved data as:'+str(hdf5_filename)+ ' Resampled = ' + str(self._resampled))
+        if self.verbose:
+            print('Saved data as:'+str(hdf5_filename)+ ' Resampled = ' + str(self._resampled))
 
     def _merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
@@ -359,6 +359,7 @@ class NDFLoader:
             self.read_ids = list(self.tid_set)
         if not hasattr(self.read_ids, '__iter__'):
             self.read_ids = [read_ids]
+
 
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)

@@ -2,6 +2,7 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import sys
 class H5Dataset():
     """
     This is initially to just load up the h5 file converted by the ndf loader
@@ -30,7 +31,10 @@ class H5File():
         self.filepath = filepath
         self.tid_dict = {} # holding all the data (not just voltage) for each tid
         with h5py.File(self.filepath, 'r+') as f:
-            self.attributes = dict(f.attrs.iteritems())
+            if sys.version_info < (3,):
+                self.attributes = dict(f.attrs.iteritems())
+            else:
+                self.attributes = dict(f.attrs.items())
             self.attributes['Mcode'] = f.keys()[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
