@@ -186,7 +186,6 @@ class NDFLoader:
                 plt.show()
 
             if tactic == 'std':
-                print 'hit1'
                 crossing_locations = self._stddev_based_outlier()
                 self._check_glitch_candidates(crossing_locations)
 
