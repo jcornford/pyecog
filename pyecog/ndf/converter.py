@@ -415,12 +415,12 @@ class NDFLoader:
             if self.verbose:
                 print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_dict[tid].shape[0]))
 
-start = time.time()
-fdir = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/'
-ndf = NDFLoader(fdir+'M1457172030.ndf')
-ndf.load('all')
-ndf.glitch_removal(tactic = 'mad')
-ndf.correct_sampling_frequency()
-print time.time() - start
-ndf.save()
-print time.time() - start
+#start = time.time()
+#fdir = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/'
+#ndf = NDFLoader(fdir+'M1457172030.ndf')
+#ndf.load('all')
+#ndf.glitch_removal(tactic = 'mad')
+#ndf.correct_sampling_frequency()
+#print time.time() - start
+#ndf.save()
+#print time.time() - start
