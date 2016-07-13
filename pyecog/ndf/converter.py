@@ -7,7 +7,7 @@ import pandas as pd
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import stats
+import scipy.stats as ss
 #from line_profiler import LineProfiler
 
 
@@ -143,7 +143,9 @@ class NDFLoader:
             if meta_data_length != 0:
                 f.seek(meta_data_string_address)
                 self.metadata = f.read(meta_data_length)
+                # need to handle the fact it is in bytes?
                 #print ('\n'.join(self.metadata.split('\n')[1:-2]))
+                #print (self.metadata)
 
             else:
                 print('meta data length unknown - not bothering to work it out...')
@@ -156,8 +158,8 @@ class NDFLoader:
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
         self._e_bit_reads = np.fromfile(f, dtype = 'u1')
-        self._transmitter_id_bytes = self._e_bit_reads[::4]
-        tid_message_counts = pd.Series(self._transmitter_id_bytes).value_counts()
+        self.transmitter_id_bytes = self._e_bit_reads[::4]
+        tid_message_counts = pd.Series(self.transmitter_id_bytes).value_counts()
         possible_freqs = [256,512,1024]
         for tid, count in tid_message_counts.iteritems():
             if count > 5000 and tid != 0: # arbitrary threshold to exclude glitches
@@ -348,7 +350,7 @@ class NDFLoader:
     def _merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
         t_clock_data = np.zeros(self.voltage_messages.shape)
-        t_clock_data[self._transmitter_id_bytes == 0] = 1 # this is big ticks
+        t_clock_data[self.transmitter_id_bytes == 0] = 1 # this is big ticks
         corse_time_vector = np.cumsum(t_clock_data) * self.clock_tick_cycle
         fine_time_vector = self.t_stamps_256 * self.clock_division
         self.time_array = fine_time_vector + corse_time_vector
@@ -366,7 +368,7 @@ class NDFLoader:
 
         # read everything in 8bits, grabs time stamps
         # the get_file props has already read these ids
-        transmitter_ids = self._transmitter_id_bytes
+        transmitter_ids = self.transmitter_id_bytes
         self.t_stamps_256 = self._e_bit_reads[3::4]
 
         # read again, but in 16 bit chunks, grab messages
@@ -377,8 +379,8 @@ class NDFLoader:
 
         for read_id in self.read_ids:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
-            self.tid_raw_data_dict[read_id] = self.voltage_messages[self._transmitter_id_bytes == read_id] * self.volt_div
-            self.tid_raw_time_dict[read_id] = self.time_array[self._transmitter_id_bytes == read_id]
+            self.tid_raw_data_dict[read_id] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
+            self.tid_raw_time_dict[read_id] = self.time_array[self.transmitter_id_bytes == read_id]
         self._correct_bad_messages()
 
         if auto_glitch_removal:
@@ -390,31 +392,36 @@ class NDFLoader:
         '''
         for tid in self.tid_raw_data_dict.keys():
 
-            transmitter_timestamps = self.t_stamps_256[self._transmitter_id_bytes == tid]
-            timestamp_residuals = transmitter_timestamps%64 # as 60% 64 = 60, need to
-            # use double ended threshold later! (>9 and <51)
-            # actually is this the same thing?
+            transmitter_timestamps = self.t_stamps_256[self.transmitter_id_bytes == tid]
+
+
             fs = self.tid_to_fs_dict[tid]
+            n_messages = fs/128 # 128 is clock
+            expected_interval = 256/n_messages # 256 is bits (if 512hz fs this is 64)
+            timestamp_moduli = transmitter_timestamps % expected_interval
+
+            # now get params for reshaping...
             n_rows = int(fs*4)
-            n_fullcols = int(timestamp_residuals.size//n_rows)
-            n_extra_stamps = timestamp_residuals.shape[0] - (n_rows*n_fullcols)
-            end_residuals = timestamp_residuals[-n_extra_stamps:]
-            reshaped_residuals = np.reshape(timestamp_residuals[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
+            n_fullcols = int(timestamp_moduli.size//n_rows)
+            n_extra_stamps = timestamp_moduli.shape[0] - (n_rows*n_fullcols)
+            end_moduli = timestamp_moduli[-n_extra_stamps:]
+            reshaped_moduli = np.reshape(timestamp_moduli[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
             # order F reshaped in a "fortran manner, first axis changing fastest"
 
-            end_mode = stats.mode(end_residuals)[0][0]
-            offset_end = (end_residuals - end_mode)%64
+            end_mean= ss.circmean(end_moduli, high = 256)
+            end_moduli_corrected = (end_moduli - end_mean)
+            mean_vector = ss.circmean(reshaped_moduli, high=256, axis=0)
+            moduli_array_corrected = (reshaped_moduli - mean_vector)
 
-            mode_vector = stats.mode(reshaped_residuals, axis = 0)[0][0]
-            offset_array = (reshaped_residuals - mode_vector )%64
-            flattened_offset = np.concatenate([np.ravel(offset_array, order = 'F'), offset_end])
-            # using 51 from Ali, but should be 54 actually
-            bad_message_locs = np.where(np.logical_and(flattened_offset > 9,flattened_offset < 51 ))[0]
+            drift_corrected_timestamp_moduli = np.concatenate([np.ravel(moduli_array_corrected, order = 'F'), end_moduli_corrected])
+            self.drift_corrected_timestamp_moduli = drift_corrected_timestamp_moduli
+
+            bad_message_locs = np.where(np.logical_or(drift_corrected_timestamp_moduli > 9,drift_corrected_timestamp_moduli < -9))[0]
             self.tid_data_dict[tid] = np.delete(self.tid_raw_data_dict[tid], bad_message_locs)
             self.tid_time_dict[tid] = np.delete(self.tid_raw_time_dict[tid], bad_message_locs)
             if self.verbose:
-                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_dict[tid].shape[0]))
-
+                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_dict[tid].shape[0]), end = ', ')
+                print ('Remaining : '+str(self.tid_data_dict[tid].shape[0]))
 #start = time.time()
 #fdir = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/'
 #ndf = NDFLoader(fdir+'M1457172030.ndf')
