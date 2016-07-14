@@ -402,21 +402,23 @@ class NDFLoader:
 
             # now get params for reshaping...
             n_rows = int(fs*4)
+            n_rows = 2000
             n_fullcols = int(timestamp_moduli.size//n_rows)
             n_extra_stamps = timestamp_moduli.shape[0] - (n_rows*n_fullcols)
             end_moduli = timestamp_moduli[-n_extra_stamps:]
             reshaped_moduli = np.reshape(timestamp_moduli[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
             # order F reshaped in a "fortran manner, first axis changing fastest"
 
-            end_mean= ss.circmean(end_moduli, high = 256)
+            end_mean= ss.circmean(end_moduli, high = expected_interval)
             end_moduli_corrected = (end_moduli - end_mean)
-            mean_vector = ss.circmean(reshaped_moduli, high=256, axis=0)
+            mean_vector = ss.circmean(reshaped_moduli, high=expected_interval, axis=0)
             moduli_array_corrected = (reshaped_moduli - mean_vector)
 
             drift_corrected_timestamp_moduli = np.concatenate([np.ravel(moduli_array_corrected, order = 'F'), end_moduli_corrected])
+            drift_corrected_timestamp_moduli = np.absolute(drift_corrected_timestamp_moduli)
             self.drift_corrected_timestamp_moduli = drift_corrected_timestamp_moduli
 
-            bad_message_locs = np.where(np.logical_or(drift_corrected_timestamp_moduli > 9,drift_corrected_timestamp_moduli < -9))[0]
+            bad_message_locs = np.where(np.logical_and(drift_corrected_timestamp_moduli > 9, drift_corrected_timestamp_moduli < 54))[0]
             self.tid_data_dict[tid] = np.delete(self.tid_raw_data_dict[tid], bad_message_locs)
             self.tid_time_dict[tid] = np.delete(self.tid_raw_time_dict[tid], bad_message_locs)
             if self.verbose:

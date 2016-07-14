@@ -35,12 +35,12 @@ class H5File():
                 self.attributes = dict(f.attrs.iteritems())
             else:
                 self.attributes = dict(f.attrs.items())
-            self.attributes['Mcode'] = f.keys()[0]
+            self.attributes['Mcode'] = list(f.keys())[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
                 self.tid_dict[tid] = tid_dataset
     def __repr__(self):
-        return 'To unpack/ make better!... \nAttributes:'+str(self.attributes)
+        return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)
 
     def __getitem__(self, item):
         assert type(item) == int
