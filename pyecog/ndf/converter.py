@@ -28,7 +28,7 @@ def lprofile():
         return profiled_func
     return inner
 '''
-class NDFLoader:
+class NdfFile:
     """
     TODO:
      - FILTERING!
@@ -85,13 +85,12 @@ class NDFLoader:
         self.filepath = file_path
 
         #  some unused
-
         self.tid_set = set()
         self.tid_to_fs_dict = {}
-        self.tid_raw_data_dict  = {}
-        self.tid_raw_time_dict  = {}
-        self.tid_data_dict = {} # these get raw
-        self.tid_time_dict = {}
+        self.tid_raw_data_time_dict  = {}
+        #self.tid_raw_time_dict  = {}
+        self.tid_data_time_dict = {}
+        #self.tid_time_dict = {}
         self.resampled = False
 
         self.file_label = file_path.split('/')[-1].split('.')[0]
@@ -127,6 +126,12 @@ class NDFLoader:
 
         self._read_file_metadata()
         self._get_valid_tids_and_fs()
+        #print (self.__getitem__(4))
+
+    def __getitem__(self, item):
+        assert type(item) == int
+        assert item in self.tid_set, 'ERROR: Invalid tid for file'
+        return self.tid_data_time_dict[item]
 
     def _read_file_metadata(self):
 
@@ -166,16 +171,19 @@ class NDFLoader:
                 error = [abs(3600 - count/fs) for fs in possible_freqs]
                 self.tid_to_fs_dict[tid] = possible_freqs[np.argmin(error)]
                 self.tid_set.add(tid)
+                self.tid_raw_data_time_dict[tid]  = {}
+                self.tid_data_time_dict[tid] = {}
+
     #@lprofile()
     def glitch_removal(self, plot_glitches=False, print_output=False,
                        plot_sub_glitches = False, tactic = 'mad'):
         """
         Tactics can either be 'std', 'mad','roll_med', 'big_guns'
         """
-        for tid in self.tid_data_dict.keys():
+        for tid in self.read_ids:
             # use the badmessage filtered - also, if called first, will be resampled
-            self.data_to_deglitch = self.tid_data_dict[tid]
-            self.time_to_deglitch = self.tid_time_dict[tid]
+            self.data_to_deglitch = self.tid_data_time_dict[tid]['data']
+            self.time_to_deglitch = self.tid_data_time_dict[tid]['time']
             self._n_possible_glitches = 0
             self._glitch_count        = 0
             self._plot_each_glitch = plot_sub_glitches
@@ -297,23 +305,28 @@ class NDFLoader:
 
 
     def correct_sampling_frequency(self):
+        '''
+        Remeber, this is acting on the modified data (bad message and glitch already)
+        so self.tid_data_time dict
+        :return:
+        '''
         # this occurs after bad messages, so working with data ditc
         # first check that we are not interpolating datapoints for more than 1 second?
 
-        for tid in self.tid_data_dict.keys():
-
+        for tid in self.read_ids:
+            max_interp = max(np.diff(self.tid_data_time_dict[tid]['data']))
             try:
-                assert max(np.diff(self.tid_raw_time_dict[tid])) < 1.0
+                assert max_interp < 2.0
             except:
-                print  ('WARNING: You interpolated for greater than one second!')
+                print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
 
             # do linear interpolation between the points
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
-            self.tid_data_dict[tid] = np.interp(regularised_time, self.tid_raw_time_dict[tid],
-                                                self.tid_raw_data_dict[tid])
-            self.tid_time_dict[tid] = regularised_time
+            self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time, self.tid_data_time_dict[tid]['time'],
+                                                self.tid_data_time_dict[tid]['data'])
+            self.tid_data_time_dict[tid]['time'] = regularised_time
             if self.verbose:
-                print('Tid '+str(tid)+': corrected fs to '+str(self.tid_to_fs_dict[tid])+' Hz')
+                print('Tid '+str(tid)+': regularised fs to '+str(self.tid_to_fs_dict[tid])+' Hz')
 
         self._resampled = True
 
@@ -325,7 +338,7 @@ class NDFLoader:
             save_file_name:
         """
         if not save_file_name:
-            hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+''.join(str([tid for tid in self.tid_data_dict.keys()]))+ '.h5'
+            hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+''.join(str([tid for tid in self.tid_data_time_dict.keys()]))+ '.h5'
         else:
             hdf5_filename = save_file_name + '.h5'
         hdf5_data = {}
@@ -335,11 +348,11 @@ class NDFLoader:
             f.attrs['t_ids'] = list(self.tid_set)
             f.attrs['fs_dict'] = str(self.tid_to_fs_dict)
             file_group = f.create_group(self.filepath.split('/')[-1][:-4])
-            for tid in self.tid_data_dict.keys():
+            for tid in self.tid_data_time_dict.keys():
                 transmitter_group = file_group.create_group(str(tid))
 
-                data_to_save = self.tid_data_dict[tid] # bad messaged are here no longer distinction with
-                time_to_save = self.tid_time_dict[tid] # resampling the data or not
+                data_to_save = self.tid_data_time_dict[tid]['data'] # bad messaged are here no longer distinction with
+                time_to_save = self.tid_data_time_dict[tid]['time'] # resampling the data or not
                 hdf5_data[tid] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
                 hdf5_time[tid] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
                 transmitter_group.attrs["resampled"] = self._resampled
@@ -355,7 +368,9 @@ class NDFLoader:
         fine_time_vector = self.t_stamps_256 * self.clock_division
         self.time_array = fine_time_vector + corse_time_vector
 
-    def load(self, read_ids = [], auto_glitch_removal = False):
+    def load(self, read_ids = [],
+             auto_glitch_removal = True,
+             auto_resampling = True,):
         self.read_ids = read_ids
         if read_ids == [] or str(read_ids).lower() == 'all':
             self.read_ids = list(self.tid_set)
@@ -379,18 +394,23 @@ class NDFLoader:
 
         for read_id in self.read_ids:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
-            self.tid_raw_data_dict[read_id] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
-            self.tid_raw_time_dict[read_id] = self.time_array[self.transmitter_id_bytes == read_id]
+            self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
+            self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
         self._correct_bad_messages()
 
         if auto_glitch_removal:
             self.glitch_removal(tactic='mad')
+        if auto_resampling:
+            self.correct_sampling_frequency()
 
     def _correct_bad_messages(self):
         '''
         Now Vectorised!
+        - okay so we have 128hz as the clock...
+        - fs / clock_rate is the n_messages between clocks
+        - 256 / n_messages is the thing we are diving to get the residuals
         '''
-        for tid in self.tid_raw_data_dict.keys():
+        for tid in self.read_ids:
 
             transmitter_timestamps = self.t_stamps_256[self.transmitter_id_bytes == tid]
 
@@ -402,7 +422,7 @@ class NDFLoader:
 
             # now get params for reshaping...
             n_rows = int(fs*4)
-            n_rows = 2000
+            #n_rows = 2000
             n_fullcols = int(timestamp_moduli.size//n_rows)
             n_extra_stamps = timestamp_moduli.shape[0] - (n_rows*n_fullcols)
             end_moduli = timestamp_moduli[-n_extra_stamps:]
@@ -418,18 +438,13 @@ class NDFLoader:
             drift_corrected_timestamp_moduli = np.absolute(drift_corrected_timestamp_moduli)
             self.drift_corrected_timestamp_moduli = drift_corrected_timestamp_moduli
 
-            bad_message_locs = np.where(np.logical_and(drift_corrected_timestamp_moduli > 9, drift_corrected_timestamp_moduli < 54))[0]
-            self.tid_data_dict[tid] = np.delete(self.tid_raw_data_dict[tid], bad_message_locs)
-            self.tid_time_dict[tid] = np.delete(self.tid_raw_time_dict[tid], bad_message_locs)
+            bad_message_locs = np.where(np.logical_and(drift_corrected_timestamp_moduli > 9,
+                                                       drift_corrected_timestamp_moduli < (expected_interval-9)))[0]
+
+            self.tid_data_time_dict[tid]['data'] = np.delete(self.tid_raw_data_time_dict[tid]['data'], bad_message_locs)
+            self.tid_data_time_dict[tid]['time'] = np.delete(self.tid_raw_data_time_dict[tid]['time'], bad_message_locs)
             if self.verbose:
-                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_dict[tid].shape[0]), end = ', ')
-                print ('Remaining : '+str(self.tid_data_dict[tid].shape[0]))
-#start = time.time()
-#fdir = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/'
-#ndf = NDFLoader(fdir+'M1457172030.ndf')
-#ndf.load('all')
-#ndf.glitch_removal(tactic = 'mad')
-#ndf.correct_sampling_frequency()
-#print time.time() - start
-#ndf.save()
-#print time.time() - start
+                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_time_dict[tid]['data'].shape[0]), end = ', ')
+                print ('Remaining : '+str(self.tid_data_time_dict[tid]['data'].shape[0]))
+
+

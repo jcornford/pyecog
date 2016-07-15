@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pyecog.ndf.converter import NDFLoader
+from pyecog.ndf.converter import NdfFile
 
 
 class Explorer():
@@ -29,7 +29,7 @@ class Explorer():
 
         print start,end,duration,file
         fname = 'M1445362612.ndf'
-        ndf = NDFLoader(self.dir_path+'ndf/'+fname, print_meta=True)
+        ndf = NdfFile(self.dir_path+'ndf/'+fname, print_meta=True)
         ndf.load(8)
 
         np.set_printoptions(precision=3, suppress = True)

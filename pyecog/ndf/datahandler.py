@@ -7,7 +7,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from pyecog.ndf.converter import NDFLoader
+from pyecog.ndf.converter import NdfFile
 from extractor import FeatureExtractor
 from utils import filterArray
 
@@ -108,7 +108,7 @@ class DataHandler():
         tstamp = float(mname.strip('M').split('.')[0])
         ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
         ndf_time =  ndf_time.replace(' ', '_')
-        ndf = NDFLoader(filename)
+        ndf = NdfFile(filename)
         ndf.load(read_id = tid )
         ndf.glitch_removal(tactic = 'big_guns')
         ndf.correct_sampling_frequency(resampling_fs = self.fs)

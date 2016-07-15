@@ -46,8 +46,3 @@ class H5File():
         assert type(item) == int
         assert item in self.attributes['t_ids'], 'ERROR: Invalid tid for file'
         return self.tid_dict[item]
-#start = time.time()
-#fpath = '/Users/Jonathan/Dropbox/DataSharing_GL_SJ/M1457172030_Tid_[1, 2, 6, 7].h5'
-#h5 = H5File(fpath)
-#h5[2].data
-#print time.time()-start
