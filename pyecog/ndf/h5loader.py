@@ -38,7 +38,11 @@ class H5File():
             self.attributes['Mcode'] = list(f.keys())[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
-                self.tid_dict[tid] = tid_dataset
+                self.tid_dict[tid] = {}
+                self.tid_dict[tid]['data'] = tid_dataset.data
+                self.tid_dict[tid]['time'] = tid_dataset.time
+                self.tid_dict[tid]['features'] = tid_dataset.features
+
     def __repr__(self):
         return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)
 
