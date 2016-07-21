@@ -80,7 +80,7 @@ class NdfFile:
 
     """
 
-    def __init__(self, file_path, verbose = False):
+    def __init__(self, file_path, verbose = False, fs = 'auto'):
 
         self.filepath = file_path
 
@@ -105,6 +105,7 @@ class NdfFile:
         self.t_stamps = None
         self.read_ids = None
         self.time_diff = None
+        self.fs = fs
 
 
         self._n_possible_glitches = None
@@ -169,7 +170,11 @@ class NdfFile:
         for tid, count in tid_message_counts.iteritems():
             if count > 5000 and tid != 0: # arbitrary threshold to exclude glitches
                 error = [abs(3600 - count/fs) for fs in possible_freqs]
-                self.tid_to_fs_dict[tid] = possible_freqs[np.argmin(error)]
+                if self.fs == 'auto':
+                    self.tid_to_fs_dict[tid] = possible_freqs[np.argmin(error)]
+                else:
+                    self.fs = float(self.fs)
+                    self.tid_to_fs_dict[tid] = self.fs
                 self.tid_set.add(tid)
                 self.tid_raw_data_time_dict[tid]  = {}
                 self.tid_data_time_dict[tid] = {}
@@ -319,6 +324,7 @@ class NdfFile:
                 assert max_interp < 2.0
             except:
                 print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
+                print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
 
             # do linear interpolation between the points
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
@@ -338,24 +344,28 @@ class NdfFile:
             save_file_name:
         """
         if not save_file_name:
-            hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+''.join(str([tid for tid in self.tid_data_time_dict.keys()]))+ '.h5'
+            hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+''.join(str([tid for tid in self.read_ids]))+ '.h5'
         else:
             hdf5_filename = save_file_name + '.h5'
-        hdf5_data = {}
-        hdf5_time = {}
-        with h5py.File(hdf5_filename, 'w') as f:
-            f.attrs['num_channels'] = len(self.tid_set)
-            f.attrs['t_ids'] = list(self.tid_set)
-            f.attrs['fs_dict'] = str(self.tid_to_fs_dict)
-            file_group = f.create_group(self.filepath.split('/')[-1][:-4])
-            for tid in self.tid_data_time_dict.keys():
-                transmitter_group = file_group.create_group(str(tid))
 
-                data_to_save = self.tid_data_time_dict[tid]['data'] # bad messaged are here no longer distinction with
-                time_to_save = self.tid_data_time_dict[tid]['time'] # resampling the data or not
-                hdf5_data[tid] = transmitter_group.create_dataset('data', data=data_to_save, compression="gzip")
-                hdf5_time[tid] = transmitter_group.create_dataset('time', data=time_to_save, compression="gzip")
+        with h5py.File(hdf5_filename, 'w') as f:
+            f.attrs['num_channels'] = len(self.read_ids)
+            f.attrs['t_ids'] = list(self.read_ids)
+            f.attrs['fs_dict'] = str(self.tid_to_fs_dict)
+            file_group = f.create_group(os.path.split(self.filepath)[1][:-4])
+
+            for tid in self.read_ids:
+                transmitter_group = file_group.create_group(str(tid))
+                transmitter_group.create_dataset('data',
+                                                 data=self.tid_data_time_dict[tid]['data'],
+                                                 compression="lzf") #gzip is better but slower
+                transmitter_group.create_dataset('time',
+                                                 data=self.tid_data_time_dict[tid]['time'],
+                                                 compression="lzf")
                 transmitter_group.attrs["resampled"] = self._resampled
+
+            f.close()
+
             #print f.attrs['fs_dict']
         if self.verbose:
             print('Saved data as:'+str(hdf5_filename)+ ' Resampled = ' + str(self._resampled))
@@ -371,6 +381,7 @@ class NdfFile:
     def load(self, read_ids = [],
              auto_glitch_removal = True,
              auto_resampling = True,):
+
         self.read_ids = read_ids
         if read_ids == [] or str(read_ids).lower() == 'all':
             self.read_ids = list(self.tid_set)
@@ -396,6 +407,7 @@ class NdfFile:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
             self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
             self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
+
         self._correct_bad_messages()
 
         if auto_glitch_removal:
@@ -405,16 +417,12 @@ class NdfFile:
 
     def _correct_bad_messages(self):
         '''
-        Now Vectorised!
         - okay so we have 128hz as the clock...
         - fs / clock_rate is the n_messages between clocks
         - 256 / n_messages is the thing we are diving to get the residuals
         '''
         for tid in self.read_ids:
-
             transmitter_timestamps = self.t_stamps_256[self.transmitter_id_bytes == tid]
-
-
             fs = self.tid_to_fs_dict[tid]
             n_messages = fs/128 # 128 is clock
             expected_interval = 256/n_messages # 256 is bits (if 512hz fs this is 64)
@@ -426,15 +434,21 @@ class NdfFile:
             n_fullcols = int(timestamp_moduli.size//n_rows)
             n_extra_stamps = timestamp_moduli.shape[0] - (n_rows*n_fullcols)
             end_moduli = timestamp_moduli[-n_extra_stamps:]
-            reshaped_moduli = np.reshape(timestamp_moduli[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
-            # order F reshaped in a "fortran manner, first axis changing fastest"
+            if n_extra_stamps:
+                reshaped_moduli = np.reshape(timestamp_moduli[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
+                # order F reshaped in a "fortran manner, first axis changing fastest"
+                end_mean= ss.circmean(end_moduli, high = expected_interval)
+                end_moduli_corrected = (end_moduli - end_mean)
+                mean_vector = ss.circmean(reshaped_moduli, high=expected_interval, axis=0)
+                moduli_array_corrected = (reshaped_moduli - mean_vector)
+                drift_corrected_timestamp_moduli = np.concatenate([np.ravel(moduli_array_corrected, order = 'F'), end_moduli_corrected])
 
-            end_mean= ss.circmean(end_moduli, high = expected_interval)
-            end_moduli_corrected = (end_moduli - end_mean)
-            mean_vector = ss.circmean(reshaped_moduli, high=expected_interval, axis=0)
-            moduli_array_corrected = (reshaped_moduli - mean_vector)
+            elif n_extra_stamps == 0: # can be reshaped exactly
+                reshaped_moduli = np.reshape(timestamp_moduli, (n_rows, n_fullcols), order = 'F')
+                mean_vector = ss.circmean(reshaped_moduli, high=expected_interval, axis=0)
+                moduli_array_corrected = (reshaped_moduli - mean_vector)
+                drift_corrected_timestamp_moduli = np.ravel(moduli_array_corrected, order = 'F')
 
-            drift_corrected_timestamp_moduli = np.concatenate([np.ravel(moduli_array_corrected, order = 'F'), end_moduli_corrected])
             drift_corrected_timestamp_moduli = np.absolute(drift_corrected_timestamp_moduli)
             self.drift_corrected_timestamp_moduli = drift_corrected_timestamp_moduli
 
@@ -444,7 +458,11 @@ class NdfFile:
             self.tid_data_time_dict[tid]['data'] = np.delete(self.tid_raw_data_time_dict[tid]['data'], bad_message_locs)
             self.tid_data_time_dict[tid]['time'] = np.delete(self.tid_raw_data_time_dict[tid]['time'], bad_message_locs)
             if self.verbose:
-                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_time_dict[tid]['data'].shape[0]), end = ', ')
-                print ('Remaining : '+str(self.tid_data_time_dict[tid]['data'].shape[0]))
+                print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_time_dict[tid]['data'].shape[0])
+                       + ' Remaining : '+str(self.tid_data_time_dict[tid]['data'].shape[0]))
+            if len(bad_message_locs) > 0.5*self.tid_raw_data_time_dict[tid]['data'].shape[0]:
+                print('WARNING: >half messages detected as bad messages. Probably change fs from auto to the correct frequency')
+                print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
+
 
 

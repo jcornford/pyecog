@@ -14,8 +14,14 @@ This was originally a bunch of scripts for classifying brain-network states for 
 
 ### Usage:
 
+    TODO:
+    ndf/datahandler.py
+     - bind parrallel ndf and convert ndf dir into one function
+     - use the h5file class to clean up the code
+     - add predictions to file should also be same as ndf - one file
+     - everything needs to 
+
 ### Todo:
-* package this bad boy up into pip
 * currently very ndf file heavy
 * gui for visualising traces and storing annotations
 

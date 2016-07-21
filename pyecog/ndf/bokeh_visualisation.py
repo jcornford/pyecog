@@ -1,10 +1,28 @@
-
+import sys
 import bokeh.plotting as bp
-from bokeh.io import output_notebook
+if sys.version_info > (3,):
+    from bokeh.io import output_notebook
+else:
+    from bokeh.plotting import output_notebook
 from .utils import filterArray
 import numpy as np
+import matplotlib.pyplot as plt
+
+def basic_plot(data_dict, time_tuple):
+    data = data_dict['data']
+    time_ = data_dict['time']
+
+    fig = plt.figure(figsize = (15, 4))
+    ax = fig.add_subplot(111)
+    #ax = fig.add_axes()
+    indexes = np.logical_and(time_>time_tuple[0], time_<time_tuple[1])
+    ax.plot(time_[indexes],data[indexes])
+
 
 def plot(data_dict, nsec = 3600):
+    if sys.version_info < (3,):
+        print('Plotting function is not available for python 2.7, please upgrade to 3!')
+        sys.exit()
     data = data_dict['data']
     time = data_dict['time']
 

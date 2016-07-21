@@ -2,15 +2,16 @@ import sys
 import os
 import multiprocessing
 import shutil
+import traceback
+import time
 
 import h5py
 import numpy as np
 import pandas as pd
 
-from pyecog.ndf.converter import NdfFile
-from extractor import FeatureExtractor
-from utils import filterArray
-
+from .converter import NdfFile
+from .extractor import FeatureExtractor
+from .utils import filterArray
 
 if sys.version_info < (3,):
     range = xrange
@@ -20,242 +21,37 @@ class DataHandler():
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
-    THIS NEEDS WORK NOW!
-    - how we handle the csv filepairs is changing, the annotated dataset will be a tags
-    and labels. Do not assign the training or test at this point.
+     - Generate training/seizure library using ndfs and df (bundle directly - many datasets??)
+     - generate single channel folders for predictions, pass in dates, and print out files you skipped
 
-    - csv loading needs to output into the same bundled hdf5 format (tag/ data,labels,features)
-     - csv needs overhaul, no need for the list?
+     - use the h5file and ndfFile class to clean up the code (use indexing for future compat with h5 or ndf)
 
-    - Correct id handling on converter, the converted file should have stamp & id on filename, name
-    not a key
-
-    - handle the unix timestamps better in general, not converting.
-
-    - speed back up the converter!
-
-    - make the converter parallel process directories
-
-    - work out where the feature extraction should take place... currently when bundling the
-      labelled arrays.
+    To think about
+    - handle the unix timestamps better in general
+    - enable feature extraction to be better handled
+    - filtering and pre processing
+    - remeber when defining maxshape = (None, data_array.shape[1])) - to allow h5 to gorwp
 
     '''
 
-    def __init__(self, fs):
-        self.fs = fs
+    def __init__(self):
 
+        self.parallel_savedir = None
 
-    def parallel_ndf_converter(self, ndf_path, t_id,savedir ):
-        self.parallel_t_id = t_id
-        self.parallel_savedir = savedir
-
-        files = [os.path.join(ndf_path, fname) for fname in os.listdir(ndf_path) if not fname.startswith('.')]
-        n_cores = multiprocessing.cpu_count() -1 # so have some freedom!
-        pool = multiprocessing.Pool(n_cores)
-        pool.map(self._convert_ndf, files)
-        pool.close()
-        pool.join()
-
-    def convert_ndf_dir(self, path, t_id, savedir = None):
+    @staticmethod
+    def _get_dataset_h5py_contents(f):
         '''
-
-        Args:
-            path: Either a filename or a directory
-            ids :
-            savedir: If None, will automatically make directory at the same level as the path.
-        Returns:
-
-        TODO: Implement fs argument.
+        Redundant!
+        This is used on the grouping method, the saved h5py
         '''
-        if os.path.isdir(path):
-            print("Reading directory : " + path, ' id : '+ str(t_id))
-            filenames = [os.path.join(path,f) for f in os.listdir(path) if f.endswith('.ndf')]
+        with h5py.File(f, 'r') as hf:
+            assert len(hf.keys()) == 1
+            for key in hf.keys():
+                group = hf.get(key)
+            data = np.array(group['data'])
+            labels = np.array(group['labels'])
+        return data, labels
 
-            # get save dir if not supplied
-            if savedir is None:
-                savedir = os.path.join(os.path.split(path[:-1])[0], 'converted_ndfs')
-            if not os.path.exists(savedir):
-                os.makedirs(savedir)
-
-            for filename in filenames:
-
-                self._convert_ndf(filename, t_id, savedir)
-
-        else:
-            print("Please enter a valid filepath or directory")
-            return 0
-        '''
-        elif os.path.isfile(path):
-            print("Converting file: "+ path, 'id :'+str(ids))
-
-            # get save dir if not supplied
-            if savedir is None:
-                savedir = os.path.join(os.path.dirname(os.path.dirname(path)), 'converted_ndfs')
-            if not os.path.exists(savedir):
-                os.makedirs(savedir)
-
-            self._convert_ndf(path, t_id, savedir)
-        '''
-
-    def _convert_ndf(self,filename, tid = None, savedir = None):
-        # None is when we arre going parallel
-        if tid is None:
-            tid = self.parallel_t_id
-        if savedir is None:
-            savedir = self.parallel_savedir
-
-        mname = os.path.split(filename)[1]
-        tstamp = float(mname.strip('M').split('.')[0])
-        ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
-        ndf_time =  ndf_time.replace(' ', '_')
-        ndf = NdfFile(filename)
-        ndf.load(read_id = tid )
-        ndf.glitch_removal(tactic = 'big_guns')
-        ndf.correct_sampling_frequency(resampling_fs = self.fs)
-        abs_savename = os.path.join(savedir, filename.split('/')[-1][:-4]+'_tid'+str(tid)+ndf_time)
-        ndf.save(save_file_name= abs_savename, file_format= 'hdf5')
-
-    # CSV related handling....
-    def make_figures_for_labeling_ndfs(self, path, timewindow = 5,
-                                       save_directory = None, format = 'pdf'):
-        '''
-        Args:
-            path: converted ndf path, not directory at the moment
-            save_directory: where to put the figures
-
-        Makes figures in supplied savedirectory, or makes a folder above
-
-        '''
-        # Sort out save for all of the files
-        if save_directory is None:
-            savedir = os.path.join(os.path.dirname(os.path.dirname(path)), 'figures_for_labelling')
-        if not os.path.exists(savedir):
-            os.makedirs(savedir)
-
-        data = self._get_converted_h5py_data(path)
-        data_array = self._make_array_from_data(data, fs= self.fs, timewindow=5)
-
-        # make folders within the figures for labelling
-        figure_folder = os.path.join(savedir, path.split('/')[-1].split('.')[0]+'_id'+str(tid))
-        print(figure_folder)
-        if not os.path.exists(figure_folder):
-            os.makedirs(figure_folder)
-
-        black = np.ones((data.shape[0]))
-        plot_traces_hdf5(data_array,
-                    labels = black,
-                    savepath = figure_folder,
-                    filename = path.split('/')[-1].split('.')[0],
-                    format_string = format,
-                    trace_len_sec = timewindow)
-
-    def make_annotated_dataset_from_csv(self, filepairs, savename, timewindow = 5):
-
-        '''
-        WARNING : SCHEDULED FOR REMOVAL/MERGEMENT?
-        Think going to swtich to the 'DF' way of loading things up...
-        Still good to know how to do the fexlible stuff though..
-
-        filepairs: a tuple, or list of tuples in the
-        format [(labels.csv, converted_ndf_path)]
-
-        TODO: Change to have the saved the correct format
-        '''
-
-        data_array_list = []
-        label_list = []
-
-        if type(filepairs) is not list:
-            filepairs = [filepairs]
-
-        for pair in filepairs:
-            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
-
-            converted_ndf_path = pair[1]
-            data = self._get_converted_h5py_data(converted_ndf_path)
-            data_array = self._make_array_from_data(data, fs=self.fs,timewindow=5)
-
-            data_array_list.append(data_array)
-            label_list.append(labels)
-
-        data_array = np.vstack(data_array_list)
-        print(str(data_array.shape)+ ' is shape of dataset ')
-        labels = np.hstack(label_list)
-        print(str(labels.shape)+ ' is number of labels')
-
-        #Save with flexible shape
-        with h5py.File(savename, 'w') as f:
-            training = f.create_group('training')
-            training.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
-            training.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
-
-    def append_to_annotated_dataset(self, dataset_path, filepairs, set_type='train', timewindow = 5):
-        '''
-        WARNING : SCHEDULED FOR REMOVAL/MERGEMENT?
-        This is using CSV and converted ndf filepaths:
-        Again, change to have saved in the correct format. Actually not appending in the same way at all.
-        Should change this to just adding another group/ustamp_id
-        '''
-        data_array_list = []
-        label_list = []
-
-        if type(filepairs) is not list:
-            filepairs = [filepairs]
-
-        for pair in filepairs:
-            labels = np.loadtxt(pair[0],delimiter=',')[:,1]
-            converted_ndf_path = pair[1]
-            data = self._get_converted_h5py_data(converted_ndf_path)
-            data_array = self._make_array_from_data(data, fs=self.fs,timewindow=5)
-
-            data_array_list.append(data_array)
-            label_list.append(labels)
-
-        data_array = np.vstack(data_array_list)
-        print(str(data_array.shape)+ ' is shape of dataset to append ')
-        labels = np.hstack(label_list)
-        print(str(labels.shape)+ ' is number of labels to append')
-        assert data_array.shape[0] == labels.shape[0]
-
-        if set_type == 'train':
-            with h5py.File(dataset_path, 'r+') as db:
-                data_dset =  db['training/data']
-                labels_dset =  db['training/labels']
-
-                # resize the dataset
-                original_shape =  data_dset.shape
-                new_shape = original_shape[0] + data_array.shape[0]
-                print('original training shape was: ' + str(original_shape))
-                data_dset.resize(new_shape, axis = 0)
-                labels_dset.resize(new_shape, axis = 0)
-                print('shape is now '+str(data_dset.shape))
-
-                #Add the data
-                data_dset[original_shape[0]:,:] = data_array
-                labels_dset[original_shape[0]:,:] = labels[:,None]
-
-        if set_type == 'test':
-            with h5py.File(dataset_path, 'r+') as db:
-                if 'test' not in db.keys():
-                    print('Added test dataset to file')
-                    test = db.create_group('test')
-                    test.create_dataset('data', data = data_array, maxshape = (None, data_array.shape[1]))
-                    test.create_dataset('labels', data = labels[:, None], maxshape = (None, 1))
-                else:
-                    data_dset =  db['test/data']
-                    labels_dset =  db['test/labels']
-                    original_shape =  data_dset.shape
-
-                    new_shape = original_shape[0] + data_array.shape[0]
-
-                    print('original test shape was: ' + str(original_shape))
-                    data_dset.resize(new_shape, axis = 0)
-                    labels_dset.resize(new_shape, axis = 0)
-                    print('shape is now '+str(data_dset.shape))
-
-                    #Add the data
-                    data_dset[original_shape[0]:,:] = data_array
-                    labels_dset[original_shape[0]:,:] = labels[:, None]
 
     @staticmethod
     def get_converted_h5py_features(f):
@@ -305,12 +101,7 @@ class DataHandler():
                                      filter_window = 7, filter_order = 3):
         '''
         Simple: adds features to the converted ndf file. (to be used for predicitons...)
-        Args:
-            converted_ndf_path: is this a single file?
-            fs:
-            timewindow:
 
-        TODO :
         '''
         data = self._get_converted_h5py_data(converted_ndf_path)
         data_array = self._make_array_from_data(data, fs = self.fs, timewindow = timewindow)
@@ -322,15 +113,6 @@ class DataHandler():
             if data_array.shape[0] == 0:
                 print('Data file does not contain any data. Exiting: ')
                 return 0
-        '''
-        try:
-            assert data_array.all() != np.NaN
-        except:
-            print('Data is just NaN, exiting...')
-            print (data_array)
-            return 0
-        '''
-        #print (data_array)
 
         fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
 
@@ -482,6 +264,7 @@ class DataHandler():
         self._bundle_labelled_array_files(tempory_directory, output_name, h5_string = 'w')
         print ('Cleaning up tempory directory')
         shutil.rmtree(tempory_directory)
+
     def _bundle_labelled_array_files(self, file_directory, library_file,
                                      calculate_features = True, filter_order = 3, filter_window = 7,
                                     h5_string = 'w'):
@@ -516,18 +299,7 @@ class DataHandler():
                     features = extractor.feature_array
                     group.create_dataset('features', data = features)
 
-    @staticmethod
-    def _get_dataset_h5py_contents(f):
-        '''
-        This is used on the grouping method, the saved h5py
-        '''
-        with h5py.File(f, 'r') as hf:
-            assert len(hf.keys()) == 1
-            for key in hf.keys():
-                group = hf.get(key)
-            data = np.array(group['data'])
-            labels = np.array(group['labels'])
-        return data, labels
+
 
     def _make_labelled_array_from_seizure_dict(self, sdict, fs, timewindow, temp_dir, verbose = False):
         '''
@@ -601,3 +373,77 @@ class DataHandler():
             print ('Warning: Zero div error caught, exiting. Items all the same')
             import sys
             sys.exit()
+
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
+        """
+
+        Args:
+            ndf_dir: Directory to convert
+            tids: transmitter ids to convert. Default is 'all'
+            save_dir: optional save directory, will default to appending convertered_h5s after current ndf
+            n_cores: number of cores to use
+            fs :  'auto' or frequency in hz
+
+        ndfs conversion seem to be pretty buggy...
+
+        """
+        self.fs_for_parallel_conversion = fs
+        files = [f for f in self._fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
+
+        # check ids
+        ndf = NdfFile(files[0])
+        if not tids == 'all':
+            if not hasattr(tids, '__iter__'):
+                tids = [tids]
+            for tid in tids:
+                try:
+                    assert tid in ndf.tid_set
+                except AssertionError:
+                    print('Please enter valid tid (at least for the first!) file in directory ('+str(ndf.tid_set)+')')
+                    sys.exit()
+
+        self.tids_for_parallel_conversion = tids
+        print ('Transmitters for conversion: '+ str(self.tids_for_parallel_conversion))
+
+        # set n_cores
+        if n_cores == -1:
+            n_cores = multiprocessing.cpu_count()
+
+        # Make save directory
+        if save_dir  == 'same_level':
+            save_dir = ndf_dir+'_converted_h5s'
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        self.savedir_for_parallel_conversion = save_dir
+
+        pool = multiprocessing.Pool(n_cores)
+        pool.map(self._convert_ndf, files)
+        pool.close()
+        pool.join()
+
+    def _convert_ndf(self,filename):
+        savedir = self.savedir_for_parallel_conversion
+        tids = self.tids_for_parallel_conversion
+        fs = self.fs_for_parallel_conversion
+
+        # convert m name
+        mname = os.path.split(filename)[1]
+        tstamp = float(mname.strip('M').split('.')[0])
+        ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
+        ndf_time =  ndf_time.replace(' ', '_')
+        start = time.time()
+        try:
+            ndf = NdfFile(filename, fs = fs)
+            if set(tids).issubset(ndf.tid_set) or tids == 'all':
+                ndf.load(tids)
+                abs_savename = os.path.join(savedir, filename.split('/')[-1][:-4]+ndf_time+' tids_'+str(tids))
+                ndf.save(save_file_name= abs_savename)
+            else:
+                print('not all tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
+
+        except Exception:
+            print('Something went wrong loading '+str(tids)+' from '+mname+' :')
+            #print('Valid ids are:'+str(ndf.tid_set))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value,exc_traceback))
+        return 0 # don't think i actually this
