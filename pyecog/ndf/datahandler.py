@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from .converter import NdfFile
+from .h5loader import H5File
 from .extractor import FeatureExtractor
 from .utils import filterArray
 
@@ -38,56 +39,6 @@ class DataHandler():
 
         self.parallel_savedir = None
 
-    @staticmethod
-    def _get_dataset_h5py_contents(f):
-        '''
-        Redundant!
-        This is used on the grouping method, the saved h5py
-        '''
-        with h5py.File(f, 'r') as hf:
-            assert len(hf.keys()) == 1
-            for key in hf.keys():
-                group = hf.get(key)
-            data = np.array(group['data'])
-            labels = np.array(group['labels'])
-        return data, labels
-
-
-    @staticmethod
-    def get_converted_h5py_features(f):
-        '''
-        pulling out data only here
-        only handling a flat structure at the moment, therefore asserts
-        '''
-
-        with h5py.File(f, 'r') as f:
-            assert len(f.keys()) == 1 # only one "file" in the h5py file
-            timestamp =  list(f.keys())[0]
-            M_stamp = f.get(timestamp)
-
-            assert len(M_stamp.keys()) == 1 # only one tid
-            tid = list(M_stamp.keys())[0]
-            group = M_stamp[tid]
-            data = np.array(group['features'])
-            return data
-
-    @staticmethod
-    def _get_converted_h5py_data(f):
-        '''
-        pulling out data only here
-        only handling a flat structure at the moment, therefore asserts
-        '''
-
-        with h5py.File(f, 'r') as f:
-            assert len(f.keys()) == 1 # only one "file" in the h5py file
-            timestamp =  list(f.keys())[0]
-            M_stamp = f.get(timestamp)
-
-            assert len(M_stamp.keys()) == 1 # only one tid
-            tid = list(M_stamp.keys())[0]
-            group = M_stamp[tid]
-            data = np.array(group['data'])
-            return data
 
     def parallel_add_prediction_features(self, h5py_folder):
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
@@ -139,131 +90,135 @@ class DataHandler():
             if verbose:
                 print('Added features to '+str(os.path.basename(converted_ndf_path))+', shape:'+str(features.shape))
 
-    def append_to_seizure_library(self, df, h5_file_dir, existing_seizure_lib,
-                                  timewindow = 5,verbose = False):
+    def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
-        Row needs to have NDF, Seizure Start,Seizure End as headings
-        Again, change to have saved in the correct format. Actually not appending in the same way at all.
-        Should change this to just adding another group/ustamp_id
+        This function matches the entries in a dataframe with files in a directory
 
-        Not sure what is going on when there are no seizures
+        Returns: list of annotations stored in a list
         '''
-        converted_filenames = [os.path.split(f)[1] for f in os.listdir(h5_file_dir) if f.startswith('M')]
-        # converted_mocde should be the same as the annotated names (just the stuff at the start)
-        converted_mcode = [os.path.split(f)[1][:11] for f in os.listdir(h5_file_dir) if f.startswith('M')]
-        n_converted = len(converted_filenames)
-        if verbose:
-            print (converted_mcode)
+        abs_filenames = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
+        data_filenames = [os.path.split(f)[1] for f in os.listdir(file_dir) if f.startswith('M')]
+        mcodes = [os.path.split(f)[1][:11] for f in os.listdir(file_dir) if f.startswith('M')]
+        n_files = len(data_filenames)
 
-        annotations = [] # list to hold files to be bundled
-        count = 0
-        seizure_tags = []
+        # now loop through matching the tid to datafile in the annotations
+        df.columns = [label.lower() for label in df.columns]
+        reference_count = 0
+        annotation_dicts = []
         for row in df.iterrows():
-            annotated_name = str(row[1].NDF).split('.')[0]+'_tid'+str(int(row[1].tid))
-            # Now check if we have a match...
-            for h5py_name in converted_filenames:
-                if h5py_name.startswith(annotated_name):
-                    start = row[1]['Seizure Start']
-                    end = row[1]['Seizure End']
-                    annotations.append({'fname': os.path.join(h5_file_dir,h5py_name), 'start': start, 'end': end})
-                    count += 1
-                    seizure_tags.append(annotated_name)
+            # annotation name is bad, but will ultimately be the library h5 dataset name
+            annotation_name = str(row[1]['name']).split('.')[0]+'_tid_'+str(int(row[1]['transmitter']))
+            for datafile in data_filenames:
+                if datafile.startswith(annotation_name.split('_')[0]):
+                    start = row[1]['start']
+                    end = row[1]['end']
+                    annotation_dicts.append({'fname': os.path.join(file_dir, datafile),
+                                             'start': start,
+                                             'end': end,
+                                             'dataset_name': annotation_name,
+                                             'tid':int(row[1]['transmitter'])})
+                    reference_count += 1
 
-        print('Of the '+str(n_converted)+' converted ndfs in directory, '+str(count)+' were found in the passed dataframe')
-        tempory_directory = os.path.join(os.path.dirname(h5_file_dir),'temp_dir')
-        print ('Creating tempory directory to store labelled array files:...'+tempory_directory)
+        print('Of the '+str(n_files)+' converted ndfs in directory, '+str(reference_count)+' references were found in the passed dataframe')
+        return annotation_dicts
 
-        if not os.path.exists(tempory_directory):
-            os.makedirs(tempory_directory)
-        for entry in annotations:
-            # entry looks like {'end': 452.4, 'fname': 'SLNDFs/M1457146830.hdf5', 'start': 423.75}
-            # timewindow needs to be refactored is len in seconds
-            self._make_labelled_array_from_seizure_dict(entry, self.fs, timewindow, tempory_directory)
-
-        try:
-            self._bundle_labelled_array_files(tempory_directory, existing_seizure_lib, h5_string = 'r+')
-            print ('Cleaning up tempory directory')
-            shutil.rmtree(tempory_directory)
-        except ValueError:
-            print ('Error: '+ str(sys.exc_info()[1]))
-            shutil.rmtree(tempory_directory)
-            print ('*********** HALTED *************')
-
-
-
-    def make_seizure_library_from_df(self, df, h5_file_dir, timewindow = 5,
-                                   output_name = 'seizure_library', verbose = False ):
+    def make_seizure_library(self, df, file_dir, timewindow = 5,
+                             seizure_library_name = 'seizure_library',
+                             fs = 'auto',
+                             verbose = False,
+                             overwrite = False):
         '''
-        WARNING : RENAME? MAKE SEIZURE LIBRARY?
-        Pass in pandas dataframe, and the converted ndf directory
-        Row needs to have "NDF", "Seizure Start","Seizure End" as headings
-        The annotation will be inccorect based on the timewindow coarseness!
+        Args:
+
+            df : pandas dataframe. Column titles need to be "name", "start","end", "transmitter"
+            file_dir: path to converted h5, or ndf directory, that contains files referenced in
+                      the dataframe
+            timewindow: size to chunk the data up with
+            output_name: path and name of the seizure lib.
+            fs: default is auto, but use freq in hz to sidestep the auto dectection
+            verbose: Flag, print or not.
+
+        Returns:
+            Makes a Seizure library file
+
+        WARNING: The annotation will be incorrect based on the time-window coarseness and the chunk that is chosen!
         Currently finding the start by start/timewindom -- end/timewindow
-        remember with floor division
 
-        Labels only seizure (1) and non seizure(0)
 
-        Makes a "seizure library" bundled file...
-         Not sure what is going on when there are no seizures
+        TODO:
+        -  How to handle files that don't have seiures, but we want to include
+        -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
-        annotated_database_name = os.path.dirname(h5_file_dir)+'annotated_database_need_to_add_tag'
+        annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+        # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
+        # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
-        converted_fullnames = [os.path.join(h5_file_dir, f) for f in os.listdir(h5_file_dir)]
-        converted_filenames = [os.path.split(f)[1] for f in os.listdir(h5_file_dir) if f.startswith('M')]
-        converted_mcode = [os.path.split(f)[1][:11] for f in os.listdir(h5_file_dir) if f.startswith('M')]
-        # converted_mocde should be the same as the annotated names
-        # converted tags are the M145etc (the full filename)
-        n_converted = len(converted_filenames)
-        if verbose:
-            print (converted_mcode)
+        # make seizure library -- THIS OPENING IS NOT CLEAR
+        h5code = 'w' if overwrite else 'x'
+        print(h5code)
+        try:
+            seizure_library_path = os.path.split(file_dir)[0]+seizure_library_name+'.h5'
+            h5file = h5py.File(seizure_library_path, h5code)
+            h5file.close()
+        except Exception:
+            print ('Error: Seizure library file exists! Delete it or set "overwrite" to True')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            return 0
 
-        annotations = []
-        count = 0
-        seizure_tags = []
-        # this is going the wrong way around - should be
-        ### should make this different
-        for row in df.iterrows():
-            #fname = row[1].NDF
-            annotated_name = str(row[1].NDF).split('.')[0]+'_tid'+str(int(row[1].tid))
-            #print (annotated_name)
-            #s_path = os.path.join(file_dir,name+'.hdf5')
-            for h5py_name in converted_filenames:
-                if h5py_name.startswith(annotated_name):
-                    start = row[1]['Seizure Start']
-                    end = row[1]['Seizure End']
-                    annotations.append({'fname': os.path.join(h5_file_dir,h5py_name), 'start': start, 'end': end})
-                    count += 1
-                    seizure_tags.append(annotated_name)
+        # now populate to seizure lib with data, time and labels
+        # make a list
+        l = len(annotation_dicts)-1
+        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        for i, annotation in enumerate(annotation_dicts):
+            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
+            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
-        # Do i need this stuff? # no think will assume the whole folder has been annotATED
-        # GIVEN you upsample, don't worry about it?
-        '''
-        non_seizures = [tag for tag in converted_mcode if tag not in seizure_tags]
-        for name in non_seizures:
-            print
-            for h5py_name in converted_filenames:
-                if h5py_name.startswith(name):
-                    s_path = os.path.join(h5_file_dir,h5py_name)
-            start = 0
-            end = 0
-            annotations.append({'fname': s_path, 'start': start, 'end': end})
-       '''
+    def _populate_seizure_library(self, annotation, fs,
+                                  timewindow,
+                                  seizure_library_path,
+                                  verbose = False):
+        # decide whether ndf or h5
+        if annotation['fname'].endswith('.ndf'):
+            file_obj = NdfFile(annotation['fname'],fs = fs)
+            file_obj.load(annotation['tid'])
+        elif annotation['fname'].endswith('.h5'):
+            file_obj = H5File(annotation['fname'])
+        else:
+            print('ERROR: Unrecognised file-type')
 
-        print('Of the '+str(n_converted)+' converted ndfs in directory, '+str(count)+' were found in the passed dataframe')
-        tempory_directory = os.path.join(os.path.dirname(h5_file_dir),'temp_dir')
-        print ('Creating tempory directory to store labelled array files:...'+tempory_directory)
+        data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
+        time_array = self._make_array_from_data(file_obj[annotation['tid']]['time'], fs, timewindow)
 
-        if not os.path.exists(tempory_directory):
-            os.makedirs(tempory_directory)
-        for entry in annotations:
-            # entry looks like {'end': 452.4, 'fname': 'SLNDFs/M1457146830.hdf5', 'start': 423.75}
-            # timewindow needs to be refactored is len in seconds
-            self._make_labelled_array_from_seizure_dict(entry, self.fs, timewindow, tempory_directory)
+        # use the start and end times to make labels
+        labels = np.zeros(shape = (data_array.shape[0]))
+        start_i = int(np.floor(annotation['start']/timewindow))
+        end_i   = int(np.ceil(annotation['end']/timewindow))
 
-        self._bundle_labelled_array_files(tempory_directory, output_name, h5_string = 'w')
-        print ('Cleaning up tempory directory')
-        shutil.rmtree(tempory_directory)
+        with h5py.File(seizure_library_path, 'r+') as f:
+            if annotation['dataset_name'] in f.keys():
+                #print(annotation['dataset_name'],'has more than one seizure!')
+                labels =  f[annotation['dataset_name']+'/labels']
+                labels[start_i:end_i] = 1
+            else:
+                group = f.create_group(annotation['dataset_name'])
+                group.create_dataset('data', data = data_array, compression = "gzip")
+                group.create_dataset('time', data = time_array, compression = "gzip")
+                labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
+                group.create_dataset('labels', data = labels, compression = "gzip")
+
+    @staticmethod
+    def _make_array_from_data(data, fs, timewindow):
+        n_traces = int(data.shape[0] / (fs * timewindow))
+        dp_lost =  int(data.shape[0] % (fs * timewindow))
+        if dp_lost > 0:
+            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, int(fs * timewindow)))
+        else:
+            data_array = np.reshape(data, newshape = (n_traces, int(fs * timewindow)))
+        return data_array
+
+
 
     def _bundle_labelled_array_files(self, file_directory, library_file,
                                      calculate_features = True, filter_order = 3, filter_window = 7,
@@ -298,62 +253,6 @@ class DataHandler():
                     extractor = FeatureExtractor(fndata)
                     features = extractor.feature_array
                     group.create_dataset('features', data = features)
-
-
-
-    def _make_labelled_array_from_seizure_dict(self, sdict, fs, timewindow, temp_dir, verbose = False):
-        '''
-        Inputs:
-            - sdict is entry from df,:
-            - fs,
-            - timewindow
-            - tempory_directory : where labelled arrays are to be stored
-
-        Method grabs data from the flat converted ndf h5py, and uses the sdict to label
-        correctly.
-
-        At this point I should add the feature extraction? Currently added on the bundling bit.
-
-        Then  temp directory is used by the bundler..
-
-        '''
-
-        data = self._get_converted_h5py_data(sdict['fname'])
-        data_array = self._make_array_from_data(data, fs = fs, timewindow = timewindow)
-        # now use the start and end times to make labels
-        labels = np.zeros(shape = (data_array.shape[0]))
-        start_i = int(np.floor(sdict['start']/5.0))
-        end_i = int(np.ceil(sdict['end']/5.0))
-        if verbose:
-            print (start_i, sdict['start'], end_i,sdict['end'], sdict['fname'], data_array.shape)
-
-        # Save file
-        savename = os.path.join(temp_dir, os.path.split(sdict['fname'])[1])
-
-        # if we are relabeling an exisiting file (two seizures)
-        if os.path.exists(savename):
-            with h5py.File(savename, 'r+') as f:
-                labels =  f['annotated/labels']
-                labels[start_i:end_i] = 1
-                print(savename,'has more than one seizure!')
-        # else the file hasn't been made yet
-        else:
-            with h5py.File(savename, 'a') as f:
-                labels[start_i:end_i] = 1
-                group = f.create_group('annotated')
-                group.create_dataset('data', data = data_array)
-                group.create_dataset('labels', data = labels[:, None])
-
-    @staticmethod
-    def _make_array_from_data(data, fs, timewindow):
-        n_traces = int(data.shape[0] / (fs * timewindow))
-        dp_lost =  int(data.shape[0] % (fs * timewindow))
-        if dp_lost > 0:
-            data_array = np.reshape(data[:-dp_lost], newshape = (n_traces, int(fs * timewindow)))
-        else:
-            data_array = np.reshape(data, newshape = (n_traces, int(fs * timewindow)))
-        return data_array
-
 
     @staticmethod
     def _fullpath_listdir(d):
@@ -447,3 +346,24 @@ class DataHandler():
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value,exc_traceback))
         return 0 # don't think i actually this
+    # Print iterations progress
+
+    def printProgress (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : number of decimals in percent complete (Int)
+            barLength   - Optional  : character length of bar (Int)
+        """
+        filledLength    = int(round(barLength * iteration / float(total)))
+        percents        = round(100.00 * (iteration / float(total)), decimals)
+        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+        sys.stdout.flush()
+        if iteration == total:
+            sys.stdout.write('\n')
+            sys.stdout.flush()
