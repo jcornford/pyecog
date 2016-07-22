@@ -361,7 +361,7 @@ class NdfFile:
 
             for tid in self.read_ids:
                 transmitter_group = file_group.create_group(str(tid))
-                transmitter_group.attrs['fs'] = tid_to_fs_dict[tid]
+                transmitter_group.attrs['fs'] = self.tid_to_fs_dict[tid]
                 transmitter_group.create_dataset('data',
                                                  data=self.tid_data_time_dict[tid]['data'],
                                                  compression="lzf") #gzip is better but slower
