@@ -4,6 +4,8 @@ import multiprocessing
 import shutil
 import traceback
 import time
+import logging
+
 
 import h5py
 import numpy as np
@@ -16,6 +18,9 @@ from .utils import filterArray
 
 if sys.version_info < (3,):
     range = xrange
+
+import logging
+
 #from make_pdfs import plot_traces_hdf5, plot_traces
 class DataHandler():
     '''
@@ -35,60 +40,70 @@ class DataHandler():
 
     '''
 
-    def __init__(self):
+    def __init__(self, logpath):
 
         self.parallel_savedir = None
 
+        logger = logging.getLogger()
+        fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        fhandler.setFormatter(formatter)
+        logger.addHandler(fhandler)
+        logger.setLevel(logging.DEBUG)
 
     def parallel_add_prediction_features(self, h5py_folder):
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
         n_cores = multiprocessing.cpu_count() -1 # so have some freedom!
         pool = multiprocessing.Pool(n_cores)
-        pool.map(self.add_predfeatures_to_h5py_file, files_to_add_features)
+        pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
 
-    def add_predfeatures_to_h5py_file(self, converted_ndf_path, savedir = None, timewindow = 5, verbose = False,
-                                     filter_window = 7, filter_order = 3):
+    def add_features_seizure_library(self,
+                                    libary_path,
+                                    filter_window = 7,
+                                    filter_order = 3):
+        pass
+
+
+    def add_predicition_features_to_h5_file(self,
+                                            h5_file_path,
+                                            savedir = None,
+                                            timewindow = 5,
+                                            verbose = False,
+                                            filter_window = 7,
+                                            filter_order = 3):
         '''
-        Simple: adds features to the converted ndf file. (to be used for predicitons...)
+
+         - Can only be used for predicitons (in which case one group)
+
 
         '''
-        data = self._get_converted_h5py_data(converted_ndf_path)
-        data_array = self._make_array_from_data(data, fs = self.fs, timewindow = timewindow)
+        with h5py.File(h5_file_path, 'r+') as f:
+            keys = list(f.keys())
+            for i in range(len(keys)): # loop through groups which are tids for predicition h5s
+                group = f[keys[i]]
+                data_array = f[keys[i]+'/data'][:]
+                if len(data.shape) == 1:
+                    data_array = self._make_array_from_data(data, fs = group.attrs['fs'], timewindow = timewindow)
 
-        try:
-            assert data_array.shape[0] == int(3600/timewindow)
-        except:
-            print('Warning: Data file does not contain, full data: ' +str(os.path.basename(converted_ndf_path))+str(data_array.shape))
-            if data_array.shape[0] == 0:
-                print('Data file does not contain any data. Exiting: ')
-                return 0
+                try:
+                    assert data_array.shape[0] == int(3600/timewindow)
+                except:
+                    print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
+                    if data_array.shape[0] == 0:
+                        print('Data file does not contain any data. Exiting: ')
+                        return 0
 
-        fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                fndata = self._normalise(fdata)
+                extractor = FeatureExtractor(fndata, verbose_flag = False)
+                features = extractor.feature_array
 
-        fndata = self._normalise(fdata)
-
-        extractor = FeatureExtractor(fndata, verbose_flag = False)
-        features = extractor.feature_array
-
-        # Now add to the converted file!
-        with h5py.File(converted_ndf_path, 'r+') as f:
-            assert len(f.keys()) == 1 # only one "file" in the h5py file
-            timestamp =  list(f.keys())[0]
-            M_stamp = f.get(timestamp)
-
-            assert len(M_stamp.keys()) == 1 # only one tid
-            tid = list(M_stamp.keys())[0]
-            group = M_stamp[tid]
-            try: # easy way to allow saving over
                 if group['features']:
                     del group['features']
-            except KeyError:
-                pass
-            group.create_dataset('features',data = features)
-            if verbose:
-                print('Added features to '+str(os.path.basename(converted_ndf_path))+', shape:'+str(features.shape))
+                group.create_dataset('features', data = features, compression = 'gzip')
+                logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
 
     def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
@@ -97,7 +112,7 @@ class DataHandler():
         Returns: list of annotations stored in a list
         '''
         abs_filenames = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
-        data_filenames = [os.path.split(f)[1] for f in os.listdir(file_dir) if f.startswith('M')]
+        data_filenames = [f for f in os.listdir(file_dir) if f.startswith('M')]
         mcodes = [os.path.split(f)[1][:11] for f in os.listdir(file_dir) if f.startswith('M')]
         n_files = len(data_filenames)
 
@@ -119,7 +134,7 @@ class DataHandler():
                                              'tid':int(row[1]['transmitter'])})
                     reference_count += 1
 
-        print('Of the '+str(n_files)+' converted ndfs in directory, '+str(reference_count)+' references were found in the passed dataframe')
+        print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references were found in the passed dataframe')
         return annotation_dicts
 
     def make_seizure_library(self, df, file_dir, timewindow = 5,
@@ -134,7 +149,7 @@ class DataHandler():
             file_dir: path to converted h5, or ndf directory, that contains files referenced in
                       the dataframe
             timewindow: size to chunk the data up with
-            output_name: path and name of the seizure lib.
+            seizure_library_name: path and name of the seizure lib.
             fs: default is auto, but use freq in hz to sidestep the auto dectection
             verbose: Flag, print or not.
 
@@ -150,17 +165,24 @@ class DataHandler():
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
+        logging.info('Datahandler - creating SeizureLibrary')
+
         annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
-        # make seizure library -- THIS OPENING IS NOT CLEAR
         h5code = 'w' if overwrite else 'x'
-        print(h5code)
         try:
-            seizure_library_path = os.path.split(file_dir)[0]+seizure_library_name+'.h5'
+            if not '/' in seizure_library_name:# or not "\\" in seizure_library_name:
+                print('hit')
+                seizure_library_path = os.path.split(file_dir)[0]+seizure_library_name.strip('.h5')+'.h5'
+
+            seizure_library_path = seizure_library_name.strip('.h5')+'.h5'
             h5file = h5py.File(seizure_library_path, h5code)
+            h5file.attrs['fs'] = fs
+            h5file.attrs['timewindow'] = timewindow
             h5file.close()
+
         except Exception:
             print ('Error: Seizure library file exists! Delete it or set "overwrite" to True')
             exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -175,11 +197,54 @@ class DataHandler():
             self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
+    def append_to_seizure_library(self, df, file_dir, seizure_library_path,
+                                  timewindow = 5,
+                                  fs = 'auto',
+                                  verbose = False,
+                                  overwrite = False):
+        '''
+        Args:
+
+            df : pandas dataframe. Column titles need to be "name", "start","end", "transmitter"
+            file_dir: path to converted h5, or ndf directory, that contains files referenced in
+                      the dataframe
+            timewindow: size to chunk the data up with
+            seizure_library_path: path and name of the seizure lib.
+            fs: default is auto, but use freq in hz to sidestep the auto dectection
+            verbose: Flag, print or not.
+
+        Returns:
+            Appends to a Seizure library file
+
+        WARNING: The annotation will be incorrect based on the time-window coarseness and the chunk that is chosen!
+        Currently finding the start by start/timewindom -- end/timewindow
+
+
+        TODO:
+        -  How to handle files that don't have seiures, but we want to include
+        -  Not sure what is going on when there are no seizures, need to have this functionality though.
+
+        '''
+
+        logging.info('Appending to seizure library')
+        annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+        # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
+        # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
+
+        # now add to to seizure lib with data, time and labels
+        l = len(annotation_dicts)-1
+        logging.info('Datahandler - creating SeizureLibrary')
+        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        for i, annotation in enumerate(annotation_dicts):
+            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
+            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
     def _populate_seizure_library(self, annotation, fs,
                                   timewindow,
                                   seizure_library_path,
                                   verbose = False):
         # decide whether ndf or h5
+        logging.debug('Adding '+str(annotation['fname']))
         if annotation['fname'].endswith('.ndf'):
             file_obj = NdfFile(annotation['fname'],fs = fs)
             file_obj.load(annotation['tid'])
@@ -189,7 +254,6 @@ class DataHandler():
             print('ERROR: Unrecognised file-type')
 
         data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
-        time_array = self._make_array_from_data(file_obj[annotation['tid']]['time'], fs, timewindow)
 
         # use the start and end times to make labels
         labels = np.zeros(shape = (data_array.shape[0]))
@@ -198,15 +262,16 @@ class DataHandler():
 
         with h5py.File(seizure_library_path, 'r+') as f:
             if annotation['dataset_name'] in f.keys():
-                #print(annotation['dataset_name'],'has more than one seizure!')
+                logging.info(str(annotation['dataset_name'])+' has more than one seizure!')
                 labels =  f[annotation['dataset_name']+'/labels']
                 labels[start_i:end_i] = 1
             else:
                 group = f.create_group(annotation['dataset_name'])
-                group.create_dataset('data', data = data_array, compression = "gzip")
-                group.create_dataset('time', data = time_array, compression = "gzip")
+                group.attrs['tid'] = annotation['tid']
+                group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
                 labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
-                group.create_dataset('labels', data = labels, compression = "gzip")
+                group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
+            f.close()
 
     @staticmethod
     def _make_array_from_data(data, fs, timewindow):
@@ -217,42 +282,6 @@ class DataHandler():
         else:
             data_array = np.reshape(data, newshape = (n_traces, int(fs * timewindow)))
         return data_array
-
-
-
-    def _bundle_labelled_array_files(self, file_directory, library_file,
-                                     calculate_features = True, filter_order = 3, filter_window = 7,
-                                    h5_string = 'w'):
-        '''
-        Unclear file and where it fits... bundle labelled arra_file into seizure librry?
-        Hoping to use for both first time and also adding to the libraries...!
-        makes a single hdf5 file with traces, labels, and  features
-
-        file_directory? where all the annotated array files are.
-        output name is the seizure lib will be
-
-        Maybe ustamps are going to need to contain t_id...!
-        '''
-        files = self._fullpath_listdir(file_directory)
-        print(str(len(files))+' files to bundle up from'+file_directory)
-
-        with h5py.File(library_file, h5_string) as bf:
-
-            for f in files:
-                data, labels = self._get_dataset_h5py_contents(f)
-                ustamp = os.path.split(f)[1].split('.')[0]
-                print('Adding',ustamp, data.shape, 'to',library_file )
-                ## Now build db file.!! levae test train for later
-                group = bf.create_group(ustamp)
-                group.create_dataset('data', data = data)
-                group.create_dataset('labels', data = labels)
-
-                if calculate_features:
-                    fdata = filterArray(data, window_size= filter_window, order= filter_order)
-                    fndata = self._normalise(fdata)
-                    extractor = FeatureExtractor(fndata)
-                    features = extractor.feature_array
-                    group.create_dataset('features', data = features)
 
     @staticmethod
     def _fullpath_listdir(d):

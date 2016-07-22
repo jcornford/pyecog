@@ -10,6 +10,8 @@ import numpy as np
 import scipy.stats as ss
 #from line_profiler import LineProfiler
 
+import logging
+
 
 if sys.version_info < (3,):
     range = xrange
@@ -222,7 +224,7 @@ class NdfFile:
             else:
                 print ('Please specify detection tactic: ("mad","roll_med","big_guns", "std")')
                 raise
-
+            logging.debug('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
             if self.verbose:
                 print('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
 
@@ -267,7 +269,8 @@ class NdfFile:
         outlier_idx = difference > threshold
         n_glitch = sum(abs(outlier_idx))
         if n_glitch > 200:
-            print ('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
+            logging.warning('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
+            #print ('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
         return outlier_idx
 
 
@@ -323,8 +326,10 @@ class NdfFile:
             try:
                 assert max_interp < 2.0
             except:
-                print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
-                print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
+                logging.warning('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
+                logging.warning('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
+                #print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
+                #print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
 
             # do linear interpolation between the points
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
@@ -356,6 +361,7 @@ class NdfFile:
 
             for tid in self.read_ids:
                 transmitter_group = file_group.create_group(str(tid))
+                transmitter_group.attrs['fs'] = tid_to_fs_dict[tid]
                 transmitter_group.create_dataset('data',
                                                  data=self.tid_data_time_dict[tid]['data'],
                                                  compression="lzf") #gzip is better but slower
@@ -457,12 +463,18 @@ class NdfFile:
 
             self.tid_data_time_dict[tid]['data'] = np.delete(self.tid_raw_data_time_dict[tid]['data'], bad_message_locs)
             self.tid_data_time_dict[tid]['time'] = np.delete(self.tid_raw_data_time_dict[tid]['time'], bad_message_locs)
+            logging.debug('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_time_dict[tid]['data'].shape[0])
+                       + ' Remaining : '+str(self.tid_data_time_dict[tid]['data'].shape[0]))
+
+            if len(bad_message_locs) > 0.5*self.tid_raw_data_time_dict[tid]['data'].shape[0]:
+                logging.error(' >half messages detected as bad messages. Probably change fs from auto to the correct frequency')
+
             if self.verbose:
                 print ('Tid ' +str(tid)+ ': Detected '+ str(len(bad_message_locs)) + ' bad messages out of '+ str(self.tid_raw_data_time_dict[tid]['data'].shape[0])
                        + ' Remaining : '+str(self.tid_data_time_dict[tid]['data'].shape[0]))
-            if len(bad_message_locs) > 0.5*self.tid_raw_data_time_dict[tid]['data'].shape[0]:
-                print('WARNING: >half messages detected as bad messages. Probably change fs from auto to the correct frequency')
-                print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
+            #if len(bad_message_locs) > 0.5*self.tid_raw_data_time_dict[tid]['data'].shape[0]:
+            #    print('WARNING: >half messages detected as bad messages. Probably change fs from auto to the correct frequency')
+
 
 
 
