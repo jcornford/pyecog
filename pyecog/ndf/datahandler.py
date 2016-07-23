@@ -13,7 +13,7 @@ import pandas as pd
 
 from .ndfconverter import NdfFile
 from .h5loader import H5File
-from .extractor import FeatureExtractor
+from .feature_extractor import FeatureExtractor
 from .utils import filterArray
 
 if sys.version_info < (3,):
@@ -49,15 +49,6 @@ class DataHandler():
         #if loggers.get(name):
         #    return loggers.get(name)
         #else:
-
-
-    def parallel_add_prediction_features(self, h5py_folder):
-        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
-        n_cores = multiprocessing.cpu_count() -1 # so have some freedom!
-        pool = multiprocessing.Pool(n_cores)
-        pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
-        pool.close()
-        pool.join()
 
     def add_features_seizure_library(self,
                                     libary_path,
@@ -96,24 +87,34 @@ class DataHandler():
 
     def add_predicition_features_to_h5_file(self,
                                             h5_file_path,
-                                            savedir = None,
                                             timewindow = 5,
-                                            verbose = False,
                                             filter_window = 7,
                                             filter_order = 3):
         '''
+        Have the stucture of:
 
-         - Can only be used for predicitons (in which case one group)
-
-
+        M1445612etc / tid1
+                    / tid2
+                    / tid3  / data
+                            / time
         '''
         with h5py.File(h5_file_path, 'r+') as f:
-            keys = list(f.keys())
-            for i in range(len(keys)): # loop through groups which are tids for predicition h5s
-                group = f[keys[i]]
-                data_array = f[keys[i]+'/data'][:]
-                if len(data.shape) == 1:
-                    data_array = self._make_array_from_data(data, fs = group.attrs['fs'], timewindow = timewindow)
+            tids    = list(f.attrs['t_ids'])
+            tid_to_fs_dict = f.attrs['fs_dict']
+
+            mcodes = [f[group] for group in list(f.keys())]
+            assert len(mcodes) == 1
+            mcode = mcodes[0]
+
+            tids = [mcode[tid] for tid in list(mcode.keys())]
+
+            for tid in tids: # loop through groups which are tids for predicition h5s
+
+                data_array = tid['data'][:]
+                if len(data_array.shape) == 1:
+                    logging.debug('Reshaping data from '+str(data_array.shape)+ ' using '+str(tid.attrs['fs']) +' fs' +
+                                  ' and timewindow of '+ str(timewindow)  )
+                    data_array = self._make_array_from_data(data_array, fs = tid.attrs['fs'], timewindow = timewindow)
 
                 try:
                     assert data_array.shape[0] == int(3600/timewindow)
@@ -125,13 +126,36 @@ class DataHandler():
 
                 fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
                 fndata = self._normalise(fdata)
-                extractor = FeatureExtractor(fndata, verbose_flag = False)
+                extractor = FeatureExtractor(fndata,tid.attrs['fs'], verbose_flag = False)
                 features = extractor.feature_array
 
-                if group['features']:
-                    del group['features']
-                group.create_dataset('features', data = features, compression = 'gzip')
+                try:
+                    del tid['features']
+                    logging.debug('Deleted old features')
+                except:
+                    pass
+                tid.create_dataset('features', data = features, compression = 'gzip')
                 logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
+
+    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1):
+        '''
+
+        :param h5py_folder:
+        :return:
+        '''
+        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
+        if n_cores == -1:
+            n_cores = multiprocessing.cpu_count()
+
+        pool = multiprocessing.Pool(n_cores)
+        l = len(files_to_add_features)
+        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
+            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
+        #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
+        pool.close()
+        pool.join()
 
     def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
