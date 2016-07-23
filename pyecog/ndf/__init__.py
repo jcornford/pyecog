@@ -1,6 +1,19 @@
-from .converter import NdfFile
+from .ndfconverter import NdfFile
 from .h5loader import H5File
 from .datahandler import DataHandler
 from .bokeh_visualisation import plot
 from .bokeh_visualisation import basic_plot
 
+import os
+import logging
+#try:
+#    logging.info('Re-intted')
+#except:
+logger = logging.getLogger()
+logpath = os.getcwd()
+#fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
+fhandler = logging.FileHandler(filename=os.path.join(logpath, 'PyECoG_log.log'), mode='a+')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+fhandler.setFormatter(formatter)
+logger.addHandler(fhandler)
+logger.setLevel(logging.DEBUG)

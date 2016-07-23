@@ -15,7 +15,8 @@ class FeatureExtractor():
         self.verbose = verbose_flag
         self.start = time.clock()
         self.dataset = dataset
-
+        self.fs = fs
+        logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
 
         self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()

@@ -11,7 +11,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from .converter import NdfFile
+from .ndfconverter import NdfFile
 from .h5loader import H5File
 from .extractor import FeatureExtractor
 from .utils import filterArray
@@ -20,6 +20,7 @@ if sys.version_info < (3,):
     range = xrange
 
 import logging
+#loggers = {}
 
 #from make_pdfs import plot_traces_hdf5, plot_traces
 class DataHandler():
@@ -44,13 +45,11 @@ class DataHandler():
 
         self.parallel_savedir = None
         #print(os.getcwd())
-        logger = logging.getLogger()
-        #fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
-        fhandler = logging.FileHandler(filename=os.path.join(logpath, 'Datahandler.log'), mode='w')
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        fhandler.setFormatter(formatter)
-        logger.addHandler(fhandler)
-        logger.setLevel(logging.DEBUG)
+        #global loggers
+        #if loggers.get(name):
+        #    return loggers.get(name)
+        #else:
+
 
     def parallel_add_prediction_features(self, h5py_folder):
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
@@ -65,7 +64,7 @@ class DataHandler():
                                     filter_window = 7,
                                     filter_order = 3):
 
-        logging.info('Adding features to '+ libary_path + 'with filter settings: ' +str(filter_window)+', '+str(filter_order))
+        logging.info('Adding features to '+ libary_path + ' with filter settings: ' +str(filter_window)+', '+str(filter_order))
 
         with h5py.File(libary_path, 'r+') as f:
 
@@ -76,6 +75,7 @@ class DataHandler():
             l = len(seizure_datasets)-1
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
             for i, group in enumerate(seizure_datasets):
+                logging.debug('Loading group: '+ str(group))
                 data_array = group['data'][:]
                 assert len(data_array.shape) > 1
 
@@ -86,11 +86,11 @@ class DataHandler():
 
                 try:
                     del group['features']
-                    logging.info('Deleted old features')
+                    logging.debug('Deleted old features')
                 except:
                     pass
                 group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
-                logging.info('Added features to ' + str(os.path.basename(libary_path)) + ', shape:' + str(features.shape))
+                logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
                 self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
 
@@ -374,7 +374,10 @@ class DataHandler():
         self.savedir_for_parallel_conversion = save_dir
 
         pool = multiprocessing.Pool(n_cores)
-        pool.map(self._convert_ndf, files)
+        l = len(files)
+        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        for i, _ in enumerate(pool.imap(self._convert_ndf, files), 1):
+            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         pool.close()
         pool.join()
 

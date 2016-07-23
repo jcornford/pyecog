@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pyecog.ndf.converter import NdfFile
+from pyecog.ndf.ndfconverter import NdfFile
 
 
 class Explorer():
