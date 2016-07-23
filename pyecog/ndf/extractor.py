@@ -1,8 +1,7 @@
-from __future__ import print_function
 import time
 import sys
+import logging
 
-import pickle
 import numpy as np
 import scipy.stats as st
 #import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the p
 
 class FeatureExtractor():
 
-    def __init__(self, dataset, subtract_baseline = True,verbose_flag = False):
+    def __init__(self, dataset,fs, subtract_baseline = True,  verbose_flag = False):
         self.verbose = verbose_flag
         self.start = time.clock()
         self.dataset = dataset
@@ -21,20 +20,17 @@ class FeatureExtractor():
         self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()
         self._peaks_and_valleys()
-        self._wavelet_features(fs = 512, frequencies = [1,5,10,15,20,30,60, 90])
+        self._wavelet_features(fs = fs, frequencies = [1,5,10,15,20,30,60, 90])
 
 
         self.feature_array = np.hstack([self.event_stats,self.baseline_features,
                                    self.pkval_stats,self.meanpower])
-        if self.verbose:
-            print("Stacking up...")
-            print(str(self.feature_array.shape))
-            print('took '+ str(time.clock()-self.start)+ ' seconds to extract '+ str(dataset.shape[0])+ 'feature vectors')
-
+        timetaken = np.round((time.clock()-self.start), 2)
+        logging.debug("Stacking up..."+str(self.feature_array.shape))
+        logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
 
     def _event_dataset_stats(self):
-        if self.verbose:
-            print("Extracting stats on event dataset...")
+        logging.debug("Extracting stats on event dataset...")
         self.event_stats = np.zeros((len(self.event_dataset),7))
         self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
 
@@ -51,8 +47,6 @@ class FeatureExtractor():
             else:
                  # if all baseline
                 self.event_stats[i,:] = np.NaN
-        if self.verbose:
-            print("DONE"+ str(time.clock() - self.start))
 
     def _baseline(self, subtract_baseline = True, threshold = 0.04, window_size = 100):
         '''
@@ -62,8 +56,7 @@ class FeatureExtractor():
               defined as being baseline using a rolling std deviation window and threshold
             - baseline_mean_diff is the second list and is the mean difference between baseline datapoint indexes.
         '''
-        if self.verbose:
-            print('Extracting baseline via rolling std...')
+        logging.debug('Extracting baseline via rolling std...')
 
         array_std = np.std(self.rolling_window(self.dataset,window=window_size),-1)
 
@@ -92,13 +85,12 @@ class FeatureExtractor():
         #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in range(dataset.shape[0])]
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
-        if self.verbose:
-            print('DONE'+ str(time.clock() - self.start))
+
         #print 'N.B using mean baseline difference - perhaps not best?'
 
     def _peaks_and_valleys(self):
-        if self.verbose:
-            print ("Extracting peak/valley features..."),
+
+        logging.debug("Extracting peak/valley features...")
         pk_nlist = []
         val_nlist = []
 
@@ -140,13 +132,11 @@ class FeatureExtractor():
         av_val = np.array(av_val)
         av_range = np.array(av_range)
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
-        if self.verbose:
-            print("DONE", time.clock()-self.start)
+
         #print ('N.B Again - preassign?')
 
     def _wavelet_features(self, fs = 512, frequencies = [1,5,10,15,20,30,60, 90]):
-        if self.verbose:
-            print("Extracting wavelet features from event dataset..."),
+        logging.debug("Extracting wavelet features from event dataset...")
         window = int(fs*0.5)
         waveletList = []
         for freq in frequencies:
@@ -167,9 +157,6 @@ class FeatureExtractor():
                 power.append(np.ones((len(frequencies)))*np.NaN)
                 meanpower.append(np.ones((len(frequencies)))*np.NaN)
         self.meanpower = np.array(meanpower)
-        if self.verbose:
-            print("DONE", time.clock()-self.start)
-
         #print("N.B. Still no post crossing power")
 
     @ staticmethod

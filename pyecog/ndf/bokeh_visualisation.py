@@ -8,7 +8,13 @@ from .utils import filterArray
 import numpy as np
 import matplotlib.pyplot as plt
 
-def basic_plot(data_dict, time_tuple):
+def basic_plot(data_dict, time_tuple = (0,3600), arg_dict = {'color' :'k', 'linewidth':'1.5'}):
+    """
+    Inputs:
+        - data dictionary (ndf[id] returns this) containing 'time' and 'data' keys,
+        - time tuple in seconds, default (0,3600). Determines time period to plot
+        - arg_dict: dictionary of parameters to pass to the plotting function
+    """
     data = data_dict['data']
     time_ = data_dict['time']
 
@@ -16,13 +22,16 @@ def basic_plot(data_dict, time_tuple):
     ax = fig.add_subplot(111)
     #ax = fig.add_axes()
     indexes = np.logical_and(time_>time_tuple[0], time_<time_tuple[1])
-    ax.plot(time_[indexes],data[indexes])
+    ax.plot(time_[indexes],data[indexes], **arg_dict)
+    ax.set_xlim(time_tuple[0], time_tuple[1])
+    return ax
 
 
 def plot(data_dict, nsec = 3600):
     if sys.version_info < (3,):
         print('Plotting function is not available for python 2.7, please upgrade to 3!')
         sys.exit()
+    print('WARNING: This plotting downsamples the data too much! ')
     data = data_dict['data']
     time = data_dict['time']
 

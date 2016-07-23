@@ -40,12 +40,13 @@ class DataHandler():
 
     '''
 
-    def __init__(self, logpath):
+    def __init__(self, logpath = os.getcwd()):
 
         self.parallel_savedir = None
-
+        #print(os.getcwd())
         logger = logging.getLogger()
-        fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
+        #fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
+        fhandler = logging.FileHandler(filename=os.path.join(logpath, 'Datahandler.log'), mode='w')
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         fhandler.setFormatter(formatter)
         logger.addHandler(fhandler)
@@ -63,7 +64,34 @@ class DataHandler():
                                     libary_path,
                                     filter_window = 7,
                                     filter_order = 3):
-        pass
+
+        logging.info('Adding features to '+ libary_path + 'with filter settings: ' +str(filter_window)+', '+str(filter_order))
+
+        with h5py.File(libary_path, 'r+') as f:
+
+            timewindow = f.attrs['timewindow']
+            fs         = f.attrs['fs']
+
+            seizure_datasets = [f[group] for group in list(f.keys())]
+            l = len(seizure_datasets)-1
+            self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+            for i, group in enumerate(seizure_datasets):
+                data_array = group['data'][:]
+                assert len(data_array.shape) > 1
+
+                fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                fndata = self._normalise(fdata)
+                extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
+                features = extractor.feature_array
+
+                try:
+                    del group['features']
+                    logging.info('Deleted old features')
+                except:
+                    pass
+                group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
+                logging.info('Added features to ' + str(os.path.basename(libary_path)) + ', shape:' + str(features.shape))
+                self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
 
     def add_predicition_features_to_h5_file(self,
@@ -134,7 +162,7 @@ class DataHandler():
                                              'tid':int(row[1]['transmitter'])})
                     reference_count += 1
 
-        print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references were found in the passed dataframe')
+        print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
         return annotation_dicts
 
     def make_seizure_library(self, df, file_dir, timewindow = 5,
@@ -173,11 +201,11 @@ class DataHandler():
 
         h5code = 'w' if overwrite else 'x'
         try:
-            if not '/' in seizure_library_name:# or not "\\" in seizure_library_name:
-                print('hit')
+            if not '/' in seizure_library_name or not "\\" in seizure_library_name:
                 seizure_library_path = os.path.split(file_dir)[0]+seizure_library_name.strip('.h5')+'.h5'
-
             seizure_library_path = seizure_library_name.strip('.h5')+'.h5'
+            print('Creating seizure library: '+ seizure_library_path)
+            logging.info('Creating seizure library: '+ seizure_library_path)
             h5file = h5py.File(seizure_library_path, h5code)
             h5file.attrs['fs'] = fs
             h5file.attrs['timewindow'] = timewindow
@@ -268,6 +296,7 @@ class DataHandler():
             else:
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
+                group.attrs['fs']  = fs
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
                 labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
                 group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)

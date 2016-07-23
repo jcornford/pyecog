@@ -2,6 +2,7 @@ import sys
 import struct
 import os
 import time
+import logging
 
 import pandas as pd
 import h5py
@@ -10,7 +11,7 @@ import numpy as np
 import scipy.stats as ss
 #from line_profiler import LineProfiler
 
-import logging
+
 
 
 if sys.version_info < (3,):
@@ -180,6 +181,8 @@ class NdfFile:
                 self.tid_set.add(tid)
                 self.tid_raw_data_time_dict[tid]  = {}
                 self.tid_data_time_dict[tid] = {}
+        logging.info(self.filepath +' valid ids and freq are: '+str(self.tid_to_fs_dict))
+
 
     #@lprofile()
     def glitch_removal(self, plot_glitches=False, print_output=False,
@@ -362,12 +365,15 @@ class NdfFile:
             for tid in self.read_ids:
                 transmitter_group = file_group.create_group(str(tid))
                 transmitter_group.attrs['fs'] = self.tid_to_fs_dict[tid]
+                transmitter_group.attrs['tid'] = tid
                 transmitter_group.create_dataset('data',
                                                  data=self.tid_data_time_dict[tid]['data'],
-                                                 compression="lzf") #gzip is better but slower
+                                                 compression = "gzip", dtype='f4',
+                                                 chunks = self.tid_data_time_dict[tid]['data'].shape)
                 transmitter_group.create_dataset('time',
                                                  data=self.tid_data_time_dict[tid]['time'],
-                                                 compression="lzf")
+                                                 compression = "gzip", dtype='f4',
+                                                 chunks = self.tid_data_time_dict[tid]['time'].shape)
                 transmitter_group.attrs["resampled"] = self._resampled
 
             f.close()
@@ -389,6 +395,7 @@ class NdfFile:
              auto_resampling = True,):
 
         self.read_ids = read_ids
+        logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
         if read_ids == [] or str(read_ids).lower() == 'all':
             self.read_ids = list(self.tid_set)
         if not hasattr(self.read_ids, '__iter__'):

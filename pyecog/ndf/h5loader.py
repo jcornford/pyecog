@@ -30,7 +30,7 @@ class H5Dataset():
 class H5File():
     def __init__(self, filepath):
         self.filepath = filepath
-        self.tid_dict = {} # holding all the data (not just voltage) for each tid
+        self.group_contents = {} # holding all the data (not just voltage) for each tid
         with h5py.File(self.filepath, 'r+') as f:
             if sys.version_info < (3,):
                 self.attributes = dict(f.attrs.iteritems())
@@ -39,10 +39,10 @@ class H5File():
             self.attributes['Mcode'] = list(f.keys())[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
-                self.tid_dict[tid] = {}
-                self.tid_dict[tid]['data'] = tid_dataset.data
-                self.tid_dict[tid]['time'] = tid_dataset.time
-                self.tid_dict[tid]['features'] = tid_dataset.features
+                self.group_contents[tid] = {}
+                self.group_contents[tid]['data'] = tid_dataset.data
+                self.group_contents[tid]['time'] = tid_dataset.time
+                self.group_contents[tid]['features'] = tid_dataset.features
 
     def __repr__(self):
         return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)
@@ -50,4 +50,4 @@ class H5File():
     def __getitem__(self, item):
         assert type(item) == int
         assert item in self.attributes['t_ids'], 'ERROR: Invalid tid for file'
-        return self.tid_dict[item]
+        return self.group_contents[item]
