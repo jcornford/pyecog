@@ -19,6 +19,9 @@ from .utils import filterArray
 if sys.version_info < (3,):
     range = xrange
 
+
+ERROR_FLAG = False
+
 import logging
 #loggers = {}
 
@@ -39,6 +42,33 @@ class DataHandler():
     - filtering and pre processing
     - remeber when defining maxshape = (None, data_array.shape[1])) - to allow h5 to gorwp
 
+    for faster conversion/datawrting?!:
+    have main save, the rest calculate
+
+    import multiprocessing as mp
+    import time
+
+    def foo_pool(x):
+        time.sleep(2)
+        return x*x
+
+    result_list = []
+    def log_result(result):
+        # This is called whenever foo_pool(i) returns a result.
+        # result_list is modified only by the main process, not the pool workers.
+        result_list.append(result)
+
+    def apply_async_with_callback():
+        pool = mp.Pool(4)
+        for i in range(10):
+        pool.imap(foo_pool, args = (i, ), callback = log_result)
+        pool.close()
+        pool.join()
+        print(result_list)
+
+
+apply_async_with_callback()
+
     '''
 
     def __init__(self, logpath = os.getcwd()):
@@ -54,7 +84,7 @@ class DataHandler():
                                     libary_path,
                                     filter_window = 7,
                                     filter_order = 3):
-
+        global ERROR_FLAG
         logging.info('Adding features to '+ libary_path + ' with filter settings: ' +str(filter_window)+', '+str(filter_order))
 
         with h5py.File(libary_path, 'r+') as f:
@@ -72,18 +102,25 @@ class DataHandler():
 
                 fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
                 fndata = self._normalise(fdata)
-                extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
-                features = extractor.feature_array
+                if fndata is not None:
+                    extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
+                    features = extractor.feature_array
 
-                try:
-                    del group['features']
-                    logging.debug('Deleted old features')
-                except:
-                    pass
-                group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
-                logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
-                self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-
+                    try:
+                        del group['features']
+                        logging.debug('Deleted old features')
+                    except:
+                        pass
+                    group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
+                    logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
+                    self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+                else:
+                    logging.warning("Didn't add features to file: "+str(group))
+                    ERROR_FLAG = True
+                    return 0
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def add_predicition_features_to_h5_file(self,
                                             h5_file_path,
@@ -98,6 +135,7 @@ class DataHandler():
                     / tid3  / data
                             / time
         '''
+        global ERROR_FLAG
         with h5py.File(h5_file_path, 'r+') as f:
             tids    = list(f.attrs['t_ids'])
             tid_to_fs_dict = f.attrs['fs_dict']
@@ -126,16 +164,24 @@ class DataHandler():
 
                 fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
                 fndata = self._normalise(fdata)
-                extractor = FeatureExtractor(fndata,tid.attrs['fs'], verbose_flag = False)
-                features = extractor.feature_array
+                if fndata is not None:
+                    extractor = FeatureExtractor(fndata,tid.attrs['fs'], verbose_flag = False)
+                    features = extractor.feature_array
 
-                try:
-                    del tid['features']
-                    logging.debug('Deleted old features')
-                except:
-                    pass
-                tid.create_dataset('features', data = features, compression = 'gzip')
-                logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
+                    try:
+                        del tid['features']
+                        logging.debug('Deleted old features')
+                    except:
+                        pass
+                    tid.create_dataset('features', data = features, compression = 'gzip')
+                    logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
+                else:
+                    logging.error("Didn't add features to group: "+ str(tid))
+                    ERROR_FLAG = True
+
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def parallel_add_prediction_features(self, h5py_folder, n_cores = -1):
         '''
@@ -143,6 +189,7 @@ class DataHandler():
         :param h5py_folder:
         :return:
         '''
+        global ERROR_FLAG
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
         if n_cores == -1:
             n_cores = multiprocessing.cpu_count()
@@ -156,6 +203,10 @@ class DataHandler():
         #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
+
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
@@ -217,6 +268,7 @@ class DataHandler():
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
+        global ERROR_FLAG
         logging.info('Datahandler - creating SeizureLibrary')
 
         annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
@@ -248,6 +300,9 @@ class DataHandler():
         for i, annotation in enumerate(annotation_dicts):
             self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def append_to_seizure_library(self, df, file_dir, seizure_library_path,
                                   timewindow = 5,
@@ -277,7 +332,7 @@ class DataHandler():
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
-
+        global ERROR_FLAG
         logging.info('Appending to seizure library')
         annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
@@ -290,6 +345,9 @@ class DataHandler():
         for i, annotation in enumerate(annotation_dicts):
             self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def _populate_seizure_library(self, annotation, fs,
                                   timewindow,
@@ -351,9 +409,9 @@ class DataHandler():
             result = np.divide((series - a[:, None]), (b-a)[:,None])
             return result
         except:
-            print ('Warning: Zero div error caught, exiting. Items all the same')
-            import sys
-            sys.exit()
+            logging.error('Zero div error caught, passing. Data array has items all the same')
+            ERROR_flag = True
+            return None
 
     def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
         """
@@ -368,6 +426,7 @@ class DataHandler():
         ndfs conversion seem to be pretty buggy...
 
         """
+        global ERROR_FLAG
         self.fs_for_parallel_conversion = fs
         files = [f for f in self._fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
 
@@ -376,12 +435,12 @@ class DataHandler():
         if not tids == 'all':
             if not hasattr(tids, '__iter__'):
                 tids = [tids]
-            for tid in tids:
-                try:
-                    assert tid in ndf.tid_set
-                except AssertionError:
-                    print('Please enter valid tid (at least for the first!) file in directory ('+str(ndf.tid_set)+')')
-                    sys.exit()
+            #for tid in tids:
+            #    try:
+            #        assert tid in ndf.tid_set
+            #    except AssertionError:
+            #        print('Please enter valid tid (at least for the first!) file in directory ('+str(ndf.tid_set)+')')
+            #        sys.exit()
 
         self.tids_for_parallel_conversion = tids
         print ('Transmitters for conversion: '+ str(self.tids_for_parallel_conversion))
@@ -404,8 +463,12 @@ class DataHandler():
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         pool.close()
         pool.join()
+        if ERROR_FLAG:
+            print ('Errors occurred: please check the log file (search for error!)')
+            ERROR_FLAG = False
 
     def _convert_ndf(self,filename):
+        global ERROR_FLAG
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
@@ -423,10 +486,11 @@ class DataHandler():
                 abs_savename = os.path.join(savedir, filename.split('/')[-1][:-4]+ndf_time+' tids_'+str(tids))
                 ndf.save(save_file_name= abs_savename)
             else:
-                print('not all tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
-
+                logging.warning('Not all read tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
+                #print('not all tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
+                ERROR_FLAG = True
         except Exception:
-            print('Something went wrong loading '+str(tids)+' from '+mname+' :')
+            print('Something unexpected went wrong loading '+str(tids)+' from '+mname+' :')
             #print('Valid ids are:'+str(ndf.tid_set))
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value,exc_traceback))

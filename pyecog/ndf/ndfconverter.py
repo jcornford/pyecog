@@ -110,7 +110,6 @@ class NdfFile:
         self.time_diff = None
         self.fs = fs
 
-
         self._n_possible_glitches = None
         self._glitch_count        = None
         self._plot_each_glitch    = None

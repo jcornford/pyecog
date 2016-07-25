@@ -21,7 +21,7 @@ class FeatureExtractor():
         self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()
         self._peaks_and_valleys()
-        self._wavelet_features(fs = fs, frequencies = [1,5,10,15,20,30,60, 90])
+        self._wavelet_features(fs = fs, frequencies = [1,5,10,15,20,30,60,90])
 
 
         self.feature_array = np.hstack([self.event_stats,self.baseline_features,
@@ -76,7 +76,8 @@ class FeatureExtractor():
         indexes = np.array(np.arange(self.dataset.shape[1]))
         #print(self.dataset.shape[0], 'is dset shape 0')
 
-        self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in range(self.dataset.shape[0])]
+        #self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in range(self.dataset.shape[0])]
+        self.event_dataset = self.dataset
         baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in range(self.dataset.shape[0])]
 
         baseline_diff_skew = [st.skew(np.diff(indexes[np.logical_not(masked_std_below_threshold[i,:].mask)])) for i in range(self.dataset.shape[0])]
