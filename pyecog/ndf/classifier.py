@@ -60,16 +60,16 @@ class Classifier():
         self.cleaner.fit(self.features)
         self.features = self.cleaner.transform(self.features)
 
+    def save(self):
+        pass
+
+    def predict(self, feature_array, excel_sheet):
+        feature_array = self.cleaner.transform(feature_array)
+        predictions = self.clf.predict(feature_array)
+        decoded_predictions = self.hm_model.viterbi(predictions)
+        # now add to excel sheet
+
     def train(self):
-        #self.emission_probs = self.local_cv(self.features, self.labels)
-        print('Emission probs')
-        print (self.emission_probs)
-        self.transition_probs = hmm.get_state_transition_probs(self.labels)
-        print ('Transition probs')
-        print (self.transition_probs)
-        #self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
-
-
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
         target_resample = (counts[1]*50,counts[1]*3)
         print (counts, target_resample)
@@ -77,8 +77,12 @@ class Classifier():
         res_y, res_x = self.resample_training_dataset(self.labels, self.features,
                                                     sizes = target_resample)
         print (res_y.shape, res_x.shape) # incorect!
-        #rf = RandomForestClassifier(n_jobs=-1, n_estimators= 2000, oob_score=True, bootstrap=True)
+        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 2000, oob_score=True, bootstrap=True)
         #rf.fit(res_x, np.ravel(res_y))
+
+        print('get rf oob error!')
+
+        #self.make_hmm_model()
 
     def make_hmm_model(self):
         self.emission_probs = self.local_cv(self.features, self.labels)
@@ -87,7 +91,7 @@ class Classifier():
         self.transition_probs = hmm.get_state_transition_probs(self.labels)
         print ('Transition probs')
         print (self.transition_probs)
-        #self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
+        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
 
     def resample_training_dataset(self, labels, feature_array, sizes = (5000,500)):
         """
@@ -184,6 +188,10 @@ class Classifier():
         ems = np.stack(emission_matrixes_list, axis = 2)
         mean_emitt_matrix = np.mean(ems, axis = 2)
         return mean_emitt_matrix
+
+    def tune_hyperparameters(self):
+        pass
+        # just a placeholderfor now - code is in ipython notebook
 
     def printProgress (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
         """

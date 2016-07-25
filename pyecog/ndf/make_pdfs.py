@@ -1,6 +1,7 @@
 '''
 
 This needs to be made parallel...!
+This also needs to be used for the seizures? in ipython notebook code exists...
 
 '''
 from __future__ import print_function
