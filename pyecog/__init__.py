@@ -3,3 +3,5 @@ from .ndf import NdfFile
 from .ndf import plot
 from .ndf import basic_plot
 from .ndf import DataHandler
+from .ndf import FeaturePreProcesser
+from .ndf import Classifier

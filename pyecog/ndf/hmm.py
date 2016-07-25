@@ -3,17 +3,18 @@
 Make this into a class!
 CHANGE TO POMEMGRANATE - CHECK WORKS ON PIP
 '''
-import yahmm
+import pomegranate
 from sklearn.preprocessing import normalize
+import numpy as np
 
 def make_hmm_model(emission_mat, transition_probs):
-    model = yahmm.Model('ndf')
+    model = pomegranate.HiddenMarkovModel('ndf')
 
     ictal_emissions    = {i:emission_mat[1,i] for i in range(emission_mat.shape[1])}
     baseline_emissions = {i:emission_mat[0,i] for i in range(emission_mat.shape[1])}
 
-    ictal    = yahmm.State(yahmm.DiscreteDistribution(ictal_emissions   ), name = '1')
-    baseline = yahmm.State(yahmm.DiscreteDistribution(baseline_emissions), name = '0')
+    ictal    = pomegranate.State(pomegranate.DiscreteDistribution(ictal_emissions   ), name = '1')
+    baseline = pomegranate.State(pomegranate.DiscreteDistribution(baseline_emissions), name = '0')
 
     model.add_state(ictal)
     model.add_state(baseline)
@@ -41,6 +42,9 @@ def get_state_emission_probs(emissions, annotated_states):
     return emis_probs
 
 def get_state_transition_probs(labels):
+    if len (labels.shape) > 1:
+            labels = np.ravel(labels)
+
     tp = np.zeros(shape= (2,2))
     for i, label in enumerate(labels[:-1]):
         next_label = int(labels[i+1])
