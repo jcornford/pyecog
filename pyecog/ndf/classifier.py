@@ -14,8 +14,10 @@ from sklearn.utils import resample
 from sklearn.preprocessing import Imputer, StandardScaler,normalize
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation as cv
+from sklearn import metrics
 
 from . import hmm
+from .h5loader import H5File
 
 class FeaturePreProcesser():
     def __init__(self):
@@ -53,7 +55,8 @@ class Classifier():
             self.tids = [f[key].attrs['tid'] for key in self.keys]
             self.fname_array = np.vstack([np.vstack([fname for i in range(f[fname+'/features'].shape[0])]) for fname in self.keys])
             self.features = np.vstack( f[name+'/features'] for name in self.keys)
-            self.labels   = np.vstack( f[name+'/labels'] for name in self.keys)
+            self.labels   = np.hstack( f[name+'/labels'] for name in self.keys)
+
             #self.traces   = np.vstack( f[name+'/data'] for name in self.keys)
 
         self.cleaner = FeaturePreProcesser()
@@ -63,29 +66,186 @@ class Classifier():
     def save(self):
         pass
 
-    def predict(self, feature_array, excel_sheet):
-        feature_array = self.cleaner.transform(feature_array)
-        predictions = self.clf.predict(feature_array)
-        decoded_predictions = self.hm_model.viterbi(predictions)
-        # now add to excel sheet
+    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
 
-    def train(self):
+        for fname in os.listdir(prediction_dir):
+            fpath = os.path.join(prediction_dir,fname)
+
+            try:
+                with h5py.File(fpath, 'r+') as f:
+                    group = f[list(f.keys())[0]]
+                    tid = group[list(group.keys())[0]]
+                    pred_features = tid['features'][:]
+
+                logging.info(str(fname) + ' now predicting!: ')
+                pred_features = self.cleaner.transform(pred_features)
+                pred_y_emitts = self.clf.predict(pred_features)
+                logp, path = self.hm_model.viterbi(pred_y_emitts)
+                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
+
+                if sum(vit_decoded_y):
+                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
+                    #print (name_array.shape)
+                    pred_sheet = self.make_excel_spreadsheet([name_array,vit_decoded_y])
+                    #print(pred_sheet.head())
+                    if not os.path.exists(excel_sheet):
+                        pred_sheet.to_csv(excel_sheet,index = False)
+                    else:
+                        with open(excel_sheet, 'a') as f:
+                            pred_sheet.to_csv(f, header=False, index = False)
+
+
+            except KeyError:
+                logging.error(str(fname) + ' did not contain any features! Skipping')
+
+            else:
+                pass
+                #print ('no seizures')
+
+
+        print ('Done')
+
+    def make_excel_spreadsheet(self, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
+        '''
+        to_stack list:
+            - first needs to be the name array
+            - second needs to be the predictions
+        '''
+        for i,array in enumerate(to_stack):
+            if len(array.shape) == 1:
+                to_stack[i] = array[:,None]
+        data = np.hstack([to_stack[0],to_stack[1].astype(int)])
+        df = pd.DataFrame(data, columns = columns_list)
+
+        # Make time index...
+        df['f_index'] = df.groupby(by = columns_list[0]).cumcount()
+        # assuming 1 hour per filename, first assert all files have same
+        # number of
+        x = df[str(columns_list[0])].value_counts()
+        n_chunks = x.max()
+        try:
+            assert x.isin([n_chunks]).all()
+        except:
+            if verbose:
+                print('Warning: Files not all the same length \n'+str(x))
+            else:
+                print('Warning: Files not all the same length, run again with verbose flag True for more detail')
+        sec_per_chunk = 3600/n_chunks
+        df['start_time'] = df['f_index']*sec_per_chunk
+        df['end_time'] = (df['f_index']+1)*sec_per_chunk
+
+        # okay, now find the seizures!
+        seizure_indexes = df.groupby(columns_list[1]).indices['1']
+        seizures_idx_tups = []
+        start = None
+        for i,t  in enumerate(seizure_indexes):
+            if start is None:
+                start = t
+            try:
+                if seizure_indexes[i+1] - t != 1:
+                    end = t
+                    seizures_idx_tups.append((start,end))
+                    start = None
+            except IndexError:
+                end = t
+                seizures_idx_tups.append((start,end))
+                start = None
+
+        # make the Dataframe for predicted seizures
+        df_rows = []
+        for tup in seizures_idx_tups:
+            name = df.ix[tup[0],columns_list[0]]
+            start_time = df.ix[tup[0],'start_time']
+            end_time = df.ix[tup[1],'end_time']
+            row = pd.Series([name,start_time,end_time],
+                            index = ['Filename','Start', 'End'])
+            df_rows.append(row)
+        excel_sheet = pd.DataFrame(df_rows)
+        return excel_sheet
+
+    def train(self, resample = (50,3)):
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
         target_resample = (counts[1]*50,counts[1]*3)
-        print (counts, target_resample)
-        #target_resample = (5000,500)
         res_y, res_x = self.resample_training_dataset(self.labels, self.features,
                                                     sizes = target_resample)
-        print (res_y.shape, res_x.shape) # incorect!
-        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 2000, oob_score=True, bootstrap=True)
-        #rf.fit(res_x, np.ravel(res_y))
 
-        print('get rf oob error!')
+        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
+        self.clf.fit(res_x, np.ravel(res_y))
+        self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
 
-        #self.make_hmm_model()
+        self.make_hmm_model()
+        '''
+        print ('********* /n oob results on resampled data:')
+        self.clf.oob_decision_function_[:,1]
+        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(res_y), self.clf.oob_decision_function_[:,1])))
+        print('Recall: '+str(metrics.recall_score(np.ravel(res_y), self.oob_preds)))
+        print('F1: '+str(metrics.f1_score(np.ravel(res_y), self.oob_preds)))
+        print(metrics.classification_report(np.ravel(res_y),self.oob_preds))
+
+        self.predictions = self.clf.predict(self.features)
+        self.predictions_prob = self.clf.predict_proba(self.features)
+        print ('********* /n oob results on raw data:')
+        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(self.labels), self.predictions_prob[:,1])))
+        print('Recall: '+str(metrics.recall_score(np.ravel(self.labels), self.predictions)))
+        print('F1: '+str(metrics.f1_score(np.ravel(self.labels), self.predictions)))
+        print(metrics.classification_report(np.ravel(self.labels),self.predictions))
+        '''
+
+    def estimate_clf_error(self, nfolds = 5):
+        #self.printProgress(0,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)
+        #fold = 1
+        print ('Running '+str(nfolds)+'-fold cross validation to estimate classifier performance:')
+        skf = cv.StratifiedKFold(np.ravel(self.labels), nfolds, random_state= 7)
+        precision, recall, f1 = [],[],[]
+        #map_precision, map_recall, map_f1 = [],[],[]
+        for train_ix,test_ix in skf:
+            # index for the k fold
+            X_train = self.features[train_ix,:]
+            y_train = self.labels[train_ix]
+            X_test  = self.features[test_ix,:]
+            y_test  = self.labels[test_ix]
+
+            y_counts = pd.Series(y_train).value_counts().values
+            target_resample = (y_counts[1]*50,y_counts[1]*3)
+            samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
+            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
+            rf.fit(samp_x, np.ravel(samp_y))
+
+            # now you need the hmm params! nest this shit up
+            train_emission_probs = self.get_cross_validation_emission_probs(X_train, y_train,nfolds = 4)
+            train_transition_probs = hmm.get_state_transition_probs(y_train)
+            train_hm_model = hmm.make_hmm_model(train_emission_probs,train_transition_probs)
+
+            # predict the y_test with the rf trained on the resampled data:
+            test_emissions = rf.predict(X_test)
+            #viterbi_decoded = train_hm_model.predict(test_emissions, algorithm='viterbi')[1:]
+            logp, path = train_hm_model.viterbi(test_emissions)
+            viterbi_decoded = np.array([int(state.name) for idx, state in path[1:]])
+
+            p_score = metrics.precision_score(y_test, viterbi_decoded)
+            precision.append(p_score)
+            recall_score = metrics.recall_score(y_test, viterbi_decoded)
+            recall.append(recall_score)
+            f1_score = metrics.f1_score(y_test, viterbi_decoded)
+            f1.append(f1_score)
+            print ('Precision: '+ str(p_score))
+            print ('Recall: '+ str(recall_score))
+            print ('F1: '+ str(f1_score))
+
+
+
+
+        clf_precision = np.mean(precision)
+        clf_recall = np.mean(recall)
+        clf_f1 = np.mean(f1)
+
+        print ('Mean precision: '+str(clf_precision))
+        print ('Mean recall:    '+ str(clf_recall))
+        print ('Mean f1:        '+ str(clf_f1))
+
 
     def make_hmm_model(self):
-        self.emission_probs = self.local_cv(self.features, self.labels)
+        self.emission_probs = self.get_cross_validation_emission_probs(self.features, self.labels)
         print('Emission probs')
         print (self.emission_probs)
         self.transition_probs = hmm.get_state_transition_probs(self.labels)
@@ -132,10 +292,13 @@ class Classifier():
         # stack both up...
         resampled_labels = np.vstack(resampled_labels)
         resampled_features = np.vstack(resampled_features)
-        #print(pd.Series(resampled_labels[:,0]).value_counts())
+
+        logging.debug('Original label counts: '+str(pd.Series(labels[:,0]).value_counts()))
+        logging.debug('Resampled label counts: '+str(pd.Series(resampled_labels[:,0]).value_counts()))
+
         return resampled_labels, resampled_features
 
-    def local_cv(self, X, y, nfolds = 5):
+    def get_cross_validation_emission_probs(self, X, y, nfolds = 5):
         '''
         - X has been imputed and cleaned etc...
         - Also, we are using default RF, should nest some
@@ -155,11 +318,14 @@ class Classifier():
         if len(y.shape) != 1:
             y = np.ravel(y)
 
-        self.printProgress(0,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)
+        self.printProgress(0,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
         fold = 1
-        skf = cv.StratifiedKFold(y, nfolds)
+
+        skf = cv.StratifiedKFold(y, nfolds, random_state= 7)
+        precision, recall, f1 = [],[],[]
+        oob_precision, oob_recall, oob_f1 = [],[],[]
         for train_ix,test_ix in skf:
-            logging.info('Jonny needs to log the CV resutls!')
+
             # index for the k fold
             X_train = X[train_ix,:]
             y_train = y[train_ix]
@@ -172,18 +338,50 @@ class Classifier():
             samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
 
             # train clf on resampled
-            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 100, oob_score=True, bootstrap=True)
+            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
             rf.fit(samp_x, np.ravel(samp_y))
 
             # see how well it did
             train_emitts = rf.predict(X_train)
             test_emitts  = rf.predict(X_test)
+
+            # this is the test set
+            p_score = metrics.precision_score(y_test, test_emitts)
+            precision.append(p_score)
+            recall_score = metrics.recall_score(y_test, test_emitts)
+            recall.append(recall_score)
+            f1_score = metrics.f1_score(y_test, test_emitts)
+            f1.append(f1_score)
+
+
+            # this is the oob on the resampled
+            oob_preds = np.round(rf.oob_decision_function_[:,1]) # round the 1 column for 1 issezi. 0 is baseline
+            oob_p_score = metrics.precision_score(np.ravel(samp_y), oob_preds)
+            oob_precision.append(oob_p_score)
+            oob_recall_score = metrics.recall_score(np.ravel(samp_y), oob_preds)
+            oob_recall.append(oob_recall_score)
+            oob_f1_score = metrics.f1_score(np.ravel(samp_y), oob_preds)
+            oob_f1.append(oob_f1_score)
+
+
             binary_states = np.where(y_test==0,0,1) # this is for when multiple labels
             emission_matrix = hmm.get_state_emission_probs(test_emitts, binary_states)
             emission_matrixes_list.append(emission_matrix)
-            self.printProgress(fold,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)
+            self.printProgress(fold,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
             fold += 1
 
+        logging.info('Precision: ' + str(precision))
+        logging.info('Recall: ' + str(recall))
+        logging.info('F1: ' + str(f1))
+
+        logging.info('OOB is on the resampled data:')
+        logging.info('oob_Precision: ' + str(oob_precision))
+        logging.info('oob_Recall: ' + str(oob_recall))
+        logging.info('oob_F1: ' + str(oob_f1))
+
+        #print( 'Mean precision'+ str(np.mean(precision)) )
+        #print( 'Mean recall: '+ str(np.mean(recall)) )
+        #print( 'Mean f1: '+str(np.mean(f1)) )
 
         ems = np.stack(emission_matrixes_list, axis = 2)
         mean_emitt_matrix = np.mean(ems, axis = 2)

@@ -185,7 +185,7 @@ apply_async_with_callback()
 
     def parallel_add_prediction_features(self, h5py_folder, n_cores = -1):
         '''
-
+        # NEED TO ADD SETTINGS HERE FOR THE TIMEWINDOW ETC
         :param h5py_folder:
         :return:
         '''
