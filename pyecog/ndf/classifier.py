@@ -252,17 +252,22 @@ class Classifier():
             print ('vit Recall: '+ str(recall_score))
             print ('vit F1: '+ str(f1_score))
 
-            # run forward backward as well
-            fb = train_hm_model.predict(test_emissions, algorithm='map')
-            p_score = metrics.precision_score(y_test, fb)
-            map_precision.append(p_score)
-            recall_score = metrics.recall_score(y_test, fb)
-            map_recall.append(recall_score)
-            f1_score = metrics.f1_score(y_test, fb)
-            map_f1.append(f1_score)
-            print ('fb Precision: '+ str(p_score))
-            print ('fb Recall: '+ str(recall_score))
-            print ('fb F1: '+ str(f1_score))
+            try:
+                # run forward backward as well
+                fb = train_hm_model.predict(test_emissions, algorithm='map')
+                p_score = metrics.precision_score(y_test, fb)
+                map_precision.append(p_score)
+                recall_score = metrics.recall_score(y_test, fb)
+                map_recall.append(recall_score)
+                f1_score = metrics.f1_score(y_test, fb)
+                map_f1.append(f1_score)
+                print ('fb Precision: '+ str(p_score))
+                print ('fb Recall: '+ str(recall_score))
+                print ('fb F1: '+ str(f1_score))
+                fb = True
+            except:
+                fb = False
+                pass
 
 
         clf_precision = np.mean(precision)
@@ -273,13 +278,14 @@ class Classifier():
         print ('Mean vit recall:    '+ str(clf_recall))
         print ('Mean vit f1:        '+ str(clf_f1))
 
-        map_clf_precision = np.mean(map_precision)
-        map_clf_recall = np.mean(map_recall)
-        map_clf_f1 = np.mean(map_f1)
+        if fb:
+            map_clf_precision = np.mean(map_precision)
+            map_clf_recall = np.mean(map_recall)
+            map_clf_f1 = np.mean(map_f1)
 
-        print ('Mean fb precision: '+str(map_clf_precision))
-        print ('Mean fb recall:    '+ str(map_clf_recall))
-        print ('Mean fb f1:        '+ str(map_clf_f1))
+            print ('Mean fb precision: '+str(map_clf_precision))
+            print ('Mean fb recall:    '+ str(map_clf_recall))
+            print ('Mean fb f1:        '+ str(map_clf_f1))
 
 
     def make_hmm_model(self):
