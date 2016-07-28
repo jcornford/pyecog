@@ -83,7 +83,8 @@ apply_async_with_callback()
     def add_features_seizure_library(self,
                                     libary_path,
                                     filter_window = 7,
-                                    filter_order = 3):
+                                    filter_order = 3,
+                                    overwrite = False):
         global ERROR_FLAG
         logging.info('Adding features to '+ libary_path + ' with filter settings: ' +str(filter_window)+', '+str(filter_order))
 
@@ -97,27 +98,34 @@ apply_async_with_callback()
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
             for i, group in enumerate(seizure_datasets):
                 logging.debug('Loading group: '+ str(group))
-                data_array = group['data'][:]
-                assert len(data_array.shape) > 1
+                try:
+                    if not overwrite:
+                        features = group['features']
+                        logging.info(str(group)+' already has features, skipping')
+                    if overwrite:
+                        raise
+                except:
+                    data_array = group['data'][:]
+                    assert len(data_array.shape) > 1
 
-                fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
-                fndata = self._normalise(fdata)
-                if fndata is not None:
-                    extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
-                    features = extractor.feature_array
+                    fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                    fndata = self._normalise(fdata)
+                    if fndata is not None:
+                        extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
+                        features = extractor.feature_array
 
-                    try:
-                        del group['features']
-                        logging.debug('Deleted old features')
-                    except:
-                        pass
-                    group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
-                    logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
-                    self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-                else:
-                    logging.warning("Didn't add features to file: "+str(group))
-                    ERROR_FLAG = True
-                    return 0
+                        try:
+                            del group['features']
+                            logging.debug('Deleted old features')
+                        except:
+                            pass
+                        group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
+                        logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
+                        self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+                    else:
+                        logging.warning("Didn't add features to file: "+str(group))
+                        ERROR_FLAG = True
+                        return 0
         if ERROR_FLAG:
             print ('Errors occurred: please check the log file (search for error!)')
             ERROR_FLAG = False
@@ -405,13 +413,14 @@ apply_async_with_callback()
         b = np.max(series, axis=1)
 
         try:
-            assert (b-a).all() != 0.0
+            #assert (b-a).all() != 0.0
             result = np.divide((series - a[:, None]), (b-a)[:,None])
             return result
         except:
             logging.error('Zero div error caught, passing. Data array has items all the same')
+
             ERROR_flag = True
-            return None
+            #return None
 
     def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
         """

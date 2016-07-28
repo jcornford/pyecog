@@ -18,6 +18,7 @@ class FeatureExtractor():
         self.fs = fs
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
 
+
         self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
         self._event_dataset_stats()
         self._peaks_and_valleys()
@@ -26,6 +27,9 @@ class FeatureExtractor():
 
         self.feature_array = np.hstack([self.event_stats,self.baseline_features,
                                    self.pkval_stats,self.meanpower])
+        self.col_labels = np.hstack([self.event_stats_col_labels, self.baseline_features_labels,
+                                     self.pkval_labels,['1','5','10','15','20','30','60','90'] ])
+
         timetaken = np.round((time.clock()-self.start), 2)
         logging.debug("Stacking up..."+str(self.feature_array.shape))
         logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
@@ -34,7 +38,7 @@ class FeatureExtractor():
         logging.debug("Extracting stats on event dataset...")
         self.event_stats = np.zeros((len(self.event_dataset),7))
         self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
-
+        #self.col_labels.append(self.event_stats_col_labels)
         for i,trace in enumerate(self.event_dataset):
             if trace.shape[0]:
                 # if not all baseline
@@ -87,6 +91,7 @@ class FeatureExtractor():
         #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in range(dataset.shape[0])]
 
         self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
+        self.baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_diff_skew']
 
         #print 'N.B using mean baseline difference - perhaps not best?'
 
@@ -134,6 +139,7 @@ class FeatureExtractor():
         av_val = np.array(av_val)
         av_range = np.array(av_range)
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
+        self.pkval_labels = ['n_pks','n_vals','av_pk','av_val','av_pkval_range']
 
         #print ('N.B Again - preassign?')
 

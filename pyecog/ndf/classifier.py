@@ -1,6 +1,10 @@
 import sys
 import os
 import multiprocessing
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 import traceback
 import time
@@ -18,6 +22,11 @@ from sklearn import metrics
 
 from . import hmm
 from .h5loader import H5File
+
+def load_classifier(filepath):
+    f = open(filepath, 'rb')
+    clf = pickle.load(f)
+    return clf
 
 class FeaturePreProcesser():
     def __init__(self):
@@ -63,8 +72,16 @@ class Classifier():
         self.cleaner.fit(self.features)
         self.features = self.cleaner.transform(self.features)
 
-    def save(self):
-        pass
+    def save(self, fname = 'pickled_clf' ):
+        fname = fname if fname.endswith('.p') else fname+'.p'
+        f = open(fname,'wb')
+        pickle.dump(self,f)
+
+    def load(self, fname):
+        fname = fname if fname.endswith('.p') else fname+'.p'
+        f = open(fname,'wb')
+        pickle.dump(self,f)
+
 
     def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
 
@@ -166,13 +183,16 @@ class Classifier():
     def train(self, resample = (50,3)):
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
         target_resample = (counts[1]*50,counts[1]*3)
+        logging.info('Training classifier: ')
+        logging.info('Resampling training - upsampling seizure seconds, downsampling baseline periods...')
         res_y, res_x = self.resample_training_dataset(self.labels, self.features,
                                                     sizes = target_resample)
-
+        logging.info('Training Random Forest on resampled data')
         self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
         self.clf.fit(res_x, np.ravel(res_y))
-        self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
+        #self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
 
+        logging.info('Getting HMM params')
         self.make_hmm_model()
         '''
         print ('********* /n oob results on resampled data:')
@@ -197,7 +217,7 @@ class Classifier():
         print ('Running '+str(nfolds)+'-fold cross validation to estimate classifier performance:')
         skf = cv.StratifiedKFold(np.ravel(self.labels), nfolds, random_state= 7)
         precision, recall, f1 = [],[],[]
-        #map_precision, map_recall, map_f1 = [],[],[]
+        map_precision, map_recall, map_f1 = [],[],[]
         for train_ix,test_ix in skf:
             # index for the k fold
             X_train = self.features[train_ix,:]
@@ -228,20 +248,38 @@ class Classifier():
             recall.append(recall_score)
             f1_score = metrics.f1_score(y_test, viterbi_decoded)
             f1.append(f1_score)
-            print ('Precision: '+ str(p_score))
-            print ('Recall: '+ str(recall_score))
-            print ('F1: '+ str(f1_score))
+            print ('vit Precision: '+ str(p_score))
+            print ('vit Recall: '+ str(recall_score))
+            print ('vit F1: '+ str(f1_score))
 
-
+            # run forward backward as well
+            fb = train_hm_model.predict(test_emissions, algorithm='map')
+            p_score = metrics.precision_score(y_test, fb)
+            map_precision.append(p_score)
+            recall_score = metrics.recall_score(y_test, fb)
+            map_recall.append(recall_score)
+            f1_score = metrics.f1_score(y_test, fb)
+            map_f1.append(f1_score)
+            print ('fb Precision: '+ str(p_score))
+            print ('fb Recall: '+ str(recall_score))
+            print ('fb F1: '+ str(f1_score))
 
 
         clf_precision = np.mean(precision)
         clf_recall = np.mean(recall)
         clf_f1 = np.mean(f1)
 
-        print ('Mean precision: '+str(clf_precision))
-        print ('Mean recall:    '+ str(clf_recall))
-        print ('Mean f1:        '+ str(clf_f1))
+        print ('Mean vit precision: '+str(clf_precision))
+        print ('Mean vit recall:    '+ str(clf_recall))
+        print ('Mean vit f1:        '+ str(clf_f1))
+
+        map_clf_precision = np.mean(map_precision)
+        map_clf_recall = np.mean(map_recall)
+        map_clf_f1 = np.mean(map_f1)
+
+        print ('Mean fb precision: '+str(map_clf_precision))
+        print ('Mean fb recall:    '+ str(map_clf_recall))
+        print ('Mean fb f1:        '+ str(map_clf_f1))
 
 
     def make_hmm_model(self):

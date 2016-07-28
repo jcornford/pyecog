@@ -5,3 +5,5 @@ from .ndf import basic_plot
 from .ndf import DataHandler
 from .ndf import FeaturePreProcesser
 from .ndf import Classifier
+from .ndf import FeatureExtractor
+from .ndf import load_classifier
