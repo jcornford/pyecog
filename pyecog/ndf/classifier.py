@@ -119,8 +119,21 @@ class Classifier():
                 pass
                 #print ('no seizures')
 
-
+        print('Re - ordering spreadsheet')
+        self.reorder_prediction_csv(excel_sheet)
         print ('Done')
+
+    def reorder_prediction_csv(self, csv_path):
+        df = pd.read_csv(csv_path)
+        datetimes = []
+        for string in df.Filename:
+            ymd = string.split('_')[1]
+            h = string.split('_')[2]
+            m = string.split('_')[3]
+            x = ymd+h+m
+            datetimes.append(pd.to_datetime(x, format = '%Y-%m-%d%H%M'))
+        reordered_df = df.sort_values(by=['datetime', 'Start']).drop('datetime', axis = 1)
+        reordered_df.to_csv(csv_path)
 
     def make_excel_spreadsheet(self, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
         '''
