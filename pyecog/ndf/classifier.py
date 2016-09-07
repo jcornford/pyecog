@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from sklearn.utils import resample
-from sklearn.preprocessing import Imputer, StandardScaler,normalize
+from sklearn.preprocessing import Imputer, StandardScaler, normalize
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation as cv
 from sklearn import metrics
@@ -66,8 +66,6 @@ class Classifier():
             self.features = np.vstack( f[name+'/features'] for name in self.keys)
             self.labels   = np.hstack( f[name+'/labels'] for name in self.keys)
 
-            #self.traces   = np.vstack( f[name+'/data'] for name in self.keys)
-
         self.cleaner = FeaturePreProcesser()
         self.cleaner.fit(self.features)
         self.features = self.cleaner.transform(self.features)
@@ -81,117 +79,6 @@ class Classifier():
         fname = fname if fname.endswith('.p') else fname+'.p'
         f = open(fname,'wb')
         pickle.dump(self,f)
-
-
-    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
-
-        for fname in os.listdir(prediction_dir):
-            fpath = os.path.join(prediction_dir,fname)
-
-            try:
-                with h5py.File(fpath, 'r+') as f:
-                    group = f[list(f.keys())[0]]
-                    tid = group[list(group.keys())[0]]
-                    pred_features = tid['features'][:]
-
-                logging.info(str(fname) + ' now predicting!: ')
-                pred_features = self.cleaner.transform(pred_features)
-                pred_y_emitts = self.clf.predict(pred_features)
-                logp, path = self.hm_model.viterbi(pred_y_emitts)
-                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
-
-                if sum(vit_decoded_y):
-                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
-                    #print (name_array.shape)
-                    pred_sheet = self.make_excel_spreadsheet([name_array,vit_decoded_y])
-                    #print(pred_sheet.head())
-                    if not os.path.exists(excel_sheet):
-                        pred_sheet.to_csv(excel_sheet,index = False)
-                    else:
-                        with open(excel_sheet, 'a') as f:
-                            pred_sheet.to_csv(f, header=False, index = False)
-
-
-            except KeyError:
-                logging.error(str(fname) + ' did not contain any features! Skipping')
-
-            else:
-                pass
-                #print ('no seizures')
-
-        print('Re - ordering spreadsheet')
-        self.reorder_prediction_csv(excel_sheet)
-        print ('Done')
-
-    def reorder_prediction_csv(self, csv_path):
-        df = pd.read_csv(csv_path)
-        datetimes = []
-        for string in df.Filename:
-            ymd = string.split('_')[1]
-            h = string.split('_')[2]
-            m = string.split('_')[3]
-            x = ymd+h+m
-            datetimes.append(pd.to_datetime(x, format = '%Y-%m-%d%H%M'))
-        reordered_df = df.sort_values(by=['datetime', 'Start']).drop('datetime', axis = 1)
-        reordered_df.to_csv(csv_path)
-
-    def make_excel_spreadsheet(self, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
-        '''
-        to_stack list:
-            - first needs to be the name array
-            - second needs to be the predictions
-        '''
-        for i,array in enumerate(to_stack):
-            if len(array.shape) == 1:
-                to_stack[i] = array[:,None]
-        data = np.hstack([to_stack[0],to_stack[1].astype(int)])
-        df = pd.DataFrame(data, columns = columns_list)
-
-        # Make time index...
-        df['f_index'] = df.groupby(by = columns_list[0]).cumcount()
-        # assuming 1 hour per filename, first assert all files have same
-        # number of
-        x = df[str(columns_list[0])].value_counts()
-        n_chunks = x.max()
-        try:
-            assert x.isin([n_chunks]).all()
-        except:
-            if verbose:
-                print('Warning: Files not all the same length \n'+str(x))
-            else:
-                print('Warning: Files not all the same length, run again with verbose flag True for more detail')
-        sec_per_chunk = 3600/n_chunks
-        df['start_time'] = df['f_index']*sec_per_chunk
-        df['end_time'] = (df['f_index']+1)*sec_per_chunk
-
-        # okay, now find the seizures!
-        seizure_indexes = df.groupby(columns_list[1]).indices['1']
-        seizures_idx_tups = []
-        start = None
-        for i,t  in enumerate(seizure_indexes):
-            if start is None:
-                start = t
-            try:
-                if seizure_indexes[i+1] - t != 1:
-                    end = t
-                    seizures_idx_tups.append((start,end))
-                    start = None
-            except IndexError:
-                end = t
-                seizures_idx_tups.append((start,end))
-                start = None
-
-        # make the Dataframe for predicted seizures
-        df_rows = []
-        for tup in seizures_idx_tups:
-            name = df.ix[tup[0],columns_list[0]]
-            start_time = df.ix[tup[0],'start_time']
-            end_time = df.ix[tup[1],'end_time']
-            row = pd.Series([name,start_time,end_time],
-                            index = ['Filename','Start', 'End'])
-            df_rows.append(row)
-        excel_sheet = pd.DataFrame(df_rows)
-        return excel_sheet
 
     def train(self, resample = (50,3)):
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
@@ -318,6 +205,8 @@ class Classifier():
             - sizes: tuple, for each class (0,1,etc)m the number of training chunks you want.
             i.e for 500 seizures, 5000 baseline, sizes = (5000, 500), as 0 is baseline, 1 is Seizure
         Takes labels and features an
+
+        WARNING: Up-sampling target class prevents random forest oob from being accurate.
         """
         if len (labels.shape) == 1:
             labels = labels[:, None]
@@ -447,6 +336,118 @@ class Classifier():
     def tune_hyperparameters(self):
         pass
         # just a placeholderfor now - code is in ipython notebook
+
+
+    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
+
+        for fname in os.listdir(prediction_dir):
+            fpath = os.path.join(prediction_dir,fname)
+
+            try:
+                with h5py.File(fpath, 'r+') as f:
+                    group = f[list(f.keys())[0]]
+                    tid = group[list(group.keys())[0]]
+                    pred_features = tid['features'][:]
+
+                logging.info(str(fname) + ' now predicting!: ')
+                pred_features = self.cleaner.transform(pred_features)
+                pred_y_emitts = self.clf.predict(pred_features)
+                logp, path = self.hm_model.viterbi(pred_y_emitts)
+                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
+
+                if sum(vit_decoded_y):
+                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
+                    #print (name_array.shape)
+                    pred_sheet = self.make_excel_spreadsheet([name_array,vit_decoded_y])
+                    #print(pred_sheet.head())
+                    if not os.path.exists(excel_sheet):
+                        pred_sheet.to_csv(excel_sheet,index = False)
+                    else:
+                        with open(excel_sheet, 'a') as f:
+                            pred_sheet.to_csv(f, header=False, index = False)
+
+
+            except KeyError:
+                logging.error(str(fname) + ' did not contain any features! Skipping')
+
+            else:
+                pass
+                #print ('no seizures')
+
+        print('Re - ordering spreadsheet')
+        self.reorder_prediction_csv(excel_sheet)
+        print ('Done')
+
+    def reorder_prediction_csv(self, csv_path):
+        df = pd.read_csv(csv_path)
+        datetimes = []
+        for string in df.Filename:
+            ymd = string.split('_')[1]
+            h = string.split('_')[2]
+            m = string.split('_')[3]
+            x = ymd+h+m
+            datetimes.append(pd.to_datetime(x, format = '%Y-%m-%d%H%M'))
+        df['datetime'] = pd.Series(datetimes)
+        reordered_df = df.sort_values(by=['datetime', 'Start']).drop('datetime', axis = 1)
+        reordered_df.to_csv(csv_path)
+
+    def make_excel_spreadsheet(self, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
+        '''
+        to_stack list:
+            - first needs to be the name array
+            - second needs to be the predictions
+        '''
+        for i,array in enumerate(to_stack):
+            if len(array.shape) == 1:
+                to_stack[i] = array[:,None]
+        data = np.hstack([to_stack[0],to_stack[1].astype(int)])
+        df = pd.DataFrame(data, columns = columns_list)
+
+        # Make time index...
+        df['f_index'] = df.groupby(by = columns_list[0]).cumcount()
+        # assuming 1 hour per filename, first assert all files have same
+        # number of
+        x = df[str(columns_list[0])].value_counts()
+        n_chunks = x.max()
+        try:
+            assert x.isin([n_chunks]).all()
+        except:
+            if verbose:
+                print('Warning: Files not all the same length \n'+str(x))
+            else:
+                print('Warning: Files not all the same length, run again with verbose flag True for more detail')
+        sec_per_chunk = 3600/n_chunks
+        df['start_time'] = df['f_index']*sec_per_chunk
+        df['end_time'] = (df['f_index']+1)*sec_per_chunk
+
+        # okay, now find the seizures!
+        seizure_indexes = df.groupby(columns_list[1]).indices['1']
+        seizures_idx_tups = []
+        start = None
+        for i,t  in enumerate(seizure_indexes):
+            if start is None:
+                start = t
+            try:
+                if seizure_indexes[i+1] - t != 1:
+                    end = t
+                    seizures_idx_tups.append((start,end))
+                    start = None
+            except IndexError:
+                end = t
+                seizures_idx_tups.append((start,end))
+                start = None
+
+        # make the Dataframe for predicted seizures
+        df_rows = []
+        for tup in seizures_idx_tups:
+            name = df.ix[tup[0],columns_list[0]]
+            start_time = df.ix[tup[0],'start_time']
+            end_time = df.ix[tup[1],'end_time']
+            row = pd.Series([name,start_time,end_time],
+                            index = ['Filename','Start', 'End'])
+            df_rows.append(row)
+        excel_sheet = pd.DataFrame(df_rows)
+        return excel_sheet
 
     def printProgress (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
         """

@@ -83,7 +83,7 @@ class NdfFile:
 
     """
 
-    def __init__(self, file_path, verbose = False, fs = 'auto'):
+    def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200):
 
         self.filepath = file_path
 
@@ -119,7 +119,7 @@ class NdfFile:
 
         self.file_time_len_sec = 3600
         adc_range = 2.7
-        amp_factor = 300
+        amp_factor = amp_factor # this used to be 300
         bit_size = 16
         self.volt_div = adc_range / (2 ** bit_size) / amp_factor * 1e3  # in mV unit
 
@@ -132,7 +132,7 @@ class NdfFile:
         #print (self.__getitem__(4))
 
     def __getitem__(self, item):
-        assert type(item) == int
+        #assert type(item) == int
         assert item in self.tid_set, 'ERROR: Invalid tid for file'
         return self.tid_data_time_dict[item]
 
