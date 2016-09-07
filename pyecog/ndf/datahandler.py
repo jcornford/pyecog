@@ -10,6 +10,7 @@ import logging
 import h5py
 import numpy as np
 import pandas as pd
+from scipy import signal, stats
 
 from .ndfconverter import NdfFile
 from .h5loader import H5File
@@ -371,7 +372,9 @@ apply_async_with_callback()
         else:
             print('ERROR: Unrecognised file-type')
 
-        data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
+        # add in filtering and scaling here
+        fcs_data = self.highpassfilter_and_standardise(file_obj[annotation['tid']]['data'], fs)
+        data_array = self._make_array_from_data(fcs_data, fs, timewindow)
 
         # use the start and end times to make labels
         labels = np.zeros(shape = (data_array.shape[0]))
@@ -391,6 +394,23 @@ apply_async_with_callback()
                 labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
                 group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
             f.close()
+
+    @staticmethod
+    def highpassfilter_and_standardise(data, fs, cutoff_hz = 1, stdtw = 5,std_dec_places = 2):
+        logging.debug('Highpassfiltering and standising mode std, fs: ' + str(fs))
+
+        nyq = 0.5 * fs
+        cutoff_hz = cutoff_hz/nyq
+        data = data-np.mean(data)
+        b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
+        filtered_data = signal.filtfilt(b,a, data, padtype=None)
+
+        # now standardise
+        reshaped = np.reshape(filtered_data, (int(3600/stdtw), int(stdtw*fs)))
+        std_vector = np.round(np.std(reshaped, axis = 1),decimals=std_dec_places)
+        mode_std = stats.mode(std_vector)[0]
+        scaled = np.divide(data,mode_std)
+        return scaled
 
     @staticmethod
     def _make_array_from_data(data, fs, timewindow):

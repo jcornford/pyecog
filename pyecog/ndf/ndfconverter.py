@@ -333,11 +333,15 @@ class NdfFile:
                 #print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
                 #print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
 
-            # do linear interpolation between the points
+            # do linear interpolation between the points, not nan to interpolate through nans
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
-            self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time, self.tid_data_time_dict[tid]['time'],
-                                                self.tid_data_time_dict[tid]['data'])
+            not_nan = np.logical_not(np.isnan(self.tid_data_time_dict[tid]['data']))
+            self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time,
+                                                             self.tid_data_time_dict[tid]['time'][not_nan],
+                                                             self.tid_data_time_dict[tid]['data'][not_nan])
+
             self.tid_data_time_dict[tid]['time'] = regularised_time
+
             if self.verbose:
                 print('Tid '+str(tid)+': regularised fs to '+str(self.tid_to_fs_dict[tid])+' Hz')
 
@@ -426,6 +430,7 @@ class NdfFile:
             self.glitch_removal(tactic='mad')
         if auto_resampling:
             self.correct_sampling_frequency()
+            # there should now be no nans running through here!
 
     def _correct_bad_messages(self):
         '''
@@ -448,7 +453,7 @@ class NdfFile:
             end_moduli = timestamp_moduli[-n_extra_stamps:]
             if n_extra_stamps:
                 reshaped_moduli = np.reshape(timestamp_moduli[:-n_extra_stamps], (n_rows, n_fullcols), order = 'F')
-                # order F reshaped in a "fortran manner, first axis changing fastest"
+                # order F reshaped in a "fortran manner, first axis changing fastest", calculating down the columns here
                 end_mean= ss.circmean(end_moduli, high = expected_interval)
                 end_moduli_corrected = (end_moduli - end_mean)
                 mean_vector = ss.circmean(reshaped_moduli, high=expected_interval, axis=0)
