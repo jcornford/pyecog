@@ -110,7 +110,8 @@ apply_async_with_callback()
                     assert len(data_array.shape) > 1
 
                     fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
-                    fndata = self._normalise(fdata)
+                    #fndata = self._normalise(fdata)
+                    fndata = fdata
                     if fndata is not None:
                         extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
                         features = extractor.feature_array
