@@ -9,6 +9,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
+from scipy import signal, stats
 #from line_profiler import LineProfiler
 
 
@@ -395,7 +396,8 @@ class NdfFile:
 
     def load(self, read_ids = [],
              auto_glitch_removal = True,
-             auto_resampling = True,):
+             auto_resampling = True,
+             scale_and_filter = False):
 
         self.read_ids = read_ids
         logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
@@ -423,7 +425,6 @@ class NdfFile:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
             self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
             self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
-
         self._correct_bad_messages()
 
         if auto_glitch_removal:
@@ -431,6 +432,33 @@ class NdfFile:
         if auto_resampling:
             self.correct_sampling_frequency()
             # there should now be no nans running through here!
+        if scale_and_filter:
+            for tid in self.read_ids:
+                self.tid_data_time_dict[tid]['data'] = self.highpassfilter_and_standardise(self.tid_data_time_dict[tid]['data'], fs = self.tid_to_fs_dict[tid] )
+
+
+    @staticmethod
+    def highpassfilter_and_standardise(data, fs, cutoff_hz = 1, stdtw = 5,std_dec_places = 2):
+        logging.debug('Highpassfiltering and standising mode std, fs: ' + str(fs))
+
+        nyq = 0.5 * fs
+        cutoff_hz = cutoff_hz/nyq
+        data = data-np.mean(data)
+        b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
+        filtered_data = signal.filtfilt(b,a, data, padtype=None)
+
+        # now standardise
+        reshaped = np.reshape(filtered_data, (int(3600/stdtw), int(stdtw*fs)))
+        std_vector = np.round(np.std(reshaped, axis = 1),decimals=std_dec_places)
+        std_vector = std_vector[std_vector != 0]
+        if std_vector.shape[0] > 0:
+            mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
+            logging.debug(str(mode_std)+' is mode std of trace split into '+ str(stdtw)+ ' second chunks')
+            scaled = np.divide(filtered_data, mode_std)
+            return scaled
+        elif std_vector.shape[0] == 0:
+            logging.error(' File std is all 0, returning None')
+            return None
 
     def _correct_bad_messages(self):
         '''

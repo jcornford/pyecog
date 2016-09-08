@@ -75,11 +75,7 @@ apply_async_with_callback()
     def __init__(self, logpath = os.getcwd()):
 
         self.parallel_savedir = None
-        #print(os.getcwd())
-        #global loggers
-        #if loggers.get(name):
-        #    return loggers.get(name)
-        #else:
+
 
     def add_features_seizure_library(self,
                                     libary_path,
@@ -109,11 +105,9 @@ apply_async_with_callback()
                     data_array = group['data'][:]
                     assert len(data_array.shape) > 1
 
-                    fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
-                    #fndata = self._normalise(fdata)
-                    fndata = fdata
-                    if fndata is not None:
-                        extractor = FeatureExtractor(fndata, fs = group.attrs['fs'], verbose_flag = False)
+                    #fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                    if data_array is not None:
+                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], verbose_flag = False)
                         features = extractor.feature_array
 
                         try:
@@ -160,6 +154,15 @@ apply_async_with_callback()
 
                 data_array = tid['data'][:]
                 if len(data_array.shape) == 1:
+
+
+                    logging.debug('Centering, high pass filtering and scaling data to mode std:')
+                    data_array = self.highpassfilter_and_standardise(data_array, tid.attrs['fs'])
+                    if data_array is None:
+                        logging.error(' ERROR: File has no 5 seconds without 0 std, all the same')
+                        logging.error("Didn't add features to group: "+ str(tid))
+                        ERROR_FLAG = True
+                        return 0
                     logging.debug('Reshaping data from '+str(data_array.shape)+ ' using '+str(tid.attrs['fs']) +' fs' +
                                   ' and timewindow of '+ str(timewindow)  )
                     data_array = self._make_array_from_data(data_array, fs = tid.attrs['fs'], timewindow = timewindow)
@@ -172,10 +175,11 @@ apply_async_with_callback()
                         print('Data file does not contain any data. Exiting: ')
                         return 0
 
-                fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
-                fndata = self._normalise(fdata)
-                if fndata is not None:
-                    extractor = FeatureExtractor(fndata,tid.attrs['fs'], verbose_flag = False)
+                #fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
+                if data_array is not None:
+                    #for row in range(data_array.shape[0]):
+                        #print(data_array[row, :])
+                    extractor = FeatureExtractor(data_array,tid.attrs['fs'], verbose_flag = False)
                     features = extractor.feature_array
 
                     try:
@@ -409,9 +413,16 @@ apply_async_with_callback()
         # now standardise
         reshaped = np.reshape(filtered_data, (int(3600/stdtw), int(stdtw*fs)))
         std_vector = np.round(np.std(reshaped, axis = 1),decimals=std_dec_places)
-        mode_std = stats.mode(std_vector)[0]
-        scaled = np.divide(data,mode_std)
-        return scaled
+        std_vector = std_vector[std_vector != 0]
+        if std_vector.shape[0] > 0:
+            mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
+            logging.debug(str(mode_std)+' is mode std of trace split into '+ str(stdtw)+ ' second chunks')
+            scaled = np.divide(filtered_data, mode_std)
+            return scaled
+        elif std_vector.shape[0] == 0:
+            logging.error(' File std is all 0, returning None')
+            return None
+
 
     @staticmethod
     def _make_array_from_data(data, fs, timewindow):
@@ -443,7 +454,8 @@ apply_async_with_callback()
             ERROR_flag = True
             #return None
 
-    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto',
+                                    scale_and_filter = False):
         """
 
         Args:
@@ -457,6 +469,7 @@ apply_async_with_callback()
 
         """
         global ERROR_FLAG
+        self.scale_and_filter = scale_and_filter
         self.fs_for_parallel_conversion = fs
         files = [f for f in self._fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
 
@@ -465,12 +478,6 @@ apply_async_with_callback()
         if not tids == 'all':
             if not hasattr(tids, '__iter__'):
                 tids = [tids]
-            #for tid in tids:
-            #    try:
-            #        assert tid in ndf.tid_set
-            #    except AssertionError:
-            #        print('Please enter valid tid (at least for the first!) file in directory ('+str(ndf.tid_set)+')')
-            #        sys.exit()
 
         self.tids_for_parallel_conversion = tids
         print ('Transmitters for conversion: '+ str(self.tids_for_parallel_conversion))
@@ -502,6 +509,7 @@ apply_async_with_callback()
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
+        scale_and_filter_flag = self.scale_and_filter
 
         # convert m name
         mname = os.path.split(filename)[1]
@@ -512,7 +520,7 @@ apply_async_with_callback()
         try:
             ndf = NdfFile(filename, fs = fs)
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
-                ndf.load(tids)
+                ndf.load(tids, scale_and_filter = scale_and_filter_flag)
                 abs_savename = os.path.join(savedir, filename.split('/')[-1][:-4]+ndf_time+' tids_'+str(tids))
                 ndf.save(save_file_name= abs_savename)
             else:

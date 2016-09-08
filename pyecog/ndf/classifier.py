@@ -111,7 +111,7 @@ class Classifier():
         print(metrics.classification_report(np.ravel(self.labels),self.predictions))
         '''
 
-    def estimate_clf_error(self, nfolds = 5):
+    def estimate_clf_error(self, nfolds = 3):
         #self.printProgress(0,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)
         #fold = 1
         print ('Running '+str(nfolds)+'-fold cross validation to estimate classifier performance:')
@@ -126,11 +126,14 @@ class Classifier():
             y_test  = self.labels[test_ix]
 
             y_counts = pd.Series(y_train).value_counts().values
-            target_resample = (y_counts[1]*50,y_counts[1]*3)
-            samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
-            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
-            rf.fit(samp_x, np.ravel(samp_y))
-
+            #target_resample = (y_counts[1]*50,y_counts[1]*3)
+            #samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
+            print('running balanced, no sampling')
+            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500,
+                                        oob_score=True, bootstrap=True,
+                                        class_weight= 'balanced')
+            #rf.fit(samp_x, np.ravel(samp_y))
+            rf.fit(X_train, np.ravel(y_train))
             # now you need the hmm params! nest this shit up
             train_emission_probs = self.get_cross_validation_emission_probs(X_train, y_train,nfolds = 4)
             train_transition_probs = hmm.get_state_transition_probs(y_train)
@@ -161,9 +164,9 @@ class Classifier():
                 map_recall.append(recall_score)
                 f1_score = metrics.f1_score(y_test, fb)
                 map_f1.append(f1_score)
-                print ('fb Precision: '+ str(p_score))
-                print ('fb Recall: '+ str(recall_score))
-                print ('fb F1: '+ str(f1_score))
+                #print ('fb Precision: '+ str(p_score))
+                #print ('fb Recall: '+ str(recall_score))
+                #print ('fb F1: '+ str(f1_score))
                 fb = True
             except:
                 fb = False
