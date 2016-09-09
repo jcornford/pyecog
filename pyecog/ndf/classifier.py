@@ -82,26 +82,27 @@ class Classifier():
 
     def train(self, resample = (50,3)):
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
-        target_resample = (counts[1]*50,counts[1]*3)
+        target_resample = (counts[1]*50,counts[1]) # only undersample
         logging.info('Training classifier: ')
         logging.info('Resampling training - upsampling seizure seconds, downsampling baseline periods...')
         res_y, res_x = self.resample_training_dataset(self.labels, self.features,
-                                                    sizes = target_resample)
+                                                      sizes = target_resample)
         logging.info('Training Random Forest on resampled data')
-        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
+        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 800, oob_score=True, bootstrap=True)
         self.clf.fit(res_x, np.ravel(res_y))
-        #self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
+
 
         logging.info('Getting HMM params')
         self.make_hmm_model()
-        '''
-        print ('********* /n oob results on resampled data:')
-        self.clf.oob_decision_function_[:,1]
+
+        print ('********* oob results on resampled data *******')
+        self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
         print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(res_y), self.clf.oob_decision_function_[:,1])))
         print('Recall: '+str(metrics.recall_score(np.ravel(res_y), self.oob_preds)))
         print('F1: '+str(metrics.f1_score(np.ravel(res_y), self.oob_preds)))
         print(metrics.classification_report(np.ravel(res_y),self.oob_preds))
 
+        '''
         self.predictions = self.clf.predict(self.features)
         self.predictions_prob = self.clf.predict_proba(self.features)
         print ('********* /n oob results on raw data:')
@@ -118,22 +119,24 @@ class Classifier():
         skf = cv.StratifiedKFold(np.ravel(self.labels), nfolds, random_state= 7)
         precision, recall, f1 = [],[],[]
         map_precision, map_recall, map_f1 = [],[],[]
+
         for train_ix,test_ix in skf:
-            # index for the k fold
             X_train = self.features[train_ix,:]
             y_train = self.labels[train_ix]
             X_test  = self.features[test_ix,:]
             y_test  = self.labels[test_ix]
 
             y_counts = pd.Series(y_train).value_counts().values
-            #target_resample = (y_counts[1]*50,y_counts[1]*3)
-            #samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
-            print('running balanced, no sampling')
+            target_resample = (y_counts[1]*50,y_counts[1]) # no undersampling if pass ycounts straight
+            samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
+
+            print('running balanced, undersampling only')
             rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500,
                                         oob_score=True, bootstrap=True,
                                         class_weight= 'balanced')
-            #rf.fit(samp_x, np.ravel(samp_y))
-            rf.fit(X_train, np.ravel(y_train))
+            rf.fit(samp_x, np.ravel(samp_y))
+            #rf.fit(X_train, np.ravel(y_train))
+
             # now you need the hmm params! nest this shit up
             train_emission_probs = self.get_cross_validation_emission_probs(X_train, y_train,nfolds = 4)
             train_transition_probs = hmm.get_state_transition_probs(y_train)
@@ -232,10 +235,17 @@ class Classifier():
                 boot_array  = np.vstack([class_features_duplicated,extra_features])
                 boot_labels = np.vstack([class_labels_duplicated,extra_labels])
 
-            else: # more need to undersample
+            elif class_features.shape[0] > sizes[i]: # need to undersample
                 boot_array  = resample(class_features, n_samples =  sizes[i],random_state = 7, replace = False)
                 boot_labels = resample(class_labels,   n_samples =  sizes[i],random_state = 7, replace = False)
 
+            elif class_features.shape[0] == sizes[i]:
+                logging.debug('label '+str(label)+ ' had exact n as sample, doing nothing!')
+                boot_array  = class_features
+                boot_labels = class_labels
+            else:
+                print(class_features.shape[0], sizes[i])
+                print ('fuckup')
             resampled_features.append(boot_array)
             resampled_labels.append(boot_labels)
         # stack both up...
@@ -283,7 +293,7 @@ class Classifier():
 
             # work out desired resampling
             y_counts = pd.Series(y_train).value_counts().values
-            target_resample = (y_counts[1]*50,y_counts[1]*3)
+            target_resample = (y_counts[1]*50,y_counts[1])
             samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
 
             # train clf on resampled
