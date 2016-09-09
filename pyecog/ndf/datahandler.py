@@ -20,11 +20,7 @@ from .utils import filterArray
 if sys.version_info < (3,):
     range = xrange
 
-
-ERROR_FLAG = False
-
 import logging
-#loggers = {}
 
 #from make_pdfs import plot_traces_hdf5, plot_traces
 class DataHandler():
@@ -32,19 +28,12 @@ class DataHandler():
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
-     - Generate training/seizure library using ndfs and df (bundle directly - many datasets??)
-     - generate single channel folders for predictions, pass in dates, and print out files you skipped
-
-     - use the h5file and ndfFile class to clean up the code (use indexing for future compat with h5 or ndf)
+     -  pass in dates for predictions, and print out files you skipped is not transmitter there
 
     To think about
-    - handle the unix timestamps better in general
     - enable feature extraction to be better handled
-    - filtering and pre processing
-    - remeber when defining maxshape = (None, data_array.shape[1])) - to allow h5 to gorwp
+    - remeber when defining maxshape = (None, data_array.shape[1])) - to allow h5 to be resized
 
-    for faster conversion/datawrting?!:
-    have main save, the rest calculate
 
     import multiprocessing as mp
     import time
@@ -67,9 +56,7 @@ class DataHandler():
         pool.join()
         print(result_list)
 
-
 apply_async_with_callback()
-
     '''
 
     def __init__(self, logpath = os.getcwd()):
@@ -77,24 +64,22 @@ apply_async_with_callback()
         self.parallel_savedir = None
 
 
-    def add_features_seizure_library(self,
-                                    libary_path,
-                                    filter_window = 7,
-                                    filter_order = 3,
-                                    overwrite = False):
-        global ERROR_FLAG
-        logging.info('Adding features to '+ libary_path + ' with filter settings: ' +str(filter_window)+', '+str(filter_order))
+    def add_features_seizure_library(self, libary_path, overwrite = False):
+        '''
+        This is painfully slow at the moment, can't access hdf5 groups in parallel either.
+
+        '''
+        logging.info('Adding features to '+ libary_path)
 
         with h5py.File(libary_path, 'r+') as f:
-
-            timewindow = f.attrs['timewindow']
-            fs         = f.attrs['fs']
-
             seizure_datasets = [f[group] for group in list(f.keys())]
+
             l = len(seizure_datasets)-1
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
             for i, group in enumerate(seizure_datasets):
                 logging.debug('Loading group: '+ str(group))
+
+                # First check if there are features already there. If overwrite, go to except block
                 try:
                     if not overwrite:
                         features = group['features']
@@ -105,81 +90,56 @@ apply_async_with_callback()
                     data_array = group['data'][:]
                     assert len(data_array.shape) > 1
 
-                    #fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
                     if data_array is not None:
                         extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], verbose_flag = False)
                         features = extractor.feature_array
-
                         try:
                             del group['features']
                             logging.debug('Deleted old features')
                         except:
                             pass
                         group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
+
                         logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
                         self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+                    # Data_array is none
                     else:
-                        logging.warning("Didn't add features to file: "+str(group))
-                        ERROR_FLAG = True
+                        logging.error("Didn't add features to file: "+str(group))
                         return 0
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
 
-    def add_predicition_features_to_h5_file(self,
-                                            h5_file_path,
-                                            timewindow = 5,
-                                            filter_window = 7,
-                                            filter_order = 3):
+    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5):
         '''
-        Have the stucture of:
+        Currently assuming only one transmitter per h5 file
+
+        Could eventually (now only one tid) have the structure of:
 
         M1445612etc / tid1
                     / tid2
                     / tid3  / data
                             / time
         '''
-        global ERROR_FLAG
         with h5py.File(h5_file_path, 'r+') as f:
-            tids    = list(f.attrs['t_ids'])
-            tid_to_fs_dict = f.attrs['fs_dict']
 
             mcodes = [f[group] for group in list(f.keys())]
-            assert len(mcodes) == 1
+            assert len(mcodes) == 1 # assuming one transmitter per file
             mcode = mcodes[0]
 
             tids = [mcode[tid] for tid in list(mcode.keys())]
 
             for tid in tids: # loop through groups which are tids for predicition h5s
-
                 data_array = tid['data'][:]
-                if len(data_array.shape) == 1:
 
+                if data_array is not None:
 
-                    logging.debug('Centering, high pass filtering and scaling data to mode std:')
-                    data_array = self.highpassfilter_and_standardise(data_array, tid.attrs['fs'])
-                    if data_array is None:
-                        logging.error(' ERROR: File has no 5 seconds without 0 std, all the same')
-                        logging.error("Didn't add features to group: "+ str(tid))
-                        ERROR_FLAG = True
-                        return 0
                     logging.debug('Reshaping data from '+str(data_array.shape)+ ' using '+str(tid.attrs['fs']) +' fs' +
                                   ' and timewindow of '+ str(timewindow)  )
                     data_array = self._make_array_from_data(data_array, fs = tid.attrs['fs'], timewindow = timewindow)
+                    try:
+                        assert data_array.shape[0] == int(3600/timewindow)
+                    except:
+                        print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
 
-                try:
-                    assert data_array.shape[0] == int(3600/timewindow)
-                except:
-                    print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
-                    if data_array.shape[0] == 0:
-                        print('Data file does not contain any data. Exiting: ')
-                        return 0
-
-                #fdata = filterArray(data_array, window_size= filter_window, order= filter_order)
-                if data_array is not None:
-                    #for row in range(data_array.shape[0]):
-                        #print(data_array[row, :])
-                    extractor = FeatureExtractor(data_array,tid.attrs['fs'], verbose_flag = False)
+                    extractor = FeatureExtractor(data_array, tid.attrs['fs'], verbose_flag = False)
                     features = extractor.feature_array
 
                     try:
@@ -189,27 +149,25 @@ apply_async_with_callback()
                         pass
                     tid.create_dataset('features', data = features, compression = 'gzip')
                     logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
-                else:
-                    logging.error("Didn't add features to group: "+ str(tid))
-                    ERROR_FLAG = True
 
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
+                elif data_array is None:
+                    logging.error('File has None for data - perhaps all the same')
+                    logging.error("Didn't add features to group: "+ str(tid))
+
+                    return 0
 
     def parallel_add_prediction_features(self, h5py_folder, n_cores = -1):
         '''
         # NEED TO ADD SETTINGS HERE FOR THE TIMEWINDOW ETC
-        :param h5py_folder:
-        :return:
+
         '''
-        global ERROR_FLAG
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
         if n_cores == -1:
             n_cores = multiprocessing.cpu_count()
 
         pool = multiprocessing.Pool(n_cores)
         l = len(files_to_add_features)
+
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
@@ -217,10 +175,6 @@ apply_async_with_callback()
         #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
-
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
 
     def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
@@ -258,7 +212,8 @@ apply_async_with_callback()
                              seizure_library_name = 'seizure_library',
                              fs = 'auto',
                              verbose = False,
-                             overwrite = False):
+                             overwrite = False,
+                             scale_and_filter = True):
         '''
         Args:
 
@@ -282,7 +237,7 @@ apply_async_with_callback()
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
-        global ERROR_FLAG
+
         logging.info('Datahandler - creating SeizureLibrary')
 
         annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
@@ -312,17 +267,15 @@ apply_async_with_callback()
         l = len(annotation_dicts)-1
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
+            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose,scale_and_filter = scale_and_filter)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
 
     def append_to_seizure_library(self, df, file_dir, seizure_library_path,
                                   timewindow = 5,
                                   fs = 'auto',
                                   verbose = False,
-                                  overwrite = False):
+                                  overwrite = False,
+                                  scale_and_filter = True):
         '''
         Args:
 
@@ -346,7 +299,7 @@ apply_async_with_callback()
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
-        global ERROR_FLAG
+
         logging.info('Appending to seizure library')
         annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
@@ -357,29 +310,27 @@ apply_async_with_callback()
         logging.info('Datahandler - creating SeizureLibrary')
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
+            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose, scale_and_filter = scale_and_filter)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
+
 
     def _populate_seizure_library(self, annotation, fs,
                                   timewindow,
                                   seizure_library_path,
-                                  verbose = False):
-        # decide whether ndf or h5
+                                  verbose = False,
+                                  scale_and_filter = False):
+
         logging.debug('Adding '+str(annotation['fname']))
         if annotation['fname'].endswith('.ndf'):
             file_obj = NdfFile(annotation['fname'],fs = fs)
-            file_obj.load(annotation['tid'])
+            file_obj.load(annotation['tid'],scale_and_filter= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
             file_obj = H5File(annotation['fname'])
         else:
             print('ERROR: Unrecognised file-type')
 
         # add in filtering and scaling here
-        fcs_data = self.highpassfilter_and_standardise(file_obj[annotation['tid']]['data'], fs)
-        data_array = self._make_array_from_data(fcs_data, fs, timewindow)
+        data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
 
         # use the start and end times to make labels
         labels = np.zeros(shape = (data_array.shape[0]))
@@ -395,34 +346,11 @@ apply_async_with_callback()
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
                 group.attrs['fs']  = fs
+                group.attrs['scaled_and_filtered'] = scale_and_filter
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
                 labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
                 group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
             f.close()
-
-    @staticmethod
-    def highpassfilter_and_standardise(data, fs, cutoff_hz = 1, stdtw = 5,std_dec_places = 2):
-        logging.debug('Highpassfiltering and standising mode std, fs: ' + str(fs))
-
-        nyq = 0.5 * fs
-        cutoff_hz = cutoff_hz/nyq
-        data = data-np.mean(data)
-        b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
-        filtered_data = signal.filtfilt(b,a, data, padtype=None)
-
-        # now standardise
-        reshaped = np.reshape(filtered_data, (int(3600/stdtw), int(stdtw*fs)))
-        std_vector = np.round(np.std(reshaped, axis = 1),decimals=std_dec_places)
-        std_vector = std_vector[std_vector != 0]
-        if std_vector.shape[0] > 0:
-            mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
-            logging.debug(str(mode_std)+' is mode std of trace split into '+ str(stdtw)+ ' second chunks')
-            scaled = np.divide(filtered_data, mode_std)
-            return scaled
-        elif std_vector.shape[0] == 0:
-            logging.error(' File std is all 0, returning None')
-            return None
-
 
     @staticmethod
     def _make_array_from_data(data, fs, timewindow):
@@ -438,22 +366,6 @@ apply_async_with_callback()
     def _fullpath_listdir(d):
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-    @ staticmethod
-    def _normalise(series):
-
-        a = np.min(series, axis=1)
-        b = np.max(series, axis=1)
-
-        try:
-            #assert (b-a).all() != 0.0
-            result = np.divide((series - a[:, None]), (b-a)[:,None])
-            return result
-        except:
-            logging.error('Zero div error caught, passing. Data array has items all the same')
-
-            ERROR_flag = True
-            #return None
-
     def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto',
                                     scale_and_filter = False):
         """
@@ -468,7 +380,6 @@ apply_async_with_callback()
         ndfs conversion seem to be pretty buggy...
 
         """
-        global ERROR_FLAG
         self.scale_and_filter = scale_and_filter
         self.fs_for_parallel_conversion = fs
         files = [f for f in self._fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
@@ -500,12 +411,9 @@ apply_async_with_callback()
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         pool.close()
         pool.join()
-        if ERROR_FLAG:
-            print ('Errors occurred: please check the log file (search for error!)')
-            ERROR_FLAG = False
 
     def _convert_ndf(self,filename):
-        global ERROR_FLAG
+
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
@@ -526,7 +434,7 @@ apply_async_with_callback()
             else:
                 logging.warning('Not all read tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
                 #print('not all tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
-                ERROR_FLAG = True
+
         except Exception:
             print('Something unexpected went wrong loading '+str(tids)+' from '+mname+' :')
             #print('Valid ids are:'+str(ndf.tid_set))

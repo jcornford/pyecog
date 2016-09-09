@@ -1,38 +1,38 @@
 [![PyPI version](https://badge.fury.io/py/pyecog.svg)](https://badge.fury.io/py/pyecog)
 ## PyECoG
-This module is for detecting epileptiform activity from single channel intracranial EEG (or ECoG) recordings.
-Currently under heavy construction.
+This module is for detecting epileptiform activity from *single* channel intracranial EEG (or ECoG) recordings.
+Currently under heavy construction! 
 
 ### Installing PyECoG
 ```{bash}
 pip install pyecog
 ```
 
-### Originally "networkclassifer"
-This was originally a bunch of scripts for classifying brain-network states for acute models. The state in a given timewindow before light pulses that activated neurons. These scripts are still in the "lightcode" directory in case needed again.
+### Repository contents:
+* NDF:          code is the current working directory.
+* light_code:   contains old code. PyECoG was originally "networkclassifer", this is that code, kept for analysing further experiments.
+* visualisation: contains a bunch of visualisation experiments
 
 
 ### Usage:
 
-    TODO:
-    ndf/datahandler.py
-     - bind parrallel ndf and convert ndf dir into one function
-     - use the h5file class to clean up the code
-     - add predictions to file should also be same as ndf - one file
-     - everything needs to 
+
 
 ### Todo:
-* currently very ndf file heavy
-* gui for visualising traces and storing annotations
+* Glitch detection code is messy - relying on assignment bindings between attributes. 
+* Parallel add prediction features needs to have arguments passing to processes 
+* Store pre-processing steps in library h5 file
+* adding features to library file is currently not in parallel
+* datahandler file is in need of refactoring
+* logging can still spawn multiple processes in ipython notebooks (track this down)
+* feature extractor file is in need of refactoring
+* Gui for visualising traces and storing annotations - build on vispy/PyQtGraph?
 
-### Todo - more minor things
-* AR coefs.
-* Normalisation options
+### Long term to - more minor things
+* AR coefs for condensed frequency .
 * Allow easy insertion of custom features
-* speed up file conversion
-* handle errors better
-* make tests
-* decide on how to store data in hdf5 files, currently in favour of one file per transmitter_id
-* bad message filtering for fs != 512
+* Write some tests already
+* Decide on how to store data in hdf5 files, currently in favour of one file per transmitter_id
+
 
 

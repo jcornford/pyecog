@@ -12,12 +12,10 @@ import scipy.stats as ss
 from scipy import signal, stats
 #from line_profiler import LineProfiler
 
-
-
-
 if sys.version_info < (3,):
     range = xrange
 '''
+# only needed with for profiling
 def lprofile():
     def inner(func):
         def profiled_func(*args, **kwargs):
@@ -35,20 +33,10 @@ def lprofile():
 class NdfFile:
     """
     TODO:
-     - FILTERING!
-     - Bad message seems unfinished (the theory at least)
-     - Code up indexing the ndf instead of using load
-     - Potentially need to inherit from class that can also be used for h5 loading (also .plot()?)
 
-     - Glitch detection not working as expected with combined?
-     - Speed up: Glitches(settle on tactic) / saving
-     - Can you compress the saved h5 further?
-
-     - Find out if they ever start recording half way through
-     - Code up priting tthe ndf object __repr__
-
-     - Write to log...
-     - Clean up the __init__ attributes
+     - Find out if they ever start recording half way through - for auto fs detection
+     - Code up printing the ndf object __repr__
+     - Clean up unused  __init__ attributes
 
     Class to load ndf binary files.
 
@@ -92,23 +80,16 @@ class NdfFile:
         self.tid_set = set()
         self.tid_to_fs_dict = {}
         self.tid_raw_data_time_dict  = {}
-        #self.tid_raw_time_dict  = {}
         self.tid_data_time_dict = {}
-        #self.tid_time_dict = {}
         self.resampled = False
 
         self.file_label = file_path.split('/')[-1].split('.')[0]
-        self.mean_point = None
         self.identifier = None
         self.data_address = None
         self.metadata = None
 
-        self.channel_info = None
-
-        self.tids = None
         self.t_stamps = None
         self.read_ids = None
-        self.time_diff = None
         self.fs = fs
 
         self._n_possible_glitches = None
@@ -119,18 +100,20 @@ class NdfFile:
         self.verbose = verbose
 
         self.file_time_len_sec = 3600
-        adc_range = 2.7
-        amp_factor = amp_factor # this used to be 300
-        bit_size = 16
-        self.volt_div = adc_range / (2 ** bit_size) / amp_factor * 1e3  # in mV unit
+        # Below are legacy? conversion settings
+        #adc_range = 2.7
+        #amp_factor = amp_factor # this used to be 300
+        #bit_size = 16
+        #self.micro_volt_div = adc_range / (2 ** bit_size) / amp_factor * 1e3  # in mV unit
+        self.micro_volt_div = 0.4
+        #print('Using ADC * micro volt div: '+str( self.micro_volt_div))
 
         # firmware dependent:
         self.clock_tick_cycle = 7.8125e-3  # the "big" clock messages are 128Hz, 1/128 = 7.8125e-3
         self.clock_division = self.clock_tick_cycle / 256.0 # diff values from one byte
 
         self._read_file_metadata()
-        self._get_valid_tids_and_fs()
-        #print (self.__getitem__(4))
+        self.get_valid_tids_and_fs()
 
     def __getitem__(self, item):
         #assert type(item) == int
@@ -138,7 +121,6 @@ class NdfFile:
         return self.tid_data_time_dict[item]
 
     def _read_file_metadata(self):
-
         with open(self.filepath, 'rb') as f:
 
             f.seek(0)
@@ -155,11 +137,10 @@ class NdfFile:
                 # need to handle the fact it is in bytes?
                 #print ('\n'.join(self.metadata.split('\n')[1:-2]))
                 #print (self.metadata)
-
             else:
                 print('meta data length unknown - not bothering to work it out...')
 
-    def _get_valid_tids_and_fs(self):
+    def get_valid_tids_and_fs(self):
         """
         - Here work out which t_ids are in the file and their
           sampling frequency. Threshold of at least 5000 datapoints!
@@ -183,7 +164,6 @@ class NdfFile:
                 self.tid_data_time_dict[tid] = {}
         logging.info(self.filepath +' valid ids and freq are: '+str(self.tid_to_fs_dict))
 
-
     #@lprofile()
     def glitch_removal(self, plot_glitches=False, print_output=False,
                        plot_sub_glitches = False, tactic = 'mad'):
@@ -191,9 +171,10 @@ class NdfFile:
         Tactics can either be 'std', 'mad','roll_med', 'big_guns'
         """
         for tid in self.read_ids:
-            # use the badmessage filtered - also, if called first, will be resampled
+            # create binding between tid data and the data to deglitch
             self.data_to_deglitch = self.tid_data_time_dict[tid]['data']
             self.time_to_deglitch = self.tid_data_time_dict[tid]['time']
+            #print (self.data_to_deglitch is self.tid_data_time_dict[tid]['data'])
             self._n_possible_glitches = 0
             self._glitch_count        = 0
             self._plot_each_glitch = plot_sub_glitches
@@ -227,18 +208,20 @@ class NdfFile:
             else:
                 print ('Please specify detection tactic: ("mad","roll_med","big_guns", "std")')
                 raise
+
             logging.debug('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
             if self.verbose:
                 print('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
 
             if plot_glitches:
                 plt.figure(figsize = (15, 4))
-                plt.plot(self.raw_time, self.raw_data, 'k')
+                plt.plot(self.time_to_deglitch , self.data_to_deglitch, 'k')
                 plt.title('De-glitched trace');plt.xlabel('Time (seconds)')
-                plt.xlim(0,self.raw_time[-1])
+                plt.xlim(0,self.time_to_deglitch[-1] )
                 plt.show()
-        self.raw_data, self.raw_time = None, None
 
+            #self.tid_data_time_dict[tid]['data'] = self.data_to_deglitch[:]
+            #self.tid_data_time_dict[tid]['time'] = self.time_to_deglitch[:]
 
 
     def _mad_based_outlier(self, thresh=3.5):
@@ -268,12 +251,11 @@ class NdfFile:
         df['rolling'] = df['raw'].rolling(window=10, center =
         True).median().fillna(method='bfill').fillna(method='ffill')
         difference = np.abs(df['raw'] - df['rolling'])
-        inlier_idx = difference < threshold
+        #inlier_idx = difference < threshold
         outlier_idx = difference > threshold
         n_glitch = sum(abs(outlier_idx))
         if n_glitch > 200:
             logging.warning('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
-            #print ('Warning: more than 200 glitches detected! n_glitch = '+str(n_glitch))
         return outlier_idx
 
 
@@ -331,10 +313,8 @@ class NdfFile:
             except:
                 logging.warning('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
                 logging.warning('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
-                #print('WARNING: You interpolated for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
-                #print('File was '+str(os.path.split(self.filepath)[1])+ ', transmitter id was '+ str(tid))
 
-            # do linear interpolation between the points, not nan to interpolate through nans
+            # do linear interpolation between the points, where !nan
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
             not_nan = np.logical_not(np.isnan(self.tid_data_time_dict[tid]['data']))
             self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time,
@@ -344,14 +324,14 @@ class NdfFile:
             self.tid_data_time_dict[tid]['time'] = regularised_time
 
             if self.verbose:
-                print('Tid '+str(tid)+': regularised fs to '+str(self.tid_to_fs_dict[tid])+' Hz')
+                print('Tid '+str(tid)+': regularised fs to '+str(self.tid_to_fs_dict[tid])+' Hz '+str(self.tid_data_time_dict[tid]['data'].shape[0]) +' datapoints')
 
         self._resampled = True
 
 
     def save(self, save_file_name = None):
         """
-        Saves file in h5 format. Will only save the tid that have loaded.
+        Saves file in h5 format. Will only save the tid/tids that have loaded.
         Args:
             save_file_name:
         """
@@ -397,7 +377,24 @@ class NdfFile:
     def load(self, read_ids = [],
              auto_glitch_removal = True,
              auto_resampling = True,
+             auto_filter = True,
              scale_and_filter = False):
+        '''
+        N.B. Should run glitch removal before high pass filtering and auto resampling... If unhappy with glitches,
+        turn off filtering and the resampling and then run their methods etc.
+
+        Args:
+            read_ids: ids to load, can be integer of list of integers
+            auto_glitch_removal: to automatically detect glitches with default tactic median abs deviation
+            auto_resampling: to resample fs to regular sampling frequency
+            auto_filter : high pass filter traces at default 1 hz
+            scale_and_filter: high pass filter (default 1 hz) and scale to mode std dev 5 second blocks of trace
+
+        Returns:
+            data and time is stored in self.tid_data_time_dict attribute. Access data via obj[tid]['data'].
+
+
+        '''
 
         self.read_ids = read_ids
         logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
@@ -410,9 +407,7 @@ class NdfFile:
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
 
-        # read everything in 8bits, grabs time stamps
-        # the get_file props has already read these ids
-        transmitter_ids = self.transmitter_id_bytes
+        # read everything in 8bits, grabs time stamps, then get_file props has already read these ids
         self.t_stamps_256 = self._e_bit_reads[3::4]
 
         # read again, but in 16 bit chunks, grab messages
@@ -423,42 +418,107 @@ class NdfFile:
 
         for read_id in self.read_ids:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
-            self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.volt_div
+            self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.micro_volt_div
             self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
+
+        # remove bad messages
         self._correct_bad_messages()
 
         if auto_glitch_removal:
             self.glitch_removal(tactic='mad')
+
         if auto_resampling:
             self.correct_sampling_frequency()
-            # there should now be no nans running through here!
-        if scale_and_filter:
-            for tid in self.read_ids:
-                self.tid_data_time_dict[tid]['data'] = self.highpassfilter_and_standardise(self.tid_data_time_dict[tid]['data'], fs = self.tid_to_fs_dict[tid] )
+            # there should now be no nans surviving here!
 
+        if auto_filter and not scale_and_filter:
+            print('ran')
+            self.highpass_filter()
+
+        if scale_and_filter:
+            self.highpass_filter()
+            self.standardise_to_mode_stddev()
+
+
+    def highpass_filter(self, cutoff_hz = 1):
+        '''
+        Implements high pass digital butterworth filter, order 2.
+
+        Args:
+            cutoff_hz: default is 1hz
+        '''
+        for read_id in self.read_ids:
+            fs = self.tid_to_fs_dict[read_id]
+            data = self.tid_data_time_dict[read_id]['data']
+
+            logging.debug('Highpassfiltering, tid = '+str(read_id)+' fs: ' + str(fs) + ' at '+ str(cutoff_hz)+ ' Hz')
+
+            nyq = 0.5 * fs
+            cutoff_hz = cutoff_hz/nyq
+
+            data = data - np.mean(data)    # remove mean to try and reduce any filtering artifacts
+            b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
+            filtered_data = signal.filtfilt(b, a, data, padtype=None)
+            self.tid_data_time_dict[read_id]['data'] = filtered_data
+
+    def standardise_to_mode_stddev(self, stdtw = 5, std_sigfigs = 2):
+        '''
+        Calculates mode std dev and divides by it.
+
+        Args:
+            stdtw: time period over which to calculate std deviation
+            std_sigfigs: n signfigs to round to
+
+        '''
+        for read_id in self.read_ids:
+            fs = self.tid_to_fs_dict[read_id]
+            data = self.tid_data_time_dict[read_id]['data']
+
+            logging.debug('Standardising to mode std dev, tid = '+str(read_id))
+
+            reshaped = np.reshape(data, (int(3600/stdtw), int(stdtw*fs)))
+            std_vector = self.round_to_sigfigs(np.std(reshaped, axis = 1), sigfigs=std_sigfigs)
+            std_vector = std_vector[std_vector != 0]
+            if std_vector.shape[0] > 0:
+                mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
+                scaled = np.divide(data, mode_std)
+                self.tid_data_time_dict[read_id]['data'] = scaled
+                logging.debug(str(mode_std)+' is mode std of trace split into '+ str(stdtw)+ ' second chunks')
+            elif std_vector.shape[0] == 0:
+                self.tid_data_time_dict[read_id]['data'] =  None
+                logging.error(' File std is all 0, changed data to be None')
 
     @staticmethod
-    def highpassfilter_and_standardise(data, fs, cutoff_hz = 1, stdtw = 5,std_dec_places = 2):
-        logging.debug('Highpassfiltering and standising mode std, fs: ' + str(fs))
+    def round_to_sigfigs(x, sigfigs):
+        """
+        N.B Stolen from stack overflow:
+        http://stackoverflow.com/questions/18915378/rounding-to-significant-figures-in-numpy
 
-        nyq = 0.5 * fs
-        cutoff_hz = cutoff_hz/nyq
-        data = data-np.mean(data)
-        b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
-        filtered_data = signal.filtfilt(b,a, data, padtype=None)
+        Rounds the value(s) in x to the number of significant figures in sigfigs.
 
-        # now standardise
-        reshaped = np.reshape(filtered_data, (int(3600/stdtw), int(stdtw*fs)))
-        std_vector = np.round(np.std(reshaped, axis = 1),decimals=std_dec_places)
-        std_vector = std_vector[std_vector != 0]
-        if std_vector.shape[0] > 0:
-            mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
-            logging.debug(str(mode_std)+' is mode std of trace split into '+ str(stdtw)+ ' second chunks')
-            scaled = np.divide(filtered_data, mode_std)
-            return scaled
-        elif std_vector.shape[0] == 0:
-            logging.error(' File std is all 0, returning None')
-            return None
+        Restrictions:
+        sigfigs must be an integer type and store a positive value.
+        x must be a real value or an array like object containing only real values.
+        """
+        #The following constant was computed in maxima 5.35.1 using 64 bigfloat digits of precision
+        __logBase10of2 = 3.010299956639811952137388947244930267681898814621085413104274611e-1
+        if not ( type(sigfigs) is int or np.issubdtype(sigfigs, np.integer)):
+            raise TypeError( "RoundToSigFigs: sigfigs must be an integer." )
+
+        if not np.all(np.isreal( x )):
+            raise TypeError( "RoundToSigFigs: all x must be real." )
+
+        if sigfigs <= 0:
+            raise ValueError( "RoundtoSigFigs: sigfigs must be positive." )
+
+        mantissas, binaryExponents = np.frexp( x )
+
+        decimalExponents = __logBase10of2 * binaryExponents
+        intParts = np.floor(decimalExponents)
+
+        mantissas *= 10.0**(decimalExponents - intParts)
+
+        return np.around( mantissas, decimals=sigfigs - 1 ) * 10.0**intParts
 
     def _correct_bad_messages(self):
         '''
