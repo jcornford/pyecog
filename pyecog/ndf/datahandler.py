@@ -64,7 +64,7 @@ apply_async_with_callback()
         self.parallel_savedir = None
 
 
-    def add_features_seizure_library(self, libary_path, overwrite = False):
+    def add_features_seizure_library(self, libary_path, overwrite = False, subtract_baseline = False):
         '''
         This is painfully slow at the moment, can't access hdf5 groups in parallel either.
 
@@ -91,7 +91,7 @@ apply_async_with_callback()
                     assert len(data_array.shape) > 1
 
                     if data_array is not None:
-                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], verbose_flag = False)
+                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'],subtract_baseline = subtract_baseline)
                         features = extractor.feature_array
                         try:
                             del group['features']
@@ -139,7 +139,7 @@ apply_async_with_callback()
                     except:
                         print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
 
-                    extractor = FeatureExtractor(data_array, tid.attrs['fs'], verbose_flag = False)
+                    extractor = FeatureExtractor(data_array, tid.attrs['fs'])
                     features = extractor.feature_array
 
                     try:
@@ -354,6 +354,9 @@ apply_async_with_callback()
 
     @staticmethod
     def _make_array_from_data(data, fs, timewindow):
+        '''
+        What ordering are we looking for here?
+        '''
         n_traces = int(data.shape[0] / (fs * timewindow))
         dp_lost =  int(data.shape[0] % (fs * timewindow))
         if dp_lost > 0:

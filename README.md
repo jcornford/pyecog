@@ -20,8 +20,8 @@ pip install pyecog
 
 ### Todo:
 * Glitch detection code is messy - relying on assignment bindings between attributes. 
-* Parallel add prediction features needs to have arguments passing to processes 
-* Store pre-processing steps in library h5 file
+* Parallel add_prediction_features method needs to have arguments passing to processes, e.g timewindow 
+* add feature column headings to file...
 * adding features to library file is currently not in parallel
 * datahandler file is in need of refactoring
 * logging can still spawn multiple processes in ipython notebooks (track this down)

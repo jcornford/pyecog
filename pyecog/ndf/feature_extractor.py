@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import scipy.stats as st
+import scipy.stats as stats
 #import matplotlib.pyplot as plt
 
 
@@ -11,16 +12,14 @@ from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the p
 
 class FeatureExtractor():
 
-    def __init__(self, dataset,fs, subtract_baseline = True,  verbose_flag = False):
-        self.verbose = verbose_flag
+    def __init__(self, dataset, fs, subtract_baseline = False):
         self.start = time.clock()
         self.dataset = dataset
         self.fs = fs
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
 
-
-        self._baseline(subtract_baseline=subtract_baseline, threshold=0.04, window_size=100)
-        self._event_dataset_stats()
+        self._baseline( threshold=0.04, window_size=100)
+        self.event_dataset_stats()
         self._peaks_and_valleys()
         self._wavelet_features(fs = fs, frequencies = [1,5,10,15,20,30,60,90])
 
@@ -34,26 +33,22 @@ class FeatureExtractor():
         logging.debug("Stacking up..."+str(self.feature_array.shape))
         logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
 
-    def _event_dataset_stats(self):
-        logging.debug("Extracting stats on event dataset...")
-        self.event_stats = np.zeros((len(self.event_dataset),7))
+    def event_dataset_stats(self):
+        logging.debug("Extracting stats 5 second window...")
+        self.event_stats = np.zeros((self.dataset.shape[0],7))
         self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
-        #self.col_labels.append(self.event_stats_col_labels)
-        for i,trace in enumerate(self.event_dataset):
-            if trace.shape[0]:
-                # if not all baseline
-                self.event_stats[i,0] = np.min(trace)
-                self.event_stats[i,1] = np.max(trace)
-                self.event_stats[i,2] = np.mean(trace)
-                self.event_stats[i,3] = np.std(trace)
-                self.event_stats[i,4] = st.kurtosis(trace)
-                self.event_stats[i,5] = st.skew(trace)
-                self.event_stats[i,6] = np.sum(np.absolute(np.diff(trace)))
-            else:
-                 # if all baseline
-                self.event_stats[i,:] = np.NaN
 
-    def _baseline(self, subtract_baseline = True, threshold = 0.04, window_size = 100):
+        event_stats = np.zeros((self.dataset.shape[0],7))
+        event_stats[:,0] = np.amin(self.dataset, axis = 1)
+        event_stats[:,1] = np.amax(self.dataset, axis = 1)
+        event_stats[:,2] = np.mean(self.dataset, axis = 1)
+        event_stats[:,3] = np.std(self.dataset, axis = 1)
+        event_stats[:,4] = stats.kurtosis(self.dataset,axis = 1)
+        event_stats[:,5] = stats.skew(self.dataset, axis = 1)
+        event_stats[i,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)))
+
+
+    def _baseline(self, threshold = 0.04, window_size = 100):
         '''
         Method calculates 2 feature lists and an event dataset:
             - self.event_dataset is the data window with 'baseline points removed'
