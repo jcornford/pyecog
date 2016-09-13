@@ -307,7 +307,7 @@ class NdfFile:
         # first check that we are not interpolating datapoints for more than 1 second?
 
         for tid in self.read_ids:
-            max_interp = max(np.diff(self.tid_data_time_dict[tid]['data']))
+            max_interp = max(np.diff(self.tid_data_time_dict[tid]['time']))
             try:
                 assert max_interp < 2.0
             except:
@@ -432,7 +432,6 @@ class NdfFile:
             # there should now be no nans surviving here!
 
         if auto_filter and not scale_and_filter:
-            print('ran')
             self.highpass_filter()
 
         if scale_and_filter:
