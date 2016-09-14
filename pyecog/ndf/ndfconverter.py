@@ -448,16 +448,15 @@ class NdfFile:
         '''
         for read_id in self.read_ids:
             fs = self.tid_to_fs_dict[read_id]
-            data = self.tid_data_time_dict[read_id]['data']
-
-            logging.debug('Highpassfiltering, tid = '+str(read_id)+' fs: ' + str(fs) + ' at '+ str(cutoff_hz)+ ' Hz')
-
             nyq = 0.5 * fs
-            cutoff_hz = cutoff_hz/nyq
-
+            cutoff_decimal = cutoff_hz/nyq
+            
+            logging.debug('Highpassfiltering, tid = '+str(read_id)+' fs: ' + str(fs) + ' at '+ str(cutoff_hz)+ ' Hz')
+            data = self.tid_data_time_dict[read_id]['data']
             data = data - np.mean(data)    # remove mean to try and reduce any filtering artifacts
-            b, a = signal.butter(2, cutoff_hz, 'highpass', analog=False)
-            filtered_data = signal.filtfilt(b, a, data, padtype=None)
+            b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
+            filtered_data = signal.filtfilt(b, a, data)
+
             self.tid_data_time_dict[read_id]['data'] = filtered_data
 
     def standardise_to_mode_stddev(self, stdtw = 5, std_sigfigs = 2):
