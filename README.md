@@ -19,7 +19,7 @@ pip install pyecog
 
 
 ### Todo:
-* M1445362612.ndf throws error when loading more than three t_ids, getting linAlg error in scipy.filtfilt
+* Add windowed bandpower to features
 * Glitch detection code is messy - relying on assignment bindings between attributes. 
 * Parallel add_prediction_features method needs to have arguments passing to processes, e.g timewindow 
 * add feature column headings to file...

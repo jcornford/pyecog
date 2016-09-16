@@ -12,85 +12,162 @@ from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the p
 
 class FeatureExtractor():
 
-    def __init__(self, dataset, fs, subtract_baseline = False):
+    def __init__(self, dataset, fs, extract = True):
+        '''
+        Inputs:
+            Dataset: should already be chunked into desired windows. Pass extract as False to select which features to run.
+            Assuming this is on hour's worth
+
+            fs: samling frequency
+            extract: a flag to eaxtract all the features - default true
+
+        Should we move the scaling to here - in order to leave the units correct elsewhere?
+        '''
+
         self.start = time.clock()
         self.dataset = dataset
+        self.chunk_len = 3600/self.dataset.shape[0]
+        self.flat_data = np.ravel(dataset, order = 'C')
         self.fs = fs
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
 
-        self._baseline( threshold=0.04, window_size=100)
-        self.event_dataset_stats()
-        self._peaks_and_valleys()
-        self._wavelet_features(fs = fs, frequencies = [1,5,10,15,20,30,60,90])
+        powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
+        powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in powerbands]
+
+        if extract:
+            self.get_basic_stats()
+            #self.baseline( threshold=0.04, window_size=100)
+            self.peaks_and_valleys()
+            self.calculate_powerbands(self.flat_data, chunk_len= self.chunk_len, fs = fs,
+                                      bands =  powerbands)
 
 
-        self.feature_array = np.hstack([self.event_stats,self.baseline_features,
-                                   self.pkval_stats,self.meanpower])
-        self.col_labels = np.hstack([self.event_stats_col_labels, self.baseline_features_labels,
-                                     self.pkval_labels,['1','5','10','15','20','30','60','90'] ])
+            self.feature_array = np.hstack([self.basic_stats,self.baseline_features,
+                                       self.pkval_stats,self.meanpower])
 
-        timetaken = np.round((time.clock()-self.start), 2)
-        logging.debug("Stacking up..."+str(self.feature_array.shape))
-        logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
+            self.col_labels = np.hstack([self.basic_stats_col_labels, self.baseline_features_labels,
+                                         self.pkval_labels, powerband_titles])
 
-    def event_dataset_stats(self):
-        logging.debug("Extracting stats 5 second window...")
-        self.event_stats = np.zeros((self.dataset.shape[0],7))
-        self.event_stats_col_labels = ('min','max','mean','std-dev','skew','kurtosis','sum(abs(difference))')
+            timetaken = np.round((time.clock()-self.start), 2)
+            logging.debug("Stacking up..."+str(self.feature_array.shape))
+            logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
 
-        event_stats = np.zeros((self.dataset.shape[0],7))
-        event_stats[:,0] = np.amin(self.dataset, axis = 1)
-        event_stats[:,1] = np.amax(self.dataset, axis = 1)
-        event_stats[:,2] = np.mean(self.dataset, axis = 1)
-        event_stats[:,3] = np.std(self.dataset, axis = 1)
-        event_stats[:,4] = stats.kurtosis(self.dataset,axis = 1)
-        event_stats[:,5] = stats.skew(self.dataset, axis = 1)
-        event_stats[i,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)))
+    def get_basic_stats(self):
+        logging.debug("Extracting basic stats...")
+        self.basic_stats_col_labels = ('min', 'max', 'mean', 'std-dev', 'skew', 'kurtosis', 'sum(abs(difference))')
 
+        self.basic_stats = np.zeros((self.dataset.shape[0],7))
+        self.basic_stats[:,0] = np.amin(self.dataset, axis = 1)
+        self.basic_stats[:,1] = np.amax(self.dataset, axis = 1)
+        self.basic_stats[:,2] = np.mean(self.dataset, axis = 1)
+        self.basic_stats[:,3] = np.std(self.dataset, axis = 1)
+        self.basic_stats[:,4] = stats.kurtosis(self.dataset,axis = 1)
+        self.basic_stats[:,5] = stats.skew(self.dataset, axis = 1)
+        self.basic_stats[:,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)))
 
-    def _baseline(self, threshold = 0.04, window_size = 100):
+    @staticmethod
+    def calculate_powerbands(flat_data, chunk_len, fs, bands):
         '''
-        Method calculates 2 feature lists and an event dataset:
-            - self.event_dataset is the data window with 'baseline points removed'
-            - baseline_length is the first feature list and is the number of datapoints within the window
-              defined as being baseline using a rolling std deviation window and threshold
-            - baseline_mean_diff is the second list and is the mean difference between baseline datapoint indexes.
+        Inputs:
+            - flat_data: np.array, of len(arr.shape) = 1
+            - chunk_len: length in seconds of chunk over which to calculate bp
+            - fs       : sampling frequency in Hz
+            - bands    : list of tuples, containing bands of interest.
+            e.g. [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
+
+        Returns:
+            - numpy array, columns correspond to powerbands.
+            Maybe could switch out for pandas dataframe?
+
+        Notes:
+            - Band power units are "y unit"^2?... Aren't they Marco! ;]
+            - using rfft so scaling factors added in are: (Marco could you complete this)
+            - using a hanning window, so reflecting half of the first and last chunk in
+            order to centre the window over the time windows of interest (and to not throw
+            anything away)
+
         '''
-        logging.debug('Extracting baseline via rolling std...')
 
-        array_std = np.std(self.rolling_window(self.dataset,window=window_size),-1)
+        # first reflect the first and last half chunk length so we don't lose any time
+        pad_dp = int((chunk_len/2) * fs)
+        padded_data = np.pad(flat_data, pad_width=pad_dp, mode = 'reflect')
 
-        array_window = np.zeros([self.dataset.shape[0],window_size-1])
-        rolling_std_array = np.hstack((array_window,array_std))
+        # reshape data into array, stich together
+        data_arr = np.reshape(padded_data,
+                              newshape=(int(3600/chunk_len)+1, int(chunk_len*fs)), # +1 due to padding
+                              order= 'C')
+        data_arr_stiched = np.concatenate([data_arr[:-1], data_arr[1:]], axis = 1)
 
-        masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, self.dataset)
-        mean_baseline_vector = np.mean(masked_std_below_threshold,axis = 1)
+        # window the data with hanning window
+        hanning_window = np.hanning(data_arr_stiched.shape[1])
+        windowed_data  = np.multiply(data_arr_stiched, hanning_window)
 
-        if subtract_baseline:
-            dataset_after_subtraction_option = self.dataset - mean_baseline_vector[:,None]
-        else:
-            dataset_after_subtraction_option = self.dataset
+        # run fft and get psd
+        bin_frequencies = np.fft.rfftfreq(int(chunk_len*fs)*2, 1/fs) # *2 as n.points is doubled due to stiching
+        A = np.abs(np.fft.rfft(windowed_data, axis = 1))
+        psd = (2/.375)*(A/(2*fs))**2 # psd units are "y unit"V^2/hz
+        # 2/.375 and 2*fs are due to rfft (Marco? comment here please)
 
-        masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, dataset_after_subtraction_option)
-        indexes = np.array(np.arange(self.dataset.shape[1]))
-        #print(self.dataset.shape[0], 'is dset shape 0')
+        # now grab power bands from psd
+        bin_width = np.diff(bins[:3])[1]
+        pb_array = np.zeros(shape = (psd.shape[0],len(power_bands)))
+        for i,band in enumerate(power_bands):
+            lower_freq, upper_freq = band # unpack the band tuple
+            band_indexes = np.where(np.logical_and(bins >= lower_freq, bins<=upper_freq))[0]
+            bp = np.sum(psd[:,band_indexes], axis = 1)*bin_width
+            pb_array[:,i] = bp
 
-        #self.event_dataset = [np.ma.compressed(masked_std_above_threshold[i,:]) for i in range(self.dataset.shape[0])]
-        self.event_dataset = self.dataset
-        baseline_length = [len(np.ma.compressed(masked_std_below_threshold[i,:])) for i in range(self.dataset.shape[0])]
+        return pb_array
 
-        baseline_diff_skew = [st.skew(np.diff(indexes[np.logical_not(masked_std_below_threshold[i,:].mask)])) for i in range(self.dataset.shape[0])]
-        baseline_mean_diff = [np.mean(np.diff(indexes[np.logical_not(masked_std_below_threshold[i,:].mask)])) for i in range(self.dataset.shape[0])]
+    def rolling_window(array, window):
+        """
+        Remember that the rolling window actually starts at the window length in.
+        """
+        shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
+        strides = array.strides + (array.strides[-1],)
+        return np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
+
+    def baseline(self, threshold = 1.5, window_size = 80):
+        '''
+        Window size should be fs dependent?
+
+        - used to have mean baseline diff and also baseline diff skew for vincents model, kept in for now.
+        '''
+
+        #first_flatten_data_array
+        flat_data = np.ravel(data, order = 'C')
+        array_std = np.std(rolling_window(flat_data, window=window_size),-1)
+        array_window_missing = np.zeros(window_size-1) # goes on at the front
+        rolling_std_array = np.hstack((array_window_missing,array_std))
 
 
-        #self.baseline_diff = [indexes[np.logical_not(masked_std_below_threshold[i].mask)] for i in range(dataset.shape[0])]
+        masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, flat_data)
+        masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, flat_data)
+        std_below_arr = np.reshape(masked_std_below_threshold, newshape = data.shape, order = 'C')
+        #std_above_arr = np.reshape(masked_std_above_threshold, newshape = data.shape, order = 'C')
+        baseline_length = np.array([len(np.ma.compressed(std_below_arr[i,:])) for i in range(data.shape[0])])
 
-        self.baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
-        self.baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_diff_skew']
+        indexes = np.array(np.arange(data.shape[1]))
+        baseline_diff_skew = np.array([st.skew(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
+                                       for i in range(data.shape[0])])
+        baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
+                              for i in range(data.shape[0])])
+        less_50_bl_datapoints = np.where(baseline_length<50)[0]
+        baseline_mean_diff[less_50_bl_datapoints] = fs/(baseline_length[less_50_bl_datapoints]+2) # a hack to overcome if no baselines...
 
-        #print 'N.B using mean baseline difference - perhaps not best?'
+        print('***********')
+        print(baseline_length[110:130])
+        print(baseline_diff_skew[10:130])
+        print(baseline_mean_diff[110:130])
+        # what to do here with no mean diff or skew?! fully postive skewed? mean diff is the full window?
+        # then we have one's as everthing is there - skew?
 
-    def _peaks_and_valleys(self):
+        baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
+        baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_diff_skew']
+
+        return(baseline_features)
+
+    def peaks_and_valleys(self):
 
         logging.debug("Extracting peak/valley features...")
         pk_nlist = []
@@ -136,31 +213,6 @@ class FeatureExtractor():
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
         self.pkval_labels = ['n_pks','n_vals','av_pk','av_val','av_pkval_range']
 
-        #print ('N.B Again - preassign?')
-
-    def _wavelet_features(self, fs = 512, frequencies = [1,5,10,15,20,30,60, 90]):
-        logging.debug("Extracting wavelet features from event dataset...")
-        window = int(fs*0.5)
-        waveletList = []
-        for freq in frequencies:
-            wavelet, xaxis = self.complexMorlet(freq,fs,timewindow = (-0.1,0.1))
-            waveletList.append(wavelet)
-
-        power = []
-        meanpower = []
-        for i in range(len(self.event_dataset)):
-            if self.event_dataset[i].shape[0]:
-                convResults = self.convolve(self.event_dataset[i], waveletList)
-                powerArray  = np.absolute(convResults)
-                #print powerArray.shape
-                power.append(powerArray)
-                meanpower.append(np.mean(powerArray,axis = 1))
-
-            else:
-                power.append(np.ones((len(frequencies)))*np.NaN)
-                meanpower.append(np.ones((len(frequencies)))*np.NaN)
-        self.meanpower = np.array(meanpower)
-        #print("N.B. Still no post crossing power")
 
     @ staticmethod
     def rolling_window(array, window):
@@ -224,44 +276,4 @@ class FeatureExtractor():
                     lookformax = True
         return array(maxtab), array(mintab)
 
-    @staticmethod
-    def complexMorlet(freq, samplingFreq, timewindow,
-                  noWaveletCycles=6,freqNorm = False):
-        '''
-        freq              = wavelet frequency
-        samplingFrequency = 'insert data sampling frequency here'
-        noWaveletCycles   = 'reread variable name' - trades off temp and freq precision
-        timewindow        = timewindow over which to calculate wavelet
-        freqNorm          = Bool, decide whether to normlise over frequencies
-        plotWavelet       = Plot the construction?
-        '''
-        n = noWaveletCycles
-        f = freq
-        timeaxis = np.linspace(timewindow[0],timewindow[1],samplingFreq*(2.*timewindow[1]))
-        sine_wave = np.exp(2*np.pi*1j*f*timeaxis)
-        gstd = n/(2.*np.pi*f)
-        gauss_win = np.exp(-timeaxis**2./(2.*gstd**2.))
-
-        A = 1 # just 1 if not normlising freqs
-        if freqNorm:
-            #gstd    = (4/(2*np.pi*f))**2# this is his?
-            A = 1.0/np.sqrt((gstd*np.sqrt(np.pi)))
-            print('freqNorm is :'+str(A)+' for'+str(f) +' Hz')
-
-        wavelet = A*sine_wave*gauss_win
-        #print wavelet.shape
-
-        return wavelet, timeaxis
-
-    @staticmethod
-    def convolve(dataSection, wavelets):
-        convResults = []
-        for i in range(len(wavelets)):
-            wavelet = wavelets[i]
-            complexResult = np.convolve(dataSection,wavelet,'same')
-            convResults.append(complexResult)
-
-        convResults = np.array(convResults) # convert to a numpy array!
-        #print convResults.shape
-        return convResults
 
