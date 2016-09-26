@@ -1,19 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-In this example we create a subclass of PlotCurveItem for displaying a very large
-data set from an HDF5 file that does not fit in memory.
+Plans:
 
-The basic approach is to override PlotCurveItem.viewRangeChanged such that it
-reads only the portion of the HDF5 data that is necessary to display the visible
-portion of the data. This is further downsampled to reduce the number of samples
-being displayed.
+** Dont understand the difference bewtween views, layout etc, documentation seems very hard to find
+Lets just make miminum viable thing - scrolling and ability to load and select
 
-A more clever implementation of this class would employ some kind of caching
-to avoid re-reading the entire visible waveform at every update.
+ - left right arrow
+ - space bar scrolling
+ - nested tids/ seizure datasets
+ - fft
+ - animal video space
+ - larger bottom
+ - disable zooms on smaller
+ - be able to navigate between files...
+
+ Other examples...:
+  - scrollling
+  - nested
+  - dialogue boxes
+  - graph view...
+
+
 """
 
 #import initExample ## Add path to library (just for examples; you do not need this)
-
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
@@ -21,11 +31,24 @@ import h5py
 import sys, os
 
 class HDF5Plot(pg.PlotCurveItem):
-    def __init__(self, *args, **kwds):
+    """
+    Create a subclass of PlotCurveItem for displaying a very large
+    data set from an HDF5 file that does not neccesarilly fit in memory.
+
+    The basic approach is to override PlotCurveItem.viewRangeChanged such that it
+    reads only the portion of the HDF5 data that is necessary to display the visible
+    portion of the data. This is further downsampled to reduce the number of samples
+    being displayed.
+
+    A more clever implementation of this class would employ some kind of caching
+    to avoid re-reading the entire visible waveform at every update.
+    """
+    def __init__(self, downsample_limit = 20000, *args, **kwds):
+        " TODO what are the args and kwds for PlotCurveItem class?"
         self.hdf5 = None
         self.time = None
         self.fs = None
-        self.limit = 20000 # maximum number of samples to be plotted, 10000 orginally
+        self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
         pg.PlotCurveItem.__init__(self, *args, **kwds)
 
     def setHDF5(self, data, time, fs):
@@ -48,18 +71,12 @@ class HDF5Plot(pg.PlotCurveItem):
             return  # no ViewBox yet
 
         # Determine what data range must be read from HDF5
-
         xrange = [i*self.fs for i in vb.viewRange()[0]]
-        #print(xrange)
         start = max(0,int(xrange[0])-1)
-        #print(xrange)
-        #print(max(0,int(xrange[0])))
         stop = min(len(self.hdf5), int(xrange[1]+2))
-        #print(start, stop)
 
         # Decide by how much we should downsample
         ds = int((stop-start) / self.limit) + 1
-        #print(ds, 'is ds')
         if ds == 1:
             # Small enough to display with no intervention.
             visible_y = self.hdf5[start:stop]
@@ -94,6 +111,7 @@ class HDF5Plot(pg.PlotCurveItem):
                 mx_inds = np.argmax(chunk, axis=1)
                 mi_inds = np.argmin(chunk, axis=1)
                 row_inds = np.arange(chunk.shape[0])
+
                 chunkMax = chunk[row_inds, mx_inds]
                 chunkMin = chunk[row_inds, mi_inds]
                 chunkMax_x = chunk_x[row_inds, mx_inds]
@@ -109,20 +127,24 @@ class HDF5Plot(pg.PlotCurveItem):
 
             visible_x = visible_x[:targetPtr]
             visible_y = visible_y[:targetPtr]
-            #print('**** now downsampling')
-            #print(visible_y.shape, visible_x.shape)
             scale = ds * 0.5
 
+        # TODO: setPos, scale, resetTransform methods... scale?
         self.setData(visible_x, visible_y) # update the plot
         #self.setPos(start, 0) # shift to match starting index ### Had comment out to stop it breaking... when limit is >0?!
         self.resetTransform()
         #self.scale(scale, 1)  # scale to match downsampling
 
 def load_library(path):
-      """Create a large HDF5 data file for testing.
-    Data consists of 1M random samples tiled through the end of the array.
-    """
+    "load seizure library files"
+    pass
 
+def load_ndf(path):
+    pass
+
+def load_h5(path):
+    "flat h5 for predictions"
+    pass
 
 def createFile(finalSize=2000000000):
     """Create a large HDF5 data file for testing.
@@ -149,17 +171,6 @@ def createFile(finalSize=2000000000):
         dlg += 1
     f.close()
 
-if len(sys.argv) > 1:
-    fileName = sys.argv[1]
-else:
-    fileName = 'test.hdf5'
-    if not os.path.isfile(fileName):
-        size, ok = QtGui.QInputDialog.getDouble(None, "Create HDF5 Dataset?", "This demo requires a large HDF5 array. To generate a file, enter the array size (in GB) and press OK.", 2.0)
-        if not ok:
-            sys.exit(0)
-        else:
-            createFile(int(size*1e9))
-        #raise Exception("No suitable HDF5 file found. Use createFile() to generate an example file.")
 
 fileName = '/Users/jonathan/Dropbox/gui_pyqt_dev/gl_library_for_vannila_features.h5'
 f = h5py.File(fileName, 'r')
@@ -167,7 +178,8 @@ f = h5py.File(fileName, 'r')
 
 i = 0
 datasets = [f[key] for key in list(f.keys())]
-data = datasets[i]['data'][:]
+data = datasets[i]['data'][:]  # check - dont need to slice here? or do i?
+# think i have broken the larger than memory part of this...
 flat_data = np.ravel(data, order = 'C')
 fs = datasets[i].attrs['fs']
 time = np.arange(0, 3600*fs)/fs# assuming it is an hour
@@ -175,27 +187,36 @@ time = np.reshape(time, newshape=(data.shape), order = 'C') # should be same sha
 flat_time = np.ravel(time, order = 'C')
 
 
-pg.mkQApp()
+#pg.mkQApp()
+app = QtGui.QApplication([])
+view = pg.GraphicsView()
+#win = pg.GraphicsLayout()
+#view.setCentralItem(win)
 
 win = pg.GraphicsWindow()
-win.resize(1500,500)
+win.resize(1000,500)
 win.setWindowTitle('PyECoG ')
 
 
 
-plt1 = win.addPlot(title = 'tid ... ')
+plt1 = win.addPlot(row=1, col=1,colspan = 3, title = 'Overview ... ')
 plt1.enableAutoRange(False, False)
 plt1.setXRange(0, 3600)
+plt1.setMouseEnabled(x = False, y = True)
 curve1 = HDF5Plot()
 curve1.setHDF5(flat_data, flat_time, fs)
-lr = pg.LinearRegionItem([0,400])
+lr = pg.LinearRegionItem([0,20])
 lr.setZValue(-10)
 plt1.addItem(lr)
 plt1.addItem(curve1)
 
+vid = win.addViewBox(lockAspect = True, row = 1, col = 4)
+img = pg.ImageItem(np.random.normal(size=(150,150)))
+vid.addItem(img)
+vid.autoRange()
 
 win.nextRow()
-plt = win.addPlot(title = 'tid ... ')
+plt = win.addPlot(row=2, col=1 , colspan = 4, title = 'tid ... ')
 plt.enableAutoRange(False, False)
 plt.setXRange(0, 500)
 curve = HDF5Plot()
@@ -210,7 +231,25 @@ lr.sigRegionChanged.connect(updatePlot)
 plt.sigXRangeChanged.connect(updateRegion)
 updatePlot()
 
+def scroll():
+    global data1, curve1, ptr1
+    data1[:-1] = data1[1:]  # shift data in the array one sample left
+                            # (see also: np.roll)
+    data1[-1] = np.random.normal()
+    curve1.setData(data1)
 
+    ptr1 += 1
+    curve2.setData(data1)
+    curve2.setPos(ptr1, 0)
+
+# update all plots
+def update():
+    update1()
+    update2()
+    update3()
+timer = pg.QtCore.QTimer()
+timer.timeout.connect(update)
+timer.start(50)
 
 ## Start Qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':

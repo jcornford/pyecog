@@ -450,7 +450,7 @@ class NdfFile:
             fs = self.tid_to_fs_dict[read_id]
             nyq = 0.5 * fs
             cutoff_decimal = cutoff_hz/nyq
-            
+
             logging.debug('Highpassfiltering, tid = '+str(read_id)+' fs: ' + str(fs) + ' at '+ str(cutoff_hz)+ ' Hz')
             data = self.tid_data_time_dict[read_id]['data']
             data = data - np.mean(data)    # remove mean to try and reduce any filtering artifacts
@@ -509,14 +509,14 @@ class NdfFile:
         if sigfigs <= 0:
             raise ValueError( "RoundtoSigFigs: sigfigs must be positive." )
 
-        mantissas, binaryExponents = np.frexp( x )
+        mantissas, binaryExponents = np.frexp(x)
 
         decimalExponents = __logBase10of2 * binaryExponents
         intParts = np.floor(decimalExponents)
 
         mantissas *= 10.0**(decimalExponents - intParts)
 
-        return np.around( mantissas, decimals=sigfigs - 1 ) * 10.0**intParts
+        return np.around(mantissas, decimals=sigfigs - 1 ) * 10.0**intParts
 
     def _correct_bad_messages(self):
         '''
