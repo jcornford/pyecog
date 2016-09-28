@@ -29,8 +29,8 @@ class FeatureExtractor():
         self.chunk_len = 3600/self.dataset.shape[0]
         self.flat_data = np.ravel(dataset, order = 'C')
         self.fs = fs
-        logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
 
+        logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
         powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
         powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in powerbands]
 
@@ -38,9 +38,10 @@ class FeatureExtractor():
             self.get_basic_stats()
             #self.baseline( threshold=0.04, window_size=100)
             self.peaks_and_valleys()
-            self.calculate_powerbands(self.flat_data, chunk_len= self.chunk_len, fs = fs,
+            self.calculate_powerbands(self.flat_data,
+                                      chunk_len= self.chunk_len,
+                                      fs = fs,
                                       bands =  powerbands)
-
 
             self.feature_array = np.hstack([self.basic_stats,self.baseline_features,
                                        self.pkval_stats,self.meanpower])
@@ -119,6 +120,7 @@ class FeatureExtractor():
 
         return pb_array
 
+    @staticmethod
     def rolling_window(array, window):
         """
         Remember that the rolling window actually starts at the window length in.
@@ -131,15 +133,19 @@ class FeatureExtractor():
         '''
         Window size should be fs dependent?
 
-        - used to have mean baseline diff and also baseline diff skew for vincents model, kept in for now.
+        - used to have mean baseline diff and also baseline diff skew for vincents model
+          kept, diff (with a fudge for when few datapoints, but not skew.) Though from looking,
+          skew seems very predictive of pre seizure?
+
+        - keep in
         '''
+        data = self.dataset
 
         #first_flatten_data_array
         flat_data = np.ravel(data, order = 'C')
-        array_std = np.std(rolling_window(flat_data, window=window_size),-1)
+        array_std = np.std(self.rolling_window(flat_data, window=window_size),-1)
         array_window_missing = np.zeros(window_size-1) # goes on at the front
         rolling_std_array = np.hstack((array_window_missing,array_std))
-
 
         masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, flat_data)
         masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, flat_data)
@@ -148,33 +154,37 @@ class FeatureExtractor():
         baseline_length = np.array([len(np.ma.compressed(std_below_arr[i,:])) for i in range(data.shape[0])])
 
         indexes = np.array(np.arange(data.shape[1]))
-        baseline_diff_skew = np.array([st.skew(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
+        baseline_diff_skew = np.array([stats.skew(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
                                        for i in range(data.shape[0])])
         baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
                               for i in range(data.shape[0])])
-        less_50_bl_datapoints = np.where(baseline_length<50)[0]
-        baseline_mean_diff[less_50_bl_datapoints] = fs/(baseline_length[less_50_bl_datapoints]+2) # a hack to overcome if no baselines...
 
-        print('***********')
-        print(baseline_length[110:130])
-        print(baseline_diff_skew[10:130])
-        print(baseline_mean_diff[110:130])
-        # what to do here with no mean diff or skew?! fully postive skewed? mean diff is the full window?
-        # then we have one's as everthing is there - skew?
+        less_bl_datapoints = np.where(baseline_length<100)[0]
 
-        baseline_features = np.vstack([baseline_length,baseline_mean_diff,baseline_diff_skew]).T
-        baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_diff_skew']
+        # this is to handle when you have very few baseline points...
+        baseline_mean_diff[less_bl_datapoints] = self.fs/(baseline_length[less_bl_datapoints]+2) # a hack to overcome if no baselines...
+        baseline_diff_skew[less_bl_datapoints] = 0.0  # a hack to overcome if no baselines...
+
+        baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew ).T
+        baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
 
         return(baseline_features)
 
-    def peaks_and_valleys(self):
+    def peaks_and_valleys(self, delta_val = 3.0):
+        '''underlying peak det function is slow...
+        the range and values dont seem to be that great...
+        number a bit more interesting? nval and npk is often same but not alowas one to one
+
+        Should really be using:
+        https://gist.github.com/sixtenbe/1178136
+        '''
 
         logging.debug("Extracting peak/valley features...")
         pk_nlist = []
         val_nlist = []
 
         for i in range(self.dataset.shape[0]):
-            pk, val = self.peakdet(self.dataset[i,:], 0.5)
+            pk, val = self.peakdet(self.dataset[i,:], delta=delta_val)
             pk_nlist.append(pk)
             val_nlist.append(val)
 
@@ -211,17 +221,12 @@ class FeatureExtractor():
         av_val = np.array(av_val)
         av_range = np.array(av_range)
         self.pkval_stats = np.vstack([n_pks,n_vals,av_pk,av_val,av_range]).T
+        col_mins = np.nanmin(self.pkval_stats, axis = 0)
+        col_mins[3] = np.nanmax(self.pkval_stats[:,3], axis =0) # hacky
+        for row, col in np.argwhere(np.isnan(self.pkval_stats)):
+            self.pkval_stats[row,col] = col_mins[col]
+
         self.pkval_labels = ['n_pks','n_vals','av_pk','av_val','av_pkval_range']
-
-
-    @ staticmethod
-    def rolling_window(array, window):
-        """
-        Remember that the rolling window actually starts at the window length in.
-        """
-        shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
-        strides = array.strides + (array.strides[-1],)
-        return np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
 
     @staticmethod
     def peakdet(v, delta, x=None):
