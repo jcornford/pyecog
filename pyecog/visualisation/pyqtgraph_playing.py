@@ -43,13 +43,21 @@ class HDF5Plot(pg.PlotCurveItem):
     A more clever implementation of this class would employ some kind of caching
     to avoid re-reading the entire visible waveform at every update.
     """
-    def __init__(self, downsample_limit = 20000, *args, **kwds):
+    def __init__(self, downsample_limit = 20000,viewbox = None, *args, **kwds):
         " TODO what are the args and kwds for PlotCurveItem class?"
         self.hdf5 = None
         self.time = None
         self.fs = None
+        self.vb = viewbox
         self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
         pg.PlotCurveItem.__init__(self, *args, **kwds)
+
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Escape:
+            self.close()
+        else:
+            print(key)
 
     def setHDF5(self, data, time, fs):
         self.hdf5 = data
@@ -66,12 +74,12 @@ class HDF5Plot(pg.PlotCurveItem):
             self.setData([])
             return
 
-        vb = self.getViewBox()
-        if vb is None:
-            return  # no ViewBox yet
+        #vb = self.getViewBox()
+        #if vb is None:
+        #    return  # no ViewBox yet
 
         # Determine what data range must be read from HDF5
-        xrange = [i*self.fs for i in vb.viewRange()[0]]
+        xrange = [i*self.fs for i in self.vb.viewRange()[0]]
         start = max(0,int(xrange[0])-1)
         stop = min(len(self.hdf5), int(xrange[1]+2))
 
@@ -127,6 +135,8 @@ class HDF5Plot(pg.PlotCurveItem):
 
             visible_x = visible_x[:targetPtr]
             visible_y = visible_y[:targetPtr]
+            #print('**** now downsampling')
+            #print(visible_y.shape, visible_x.shape)
             scale = ds * 0.5
 
         # TODO: setPos, scale, resetTransform methods... scale?
@@ -189,21 +199,23 @@ flat_time = np.ravel(time, order = 'C')
 
 #pg.mkQApp()
 app = QtGui.QApplication([])
-view = pg.GraphicsView()
+#view = pg.GraphicsView()
 #win = pg.GraphicsLayout()
 #view.setCentralItem(win)
 
 win = pg.GraphicsWindow()
+
 win.resize(1000,500)
 win.setWindowTitle('PyECoG ')
 
 
-
+#bx2 = win.addViewBox(row = 1, col=1, colspan = 3)
 plt1 = win.addPlot(row=1, col=1,colspan = 3, title = 'Overview ... ')
 plt1.enableAutoRange(False, False)
 plt1.setXRange(0, 3600)
 plt1.setMouseEnabled(x = False, y = True)
-curve1 = HDF5Plot()
+bx1 = plt1.getViewBox()
+curve1 = HDF5Plot(parent = plt1, viewbox = bx1)
 curve1.setHDF5(flat_data, flat_time, fs)
 lr = pg.LinearRegionItem([0,20])
 lr.setZValue(-10)
@@ -216,10 +228,12 @@ vid.addItem(img)
 vid.autoRange()
 
 win.nextRow()
+
 plt = win.addPlot(row=2, col=1 , colspan = 4, title = 'tid ... ')
 plt.enableAutoRange(False, False)
 plt.setXRange(0, 500)
-curve = HDF5Plot()
+bx = plt.getViewBox()
+curve = HDF5Plot(parent = plt, viewbox = bx)
 curve.setHDF5(flat_data, flat_time, fs)
 plt.addItem(curve)
 
@@ -231,8 +245,9 @@ lr.sigRegionChanged.connect(updatePlot)
 plt.sigXRangeChanged.connect(updateRegion)
 updatePlot()
 
+
+
 def scroll():
-    global data1, curve1, ptr1
     data1[:-1] = data1[1:]  # shift data in the array one sample left
                             # (see also: np.roll)
     data1[-1] = np.random.normal()
@@ -242,14 +257,6 @@ def scroll():
     curve2.setData(data1)
     curve2.setPos(ptr1, 0)
 
-# update all plots
-def update():
-    update1()
-    update2()
-    update3()
-timer = pg.QtCore.QTimer()
-timer.timeout.connect(update)
-timer.start(50)
 
 ## Start Qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':

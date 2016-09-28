@@ -19,8 +19,11 @@ from sklearn.preprocessing import Imputer, StandardScaler, normalize
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation as cv
 from sklearn import metrics
+try:
+    from . import hmm
+except:
+    print('Problem import hmm module - presumably do not have pomegranate insalled?')
 
-from . import hmm
 from .h5loader import H5File
 
 def load_classifier(filepath):
