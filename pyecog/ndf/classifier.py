@@ -68,6 +68,7 @@ class Classifier():
             self.fname_array = np.vstack([np.vstack([fname for i in range(f[fname+'/features'].shape[0])]) for fname in self.keys])
             self.features = np.vstack( f[name+'/features'] for name in self.keys)
             self.labels   = np.hstack( f[name+'/labels'] for name in self.keys)
+            self.feature_names = f[self.keys[0]].attrs['col_names'].astype(str)
 
         self.cleaner = FeaturePreProcesser()
         self.cleaner.fit(self.features)
@@ -105,15 +106,7 @@ class Classifier():
         print('F1: '+str(metrics.f1_score(np.ravel(res_y), self.oob_preds)))
         print(metrics.classification_report(np.ravel(res_y),self.oob_preds))
 
-        '''
-        self.predictions = self.clf.predict(self.features)
-        self.predictions_prob = self.clf.predict_proba(self.features)
-        print ('********* /n oob results on raw data:')
-        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(self.labels), self.predictions_prob[:,1])))
-        print('Recall: '+str(metrics.recall_score(np.ravel(self.labels), self.predictions)))
-        print('F1: '+str(metrics.f1_score(np.ravel(self.labels), self.predictions)))
-        print(metrics.classification_report(np.ravel(self.labels),self.predictions))
-        '''
+        self.feature_weightings = sorted(zip(self.clf.feature_importances_, self.feature_names),reverse = True)
 
     def estimate_clf_error(self, nfolds = 3):
         #self.printProgress(0,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)

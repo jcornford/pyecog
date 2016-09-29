@@ -1,61 +1,133 @@
 import time
 import sys
 import logging
-
+import warnings
 import numpy as np
 import scipy.stats as stats
 
-class FeatureExtractor():
+class StdDevStandardiser():
+    def __init__(self,data, std_sigfigs = 2):
+        '''
+        Calculates mode std dev and divides by it.
 
-    def __init__(self, dataset, fs, extract = True):
+        Args:
+            data:
+            stdtw: time period over which to calculate std deviation
+            std_sigfigs: n signfigs to round to
+
+        '''
+        logging.debug('Standardising dataset to mode std dev')
+        #std_vector = self.round_to_sigfigs(np.std(data, axis = 1), sigfigs=std_sigfigs)
+        std_vector = np.round(np.std(data, axis = 1), 0)
+        #logging.debug(str(std_vector))
+        std_vector = std_vector[std_vector != 0]
+        if std_vector.shape[0] > 0:
+            self.mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss
+            self.scaled = np.divide(data, self.mode_std)
+            logging.debug(str(self.mode_std)+' is mode std of trace split into ')
+        elif std_vector.shape[0] == 0:
+            self.scaled = None
+            logging.error(' File std is all 0, changed data to be None')
+
+    @staticmethod
+    def round_to_sigfigs(x, sigfigs):
+        """
+        N.B Stolen from stack overflow:
+        http://stackoverflow.com/questions/18915378/rounding-to-significant-figures-in-numpy
+
+        Rounds the value(s) in x to the number of significant figures in sigfigs.
+        Restrictions:
+        sigfigs must be an integer type and store a positive value.
+        x must be a real value or an array like object containing only real values.
+        """
+        #The following constant was computed in maxima 5.35.1 using 64 bigfloat digits of precision
+        __logBase10of2 = 3.010299956639811952137388947244930267681898814621085413104274611e-1
+        if not ( type(sigfigs) is int or np.issubdtype(sigfigs, np.integer)):
+            raise TypeError( "RoundToSigFigs: sigfigs must be an integer." )
+        if not np.all(np.isreal( x )):
+            raise TypeError( "RoundToSigFigs: all x must be real." )
+        if sigfigs <= 0:
+            raise ValueError( "RoundtoSigFigs: sigfigs must be positive." )
+        mantissas, binaryExponents = np.frexp(x)
+        decimalExponents = __logBase10of2 * binaryExponents
+        intParts = np.floor(decimalExponents)
+        mantissas *= 10.0**(decimalExponents - intParts)
+        return np.around(mantissas, decimals=sigfigs - 1 ) * 10.0**intParts
+
+class FeatureExtractor():
+    '''
+    TODO:
+     - Window on the baseline should be fs dependent
+     - store the conversion factor for the scaling to std/ implement this all here, not in the
+     - pandas df?
+     - peakdet method is very slow, replace with  https://gist.github.com/sixtenbe/1178136? does it add much?
+     - use of self and basically staticmethods is all jumbled up
+    '''
+
+    def __init__(self, data, fs, extract = True, run_peakdet = True):
         '''
         Inputs:
-            Dataset: should already be chunked into desired windows. Pass extract as False to select which features to run.
-            Assuming this is on hour's worth
+            - Data: should already be chunked into desired windows. Assumes this is on hour's worth.
+            - fs: samling frequency
+            - extract: a flag to eaxtract all the features - default true
 
-            fs: samling frequency
-            extract: a flag to eaxtract all the features - default true
-
-        Should we move the scaling to here - in order to leave the units correct elsewhere?
+        N.B Scaling to unit std should be done here!
         '''
 
         self.start = time.clock()
-        self.dataset = dataset
-        self.chunk_len = 3600/self.dataset.shape[0]
-        self.flat_data = np.ravel(dataset, order = 'C')
+        standardiser = StdDevStandardiser(data,std_sigfigs=2)
+        self.dataset = standardiser.scaled
+        self.mode_std = standardiser.mode_std
+
+        self.chunk_len = 3600/self.dataset.shape[0] # get this as an arg?
+        self.flat_data = np.ravel(self.dataset, order = 'C')
         self.fs = fs
 
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
-        self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
-        self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
+        if self.fs < 512:
+            self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
+            self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
+
+        elif self.fs >= 512 :
+            self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120), (120,160)]
+            self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
 
         if extract:
             self.get_basic_stats()
             self.baseline(threshold = 1.5, window_size = 80) # window size needs to be frequency dependent
-            self.peaks_and_valleys(delta_val = 3.0)
+
             self.bandpow_arr = self.calculate_powerbands(self.flat_data,
                                                          chunk_len=self.chunk_len,
                                                          fs = self.fs,
                                                          bands = self.powerbands)
-
-            self.feature_array = np.hstack([self.basic_stats,
+            # this split is clunky
+            if run_peakdet:
+                self.peaks_and_valleys(delta_val = 3.0)
+                self.feature_array = np.hstack([self.basic_stats,
                                             self.baseline_features,
                                             self.pkval_stats,
                                             self.bandpow_arr])
 
-            self.col_labels = np.hstack([self.basic_stats_col_labels,
-                                         self.baseline_features_labels,
-                                         self.pkval_labels,
-                                         self.powerband_titles])
+                self.col_labels = np.hstack([self.basic_stats_col_labels,
+                                             self.baseline_features_labels,
+                                             self.pkval_labels,
+                                             self.powerband_titles])
+            else:
+                self.feature_array = np.hstack([self.basic_stats,
+                                            self.baseline_features,
+                                            self.bandpow_arr])
+
+                self.col_labels = np.hstack([self.basic_stats_col_labels,
+                                             self.baseline_features_labels,
+                                             self.powerband_titles])
 
             timetaken = np.round((time.clock()-self.start), 2)
             logging.debug("Stacking up..."+str(self.feature_array.shape))
-            logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(dataset.shape[0])+ ' feature vectors')
+            logging.debug('Took '+ str(timetaken) + ' seconds to extract '+ str(self.dataset.shape[0])+ ' feature vectors')
 
     def get_basic_stats(self):
         logging.debug("Extracting basic stats...")
-        self.basic_stats_col_labels = ('min', 'max', 'mean', 'std-dev', 'skew', 'kurtosis', 'sum(abs(difference))')
-
+        self.basic_stats_col_labels = ('min', 'max', 'mean', 'std-dev', 'kurtosis', 'skew', 'sum(abs(difference))')
         self.basic_stats = np.zeros((self.dataset.shape[0],7))
         self.basic_stats[:,0] = np.amin(self.dataset, axis = 1)
         self.basic_stats[:,1] = np.amax(self.dataset, axis = 1)
@@ -63,7 +135,15 @@ class FeatureExtractor():
         self.basic_stats[:,3] = np.std(self.dataset, axis = 1)
         self.basic_stats[:,4] = stats.kurtosis(self.dataset,axis = 1)
         self.basic_stats[:,5] = stats.skew(self.dataset, axis = 1)
-        self.basic_stats[:,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)))
+        self.basic_stats[:,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)),axis = 1)
+
+        # get rid of pesky NaNs, from interpolating over corruptions, in more controlled way than imputing later
+        self.basic_stats[:,4][np.isnan(self.basic_stats[:,4])] = -3.0
+        self.basic_stats[:,5][np.isnan(self.basic_stats[:,5])] = 0.0
+        self.basic_stats[:,4][np.isinf(self.basic_stats[:,4])] = -3.0
+        self.basic_stats[:,5][np.isinf(self.basic_stats[:,5])] = 0.0
+        #print(np.absolute(np.diff(self.dataset, axis = 1)).shape)
+        #print(np.sum(np.absolute(np.diff(self.dataset, axis = 1)),axis = 1).shape)
 
     @staticmethod
     def calculate_powerbands(flat_data, chunk_len, fs, bands):
@@ -161,8 +241,11 @@ class FeatureExtractor():
         indexes = np.array(np.arange(data.shape[1]))
         baseline_diff_skew = np.array([stats.skew(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
                                        for i in range(data.shape[0])])
-        baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
-                              for i in range(data.shape[0])])
+
+        with warnings.catch_warnings():# suppress the mean of empty slice warning
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
+                                          for i in range(data.shape[0])])
 
         # below is to handle when you have very few baseline points...
         # Not actually that satisfactory.
@@ -171,10 +254,8 @@ class FeatureExtractor():
         baseline_diff_skew[less_bl_datapoints] = 0.0  # a hack to overcome if no baselines...
 
 
-        baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew]).T
-        baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
-
-        return(baseline_features)
+        self.baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew]).T
+        self.baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
 
     def peaks_and_valleys(self, delta_val = 3.0):
         '''underlying peak det function is slow...
@@ -286,5 +367,3 @@ class FeatureExtractor():
                     mxpos = x[i]
                     lookformax = True
         return np.array(maxtab), np.array(mintab)
-
-

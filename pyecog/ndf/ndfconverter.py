@@ -15,7 +15,7 @@ from scipy import signal, stats
 if sys.version_info < (3,):
     range = xrange
 '''
-# only needed with for profiling
+# decorator needed when profiling
 def lprofile():
     def inner(func):
         def profiled_func(*args, **kwargs):
@@ -33,7 +33,8 @@ def lprofile():
 class NdfFile:
     """
     TODO:
-
+     - glitch detection is a little messy, relying on bindings.
+     - bad messages doesnt delete if 2 messages in window for one (minor but would be better to delete both)
      - Find out if they ever start recording half way through - for auto fs detection
      - Code up printing the ndf object __repr__
      - Clean up unused  __init__ attributes
@@ -100,13 +101,7 @@ class NdfFile:
         self.verbose = verbose
 
         self.file_time_len_sec = 3600
-        # Below are legacy? conversion settings
-        #adc_range = 2.7
-        #amp_factor = amp_factor # this used to be 300
-        #bit_size = 16
-        #self.micro_volt_div = adc_range / (2 ** bit_size) / amp_factor * 1e3  # in mV unit
-        self.micro_volt_div = 0.4
-        #print('Using ADC * micro volt div: '+str( self.micro_volt_div))
+        self.micro_volt_div = 0.4 # this is the dac units?
 
         # firmware dependent:
         self.clock_tick_cycle = 7.8125e-3  # the "big" clock messages are 128Hz, 1/128 = 7.8125e-3
@@ -222,7 +217,6 @@ class NdfFile:
 
             #self.tid_data_time_dict[tid]['data'] = self.data_to_deglitch[:]
             #self.tid_data_time_dict[tid]['time'] = self.time_to_deglitch[:]
-
 
     def _mad_based_outlier(self, thresh=3.5):
         """
@@ -389,6 +383,8 @@ class NdfFile:
             auto_resampling: to resample fs to regular sampling frequency
             auto_filter : high pass filter traces at default 1 hz
             scale_and_filter: high pass filter (default 1 hz) and scale to mode std dev 5 second blocks of trace
+            WARNING: This is more for visualisation of what the feature extractor is working on. TO keep things
+            simple, when saving HDF5 files, save non-scaled.
 
         Returns:
             data and time is stored in self.tid_data_time_dict attribute. Access data via obj[tid]['data'].
@@ -475,7 +471,8 @@ class NdfFile:
             logging.debug('Standardising to mode std dev, tid = '+str(read_id))
 
             reshaped = np.reshape(data, (int(3600/stdtw), int(stdtw*fs)))
-            std_vector = self.round_to_sigfigs(np.std(reshaped, axis = 1), sigfigs=std_sigfigs)
+            #std_vector = self.round_to_sigfigs(np.std(reshaped, axis = 1), sigfigs=std_sigfigs)
+            std_vector = np.round(np.std(data, axis = 1), 0)
             std_vector = std_vector[std_vector != 0]
             if std_vector.shape[0] > 0:
                 mode_std = stats.mode(std_vector)[0] # can be zero if there is big signal loss

@@ -13,6 +13,7 @@ class H5Dataset():
         self.data = None
         self.time = None
         self.features = None
+        self.col_labels = None
         self._load_data()
 
     def _load_data(self):
@@ -23,6 +24,8 @@ class H5Dataset():
                 self.time = np.array(self.h5dataset['time'])
             if str(member) == 'features':
                 self.features = np.array(self.h5dataset['features'])
+
+
     def plot(self):
         print ('Placeholder: Plot method to implement!')
         # have indexing argument...
@@ -36,13 +39,19 @@ class H5File():
                 self.attributes = dict(f.attrs.iteritems())
             else:
                 self.attributes = dict(f.attrs.items())
+            print(list(self.attributes))
             self.attributes['Mcode'] = list(f.keys())[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
+
                 self.group_contents[tid] = {}
                 self.group_contents[tid]['data'] = tid_dataset.data
                 self.group_contents[tid]['time'] = tid_dataset.time
                 self.group_contents[tid]['features'] = tid_dataset.features
+                try:
+                    self.group_contents[tid]['col_names'] = f[self.attributes['Mcode']+'/'+str(tid)].attrs['col_names'].astype(str)
+                except:
+                    pass
 
     def __repr__(self):
         return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)

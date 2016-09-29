@@ -6,7 +6,6 @@ import traceback
 import time
 import logging
 
-
 import h5py
 import numpy as np
 import pandas as pd
@@ -15,7 +14,6 @@ from scipy import signal, stats
 from .ndfconverter import NdfFile
 from .h5loader import H5File
 from .feature_extractor import FeatureExtractor
-from .utils import filterArray
 
 if sys.version_info < (3,):
     range = xrange
@@ -62,11 +60,12 @@ apply_async_with_callback()
     def __init__(self, logpath = os.getcwd()):
 
         self.parallel_savedir = None
+        self.parrallel_flag_pred = False
 
 
-    def add_features_seizure_library(self, libary_path, overwrite = False, subtract_baseline = False):
+    def add_features_seizure_library(self, libary_path, overwrite = False, run_peaks = True):
         '''
-        This is painfully slow at the moment, can't access hdf5 groups in parallel either.
+        This is painfully slow at the moment, not accessing hdf5 groups in parallel.
 
         '''
         logging.info('Adding features to '+ libary_path)
@@ -91,7 +90,7 @@ apply_async_with_callback()
                     assert len(data_array.shape) > 1
 
                     if data_array is not None:
-                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'],subtract_baseline = subtract_baseline)
+                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], run_peakdet = run_peaks)
                         features = extractor.feature_array
                         try:
                             del group['features']
@@ -99,7 +98,8 @@ apply_async_with_callback()
                         except:
                             pass
                         group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
-
+                        group.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
+                        # here add feature titles to the dataset attrs?
                         logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
                         self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
                     # Data_array is none
@@ -107,7 +107,7 @@ apply_async_with_callback()
                         logging.error("Didn't add features to file: "+str(group))
                         return 0
 
-    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5):
+    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5, run_peakdet = True):
         '''
         Currently assuming only one transmitter per h5 file
 
@@ -118,6 +118,10 @@ apply_async_with_callback()
                     / tid3  / data
                             / time
         '''
+        if self.parrallel_flag_pred:
+            run_peakdet = self.run_pkdet
+            timewindow  = self.twindow
+
         with h5py.File(h5_file_path, 'r+') as f:
 
             mcodes = [f[group] for group in list(f.keys())]
@@ -139,7 +143,7 @@ apply_async_with_callback()
                     except:
                         print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
 
-                    extractor = FeatureExtractor(data_array, tid.attrs['fs'])
+                    extractor = FeatureExtractor(data_array, tid.attrs['fs'], run_peakdet = run_peakdet)
                     features = extractor.feature_array
 
                     try:
@@ -148,6 +152,8 @@ apply_async_with_callback()
                     except:
                         pass
                     tid.create_dataset('features', data = features, compression = 'gzip')
+                    tid.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
+
                     logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
 
                 elif data_array is None:
@@ -156,11 +162,14 @@ apply_async_with_callback()
 
                     return 0
 
-    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1):
+    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1, run_peakdet = False, timewindow = 5):
         '''
         # NEED TO ADD SETTINGS HERE FOR THE TIMEWINDOW ETC
 
         '''
+        self.parrallel_flag_pred = True
+        self.run_pkdet = run_peakdet
+        self.twindow = timewindow
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
         if n_cores == -1:
             n_cores = multiprocessing.cpu_count()
@@ -175,13 +184,14 @@ apply_async_with_callback()
         #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
-
+        self.parrallel_flag_pred = False
     def _get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
         This function matches the entries in a dataframe with files in a directory
 
         Returns: list of annotations stored in a list
         '''
+
         abs_filenames = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
         data_filenames = [f for f in os.listdir(file_dir) if f.startswith('M')]
         mcodes = [os.path.split(f)[1][:11] for f in os.listdir(file_dir) if f.startswith('M')]
@@ -208,12 +218,13 @@ apply_async_with_callback()
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
         return annotation_dicts
 
-    def make_seizure_library(self, df, file_dir, timewindow = 5,
+    def make_seizure_library(self, df, file_dir,
+                             timewindow = 5,
                              seizure_library_name = 'seizure_library',
                              fs = 'auto',
                              verbose = False,
                              overwrite = False,
-                             scale_and_filter = True):
+                             scale_and_filter = False):
         '''
         Args:
 
@@ -224,6 +235,7 @@ apply_async_with_callback()
             seizure_library_name: path and name of the seizure lib.
             fs: default is auto, but use freq in hz to sidestep the auto dectection
             verbose: Flag, print or not.
+            - scale and filter should not be used (for simply keeping in original y units)
 
         Returns:
             Makes a Seizure library file
@@ -267,7 +279,12 @@ apply_async_with_callback()
         l = len(annotation_dicts)-1
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose,scale_and_filter = scale_and_filter)
+            self._populate_seizure_library(annotation,
+                                           fs,
+                                           timewindow,
+                                           seizure_library_path,
+                                           verbose = verbose,
+                                           scale_and_filter = scale_and_filter)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
     def append_to_seizure_library(self, df, file_dir, seizure_library_path,
@@ -275,7 +292,7 @@ apply_async_with_callback()
                                   fs = 'auto',
                                   verbose = False,
                                   overwrite = False,
-                                  scale_and_filter = True):
+                                  scale_and_filter = False):
         '''
         Args:
 
