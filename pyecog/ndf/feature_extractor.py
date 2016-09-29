@@ -3,12 +3,7 @@ import sys
 import logging
 
 import numpy as np
-import scipy.stats as st
 import scipy.stats as stats
-#import matplotlib.pyplot as plt
-
-
-from numpy import NaN, Inf, arange, isscalar, asarray, array # imports for the peakdet method
 
 class FeatureExtractor():
 
@@ -31,23 +26,27 @@ class FeatureExtractor():
         self.fs = fs
 
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
-        powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
-        powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in powerbands]
+        self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
+        self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
 
         if extract:
             self.get_basic_stats()
-            #self.baseline( threshold=0.04, window_size=100)
-            self.peaks_and_valleys()
-            self.calculate_powerbands(self.flat_data,
-                                      chunk_len= self.chunk_len,
-                                      fs = fs,
-                                      bands =  powerbands)
+            self.baseline(threshold = 1.5, window_size = 80) # window size needs to be frequency dependent
+            self.peaks_and_valleys(delta_val = 3.0)
+            self.bandpow_arr = self.calculate_powerbands(self.flat_data,
+                                                         chunk_len=self.chunk_len,
+                                                         fs = self.fs,
+                                                         bands = self.powerbands)
 
-            self.feature_array = np.hstack([self.basic_stats,self.baseline_features,
-                                       self.pkval_stats,self.meanpower])
+            self.feature_array = np.hstack([self.basic_stats,
+                                            self.baseline_features,
+                                            self.pkval_stats,
+                                            self.bandpow_arr])
 
-            self.col_labels = np.hstack([self.basic_stats_col_labels, self.baseline_features_labels,
-                                         self.pkval_labels, powerband_titles])
+            self.col_labels = np.hstack([self.basic_stats_col_labels,
+                                         self.baseline_features_labels,
+                                         self.pkval_labels,
+                                         self.powerband_titles])
 
             timetaken = np.round((time.clock()-self.start), 2)
             logging.debug("Stacking up..."+str(self.feature_array.shape))
@@ -78,11 +77,12 @@ class FeatureExtractor():
 
         Returns:
             - numpy array, columns correspond to powerbands.
-            Maybe could switch out for pandas dataframe?
+            Maybe could switch out for pandas dataframe in future?
 
         Notes:
-            - Band power units are "y unit"^2?... Aren't they Marco! ;]
-            - using rfft so scaling factors added in are: (Marco could you complete this)
+            - Band power units are "y unit"^2
+            - using rfft for slightly improved efficiency - a scaling factor for power
+            computation needs to be included
             - using a hanning window, so reflecting half of the first and last chunk in
             order to centre the window over the time windows of interest (and to not throw
             anything away)
@@ -106,15 +106,20 @@ class FeatureExtractor():
         # run fft and get psd
         bin_frequencies = np.fft.rfftfreq(int(chunk_len*fs)*2, 1/fs) # *2 as n.points is doubled due to stiching
         A = np.abs(np.fft.rfft(windowed_data, axis = 1))
-        psd = (2/.375)*(A/(2*fs))**2 # psd units are "y unit"V^2/hz
-        # 2/.375 and 2*fs are due to rfft (Marco? comment here please)
+        psd = 2*chunk_len*(2/.375)*(A/(fs*chunk_len*2))**2  # psd units are "y unit"^2/Hz
+        # A/(fs*chunk_len*2) is the normalised fft transform of windowed_data
+        # - rfft only returns the positive frequency amplitudes.
+        # To compute the power we have to sum the squares of both positive and negative complex frequency amplitudes
+        # .375 is the power of the Hanning window - the factor 2/.375 corrects for these two points.
+        # 2*chunk_len - is a factor such that the result comes as a density with units "y unit"^2/Hz and not just "y unit"^2
+        # this is just to make the psd usable for other purposes - in the next section bin_width*2*chunk_len equals 1.
 
         # now grab power bands from psd
-        bin_width = np.diff(bins[:3])[1]
-        pb_array = np.zeros(shape = (psd.shape[0],len(power_bands)))
-        for i,band in enumerate(power_bands):
+        bin_width = np.diff(bin_frequencies[:3])[1] # this way is really not needed?
+        pb_array = np.zeros(shape = (psd.shape[0],len(bands)))
+        for i,band in enumerate(bands):
             lower_freq, upper_freq = band # unpack the band tuple
-            band_indexes = np.where(np.logical_and(bins >= lower_freq, bins<=upper_freq))[0]
+            band_indexes = np.where(np.logical_and(bin_frequencies > lower_freq, bin_frequencies<=upper_freq))[0]
             bp = np.sum(psd[:,band_indexes], axis = 1)*bin_width
             pb_array[:,i] = bp
 
@@ -131,7 +136,7 @@ class FeatureExtractor():
 
     def baseline(self, threshold = 1.5, window_size = 80):
         '''
-        Window size should be fs dependent?
+        #TODO: Window size should be fs dependent?
 
         - used to have mean baseline diff and also baseline diff skew for vincents model
           kept, diff (with a fudge for when few datapoints, but not skew.) Though from looking,
@@ -159,13 +164,14 @@ class FeatureExtractor():
         baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
                               for i in range(data.shape[0])])
 
+        # below is to handle when you have very few baseline points...
+        # Not actually that satisfactory.
         less_bl_datapoints = np.where(baseline_length<100)[0]
-
-        # this is to handle when you have very few baseline points...
         baseline_mean_diff[less_bl_datapoints] = self.fs/(baseline_length[less_bl_datapoints]+2) # a hack to overcome if no baselines...
         baseline_diff_skew[less_bl_datapoints] = 0.0  # a hack to overcome if no baselines...
 
-        baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew ).T
+
+        baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew]).T
         baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
 
         return(baseline_features)
@@ -248,18 +254,18 @@ class FeatureExtractor():
         maxtab = []
         mintab = []
         if x is None:
-            x = arange(len(v))
-        v = asarray(v)
+            x = np.arange(len(v))
+        v = np.asarray(v)
         if len(v) != len(x):
             sys.exit('Input vectors v and x must have same length')
-        if not isscalar(delta):
+        if not np.isscalar(delta):
             sys.exit('Input argument delta must be a scalar')
         if delta <= 0:
             sys.exit('Input argument delta must be positive')
-        mn, mx = Inf, -Inf
-        mnpos, mxpos = NaN, NaN
+        mn, mx = np.Inf, -np.Inf
+        mnpos, mxpos = np.NaN, np.NaN
         lookformax = True
-        for i in arange(len(v)):
+        for i in np.arange(len(v)):
             this = v[i]
             if this > mx:
                 mx = this
@@ -279,6 +285,6 @@ class FeatureExtractor():
                     mx = this
                     mxpos = x[i]
                     lookformax = True
-        return array(maxtab), array(mintab)
+        return np.array(maxtab), np.array(mintab)
 
 
