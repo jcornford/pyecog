@@ -39,7 +39,7 @@ class H5File():
                 self.attributes = dict(f.attrs.iteritems())
             else:
                 self.attributes = dict(f.attrs.items())
-            print(list(self.attributes))
+
             self.attributes['Mcode'] = list(f.keys())[0]
             for tid in self.attributes['t_ids']:
                 tid_dataset = H5Dataset(f[self.attributes['Mcode']+'/'+str(tid)])
@@ -57,6 +57,6 @@ class H5File():
         return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)
 
     def __getitem__(self, item):
-        assert type(item) == int
+        #assert type(item) == int
         assert item in self.attributes['t_ids'], 'ERROR: Invalid tid for file'
         return self.group_contents[item]
