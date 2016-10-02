@@ -348,8 +348,9 @@ class Classifier():
 
 
     def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
-
-        for fname in os.listdir(prediction_dir):
+        files_to_predict = os.listdir(prediction_dir)
+        print('Looking through '+ str(len(files_to_predict)) + ' file for seizures:')
+        for fname in files_to_predict:
             fpath = os.path.join(prediction_dir,fname)
 
             try:
@@ -383,7 +384,7 @@ class Classifier():
                 pass
                 #print ('no seizures')
 
-        print('Re - ordering spreadsheet')
+        print('Re - ordering spreadsheet by date')
         self.reorder_prediction_csv(excel_sheet)
         print ('Done')
 

@@ -181,85 +181,86 @@ def createFile(finalSize=2000000000):
         dlg += 1
     f.close()
 
-
-fileName = '/Users/jonathan/Dropbox/gui_pyqt_dev/gl_library_for_vannila_features.h5'
-f = h5py.File(fileName, 'r')
-
-
-i = 0
-datasets = [f[key] for key in list(f.keys())]
-data = datasets[i]['data'][:]  # check - dont need to slice here? or do i?
-# think i have broken the larger than memory part of this...
-flat_data = np.ravel(data, order = 'C')
-fs = datasets[i].attrs['fs']
-time = np.arange(0, 3600*fs)/fs# assuming it is an hour
-time = np.reshape(time, newshape=(data.shape), order = 'C') # should be same shape!
-flat_time = np.ravel(time, order = 'C')
+def main():
+    fileName = '/Users/jonathan/Dropbox/gui_pyqt_dev/gl_library_for_vannila_features.h5'
+    f = h5py.File(fileName, 'r')
 
 
-#pg.mkQApp()
-app = QtGui.QApplication([])
-#view = pg.GraphicsView()
-#win = pg.GraphicsLayout()
-#view.setCentralItem(win)
-
-win = pg.GraphicsWindow()
-
-win.resize(1000,500)
-win.setWindowTitle('PyECoG ')
-
-
-#bx2 = win.addViewBox(row = 1, col=1, colspan = 3)
-plt1 = win.addPlot(row=1, col=1,colspan = 3, title = 'Overview ... ')
-plt1.enableAutoRange(False, False)
-plt1.setXRange(0, 3600)
-plt1.setMouseEnabled(x = False, y = True)
-bx1 = plt1.getViewBox()
-curve1 = HDF5Plot(parent = plt1, viewbox = bx1)
-curve1.setHDF5(flat_data, flat_time, fs)
-lr = pg.LinearRegionItem([0,20])
-lr.setZValue(-10)
-plt1.addItem(lr)
-plt1.addItem(curve1)
-
-vid = win.addViewBox(lockAspect = True, row = 1, col = 4)
-img = pg.ImageItem(np.random.normal(size=(150,150)))
-vid.addItem(img)
-vid.autoRange()
-
-win.nextRow()
-
-plt = win.addPlot(row=2, col=1 , colspan = 4, title = 'tid ... ')
-plt.enableAutoRange(False, False)
-plt.setXRange(0, 500)
-bx = plt.getViewBox()
-curve = HDF5Plot(parent = plt, viewbox = bx)
-curve.setHDF5(flat_data, flat_time, fs)
-plt.addItem(curve)
-
-def updatePlot():
-    plt.setXRange(*lr.getRegion(), padding=0)
-def updateRegion():
-    lr.setRegion(plt.getViewBox().viewRange()[0])
-lr.sigRegionChanged.connect(updatePlot)
-plt.sigXRangeChanged.connect(updateRegion)
-updatePlot()
+    i = 0
+    datasets = [f[key] for key in list(f.keys())]
+    data = datasets[i]['data'][:]  # check - dont need to slice here? or do i?
+    # think i have broken the larger than memory part of this...
+    flat_data = np.ravel(data, order = 'C')
+    fs = datasets[i].attrs['fs']
+    time = np.arange(0, 3600*fs)/fs# assuming it is an hour
+    time = np.reshape(time, newshape=(data.shape), order = 'C') # should be same shape!
+    flat_time = np.ravel(time, order = 'C')
 
 
+    #pg.mkQApp()
+    app = QtGui.QApplication([])
+    #view = pg.GraphicsView()
+    #win = pg.GraphicsLayout()
+    #view.setCentralItem(win)
 
-def scroll():
-    data1[:-1] = data1[1:]  # shift data in the array one sample left
-                            # (see also: np.roll)
-    data1[-1] = np.random.normal()
-    curve1.setData(data1)
+    win = pg.GraphicsWindow()
 
-    ptr1 += 1
-    curve2.setData(data1)
-    curve2.setPos(ptr1, 0)
+    win.resize(1000,500)
+    win.setWindowTitle('PyECoG ')
+
+
+    #bx2 = win.addViewBox(row = 1, col=1, colspan = 3)
+    plt1 = win.addPlot(row=1, col=1,colspan = 3, title = 'Overview ... ')
+    plt1.enableAutoRange(False, False)
+    plt1.setXRange(0, 3600)
+    plt1.setMouseEnabled(x = False, y = True)
+    bx1 = plt1.getViewBox()
+    curve1 = HDF5Plot(parent = plt1, viewbox = bx1)
+    curve1.setHDF5(flat_data, flat_time, fs)
+    lr = pg.LinearRegionItem([0,20])
+    lr.setZValue(-10)
+    plt1.addItem(lr)
+    plt1.addItem(curve1)
+
+    vid = win.addViewBox(lockAspect = True, row = 1, col = 4)
+    img = pg.ImageItem(np.random.normal(size=(150,150)))
+    vid.addItem(img)
+    vid.autoRange()
+
+    win.nextRow()
+
+    plt = win.addPlot(row=2, col=1 , colspan = 4, title = 'tid ... ')
+    plt.enableAutoRange(False, False)
+    plt.setXRange(0, 500)
+    bx = plt.getViewBox()
+    curve = HDF5Plot(parent = plt, viewbox = bx)
+    curve.setHDF5(flat_data, flat_time, fs)
+    plt.addItem(curve)
+
+    def updatePlot():
+        plt.setXRange(*lr.getRegion(), padding=0)
+    def updateRegion():
+        lr.setRegion(plt.getViewBox().viewRange()[0])
+    lr.sigRegionChanged.connect(updatePlot)
+    plt.sigXRangeChanged.connect(updateRegion)
+    updatePlot()
+
+
+
+    def scroll():
+        data1[:-1] = data1[1:]  # shift data in the array one sample left
+                                # (see also: np.roll)
+        data1[-1] = np.random.normal()
+        curve1.setData(data1)
+
+        ptr1 += 1
+        curve2.setData(data1)
+        curve2.setPos(ptr1, 0)
 
 
 ## Start Qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':
-    import sys
+    main()
+    #import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()

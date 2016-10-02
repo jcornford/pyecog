@@ -256,12 +256,16 @@ class FeatureExtractor():
         # this is all very suboptimal feature engineering - MARCO?
         diff_arr_list = [np.diff(bl_indexes[i,:].compressed()) for i in range(data.shape[0])]
         baseline_index_diff_skew = np.array([stats.stats.skew(diff_arr_list[i]) for i in range(data.shape[0])])
-        baseline_mean_diff       = np.array([np.mean(diff_arr_list[i]) for i in range(data.shape[0])])
+        with warnings.catch_warnings():# suppress the mean of empty slice warning
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            baseline_mean_diff       = np.array([np.mean(diff_arr_list[i]) for i in range(data.shape[0])])
 
         # hereshould make diff array once - it is masked itself
         #baseline_index_diff_skew = stats.mstats.skew(np.diff(bl_indexes, axis = 1), axis = 1)
         #baseline_mean_diff       = np.mean(np.diff(bl_indexes, axis = 1), axis = 1)
 
+        # below is to handle when you have very few baseline points..
+        #  Not actually that satisfactory.
         less_bl_datapoints = np.where(baseline_length<100)[0]
         baseline_mean_diff[less_bl_datapoints] = self.fs/(baseline_length[less_bl_datapoints]+2) # a hack to overcome if no baselines...
         baseline_index_diff_skew[less_bl_datapoints] = 0.0
@@ -274,7 +278,7 @@ class FeatureExtractor():
 
         self.baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_index_diff_skew]).T
         self.baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
-        print(self.baseline_features)
+        #print(self.baseline_features)
 
     def peaks_and_valleys(self, delta_val = 3.0):
         '''underlying peak det function is slow...

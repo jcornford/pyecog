@@ -9,12 +9,14 @@ import pyqtgraph as pg
 import check_preds_design
 
 from pyecog.ndf.h5loader import H5File
+from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
 class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
         super(PVio, self).__init__(parent)
         self.setupUi(self)
 
+        self.fs = 256 # change !
         self.data_obj = None
         self.predictions_df = None
         self.h5directory = None
@@ -52,7 +54,13 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         #if not self.holdPlot.isChecked():
         self.plot_1.clear()
+        self.bx1 = self.plot_1.getViewBox()
+
+        hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
+        hdf5_plot.setHDF5(data_dict['data'], data_dict['time'], self.fs)
+        self.plot_1.addItem(hdf5_plot)
         self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
+
         self.plot_1.setXRange(start, end)
         self.plot_1.setTitle(str(index)+' - '+ root.text(0)+ '\n' + str(start)+' - ' +str(end))
         self.plot_1.setLabel('left', 'Voltage (uV)')
@@ -64,7 +72,12 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         if not self.holdPlot.isChecked():
             self.plot_1.clear()
         # here you need to add the h5 file class with downsampling
-        self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
+
+        curve1 = HDF5Plot()#parent = self.plot_1, viewbox = bx1)
+        curve1.setHDF5(data_dict['data'], data_dict['time'], self.fs)
+        self.plot_1.addItem(hdf5_plot)
+
+        #self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
         self.plot_1.setXRange(row['Start'], row['End'])
         #self.plot_1.ti
 
