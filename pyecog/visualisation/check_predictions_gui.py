@@ -6,7 +6,7 @@ from PyQt4 import QtGui#,# uic
 from PyQt4.QtCore import QThread, SIGNAL
 import pyqtgraph as pg
 
-import check_preds_design
+from  pyecog.visualisation import check_preds_design
 
 from pyecog.ndf.h5loader import H5File
 from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
