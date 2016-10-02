@@ -92,7 +92,13 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def load_pred_file(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'select predicitons file', self.home)
-        self.predictions_df = pd.read_csv(fname)
+        if fname.endswith('.csv'):
+            self.predictions_df = pd.read_csv(fname)
+        elif fname.endswith('.xlsx'):
+            self.predictions_df = pd.read_excel(fname)
+        else:
+            print('Please select .csv or .xlsx file')
+            return 0
         self.predictions_df['Index'] = self.predictions_df.index
         if self.h5directory is None:
             self.set_h5_folder()

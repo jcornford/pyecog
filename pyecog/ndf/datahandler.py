@@ -142,7 +142,7 @@ apply_async_with_callback()
                         assert data_array.shape[0] == int(3600/timewindow)
                     except:
                         print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
-
+                    #return data_array
                     extractor = FeatureExtractor(data_array, tid.attrs['fs'], run_peakdet = run_peakdet)
                     features = extractor.feature_array
 
@@ -175,8 +175,8 @@ apply_async_with_callback()
             n_cores = multiprocessing.cpu_count()
 
         pool = multiprocessing.Pool(n_cores)
-        l = len(files_to_add_features)
-
+        l = int(len(files_to_add_features))
+        print( ' Adding features to '+str(l)+ ' hours in '+ h5py_folder)
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
@@ -312,7 +312,8 @@ apply_async_with_callback()
 
 
         TODO:
-        -  How to handle files that don't have seiures, but we want to include
+        -  add documentaiton of the loading settings
+        -  How to handle files that don't have seiures, but we want to include (done, put to 00's)
         -  Not sure what is going on when there are no seizures, need to have this functionality though.
 
         '''
@@ -411,7 +412,7 @@ apply_async_with_callback()
                 tids = [tids]
 
         self.tids_for_parallel_conversion = tids
-        print ('Transmitters for conversion: '+ str(self.tids_for_parallel_conversion))
+        print (str(len(files))+' Files for conversion. Transmitters: '+ str(self.tids_for_parallel_conversion))
 
         # set n_cores
         if n_cores == -1:

@@ -62,14 +62,16 @@ class FeatureExtractor():
      - pandas df?
      - peakdet method is very slow, replace with  https://gist.github.com/sixtenbe/1178136? does it add much?
      - use of self and basically staticmethods is all jumbled up
+     - flat data and chunked array is a little jumbled too
+     - skew and mean diff of baseline is not actually working
     '''
 
     def __init__(self, data, fs, extract = True, run_peakdet = True):
         '''
         Inputs:
             - Data: should already be chunked into desired windows. Assumes this is on hour's worth.
-            - fs: samling frequency
-            - extract: a flag to eaxtract all the features - default true
+            - fs: sampling frequency
+            - extract: a flag to extract all the features - default true
 
         N.B Scaling to unit std should be done here!
         '''
@@ -84,6 +86,7 @@ class FeatureExtractor():
         self.fs = fs
 
         logging.debug('Fs passed to Feature extractor was: '+str(fs)+' hz')
+        # add in 120-160 if we have the fs for it:
         if self.fs < 512:
             self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
             self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
@@ -100,7 +103,7 @@ class FeatureExtractor():
                                                          chunk_len=self.chunk_len,
                                                          fs = self.fs,
                                                          bands = self.powerbands)
-            # this split is clunky
+            # this split is clunky, change this
             if run_peakdet:
                 self.peaks_and_valleys(delta_val = 3.0)
                 self.feature_array = np.hstack([self.basic_stats,
@@ -137,13 +140,12 @@ class FeatureExtractor():
         self.basic_stats[:,5] = stats.skew(self.dataset, axis = 1)
         self.basic_stats[:,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)),axis = 1)
 
-        # get rid of pesky NaNs, from interpolating over corruptions, in more controlled way than imputing later
+        # get rid of pesky NaNs, from interpolating over corruptions etc, in more controlled way than just imputing later
         self.basic_stats[:,4][np.isnan(self.basic_stats[:,4])] = -3.0
         self.basic_stats[:,5][np.isnan(self.basic_stats[:,5])] = 0.0
         self.basic_stats[:,4][np.isinf(self.basic_stats[:,4])] = -3.0
         self.basic_stats[:,5][np.isinf(self.basic_stats[:,5])] = 0.0
-        #print(np.absolute(np.diff(self.dataset, axis = 1)).shape)
-        #print(np.sum(np.absolute(np.diff(self.dataset, axis = 1)),axis = 1).shape)
+
 
     @staticmethod
     def calculate_powerbands(flat_data, chunk_len, fs, bands):
@@ -217,6 +219,7 @@ class FeatureExtractor():
     def baseline(self, threshold = 1.5, window_size = 80):
         '''
         #TODO: Window size should be fs dependent?
+        - - `threshold has been chosen assuming the data has been scaled to mode std dev
 
         - used to have mean baseline diff and also baseline diff skew for vincents model
           kept, diff (with a fudge for when few datapoints, but not skew.) Though from looking,
@@ -226,36 +229,52 @@ class FeatureExtractor():
         '''
         data = self.dataset
 
-        #first_flatten_data_array
         flat_data = np.ravel(data, order = 'C')
         array_std = np.std(self.rolling_window(flat_data, window=window_size),-1)
         array_window_missing = np.zeros(window_size-1) # goes on at the front
         rolling_std_array = np.hstack((array_window_missing,array_std))
 
-        masked_std_below_threshold = np.ma.masked_where(rolling_std_array > threshold, flat_data)
-        masked_std_above_threshold = np.ma.masked_where(rolling_std_array < threshold, flat_data)
-        std_below_arr = np.reshape(masked_std_below_threshold, newshape = data.shape, order = 'C')
-        #std_above_arr = np.reshape(masked_std_above_threshold, newshape = data.shape, order = 'C')
-        baseline_length = np.array([len(np.ma.compressed(std_below_arr[i,:])) for i in range(data.shape[0])])
+        below_threshold_masked = np.ma.masked_where(rolling_std_array > threshold, flat_data)
+        above_threshold_masked = np.ma.masked_where(rolling_std_array < threshold, flat_data)
+        # masked_where puts a mask where the condition is met, so sign is other way to what you would expect
+        # when using indexing, i.e.: above_threshold = flat_data[np.where(rolling_std_array > threshold)[0]]
 
-        indexes = np.array(np.arange(data.shape[1]))
-        baseline_diff_skew = np.array([stats.skew(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
-                                       for i in range(data.shape[0])])
+        below_std_arr = np.reshape(below_threshold_masked, newshape = data.shape, order = 'C')
+        above_std_arr = np.reshape(above_threshold_masked, newshape = data.shape, order = 'C')
 
-        with warnings.catch_warnings():# suppress the mean of empty slice warning
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            baseline_mean_diff = np.array([np.mean(np.diff(indexes[np.logical_not(std_below_arr[i,:].mask)]))
-                                          for i in range(data.shape[0])])
+        baseline_length = below_std_arr.count(axis = 1) # .count counts numb of non masked elements
+        #print(baseline_length[:10])
 
-        # below is to handle when you have very few baseline points...
-        # Not actually that satisfactory.
+        # build indexes array:
+        indexes_row = np.arange(data.shape[1])
+        indexes_arr = np.empty(data.shape)
+        for i in range(data.shape[0]): indexes_arr[i, :] = indexes_row
+
+        bl_indexes = np.ma.masked_array(indexes_arr, mask = below_std_arr.mask)
+
+        # have to use lists and compressed, or diff ignores the jump
+        # this is all very suboptimal feature engineering - MARCO?
+        diff_arr_list = [np.diff(bl_indexes[i,:].compressed()) for i in range(data.shape[0])]
+        baseline_index_diff_skew = np.array([stats.stats.skew(diff_arr_list[i]) for i in range(data.shape[0])])
+        baseline_mean_diff       = np.array([np.mean(diff_arr_list[i]) for i in range(data.shape[0])])
+
+        # hereshould make diff array once - it is masked itself
+        #baseline_index_diff_skew = stats.mstats.skew(np.diff(bl_indexes, axis = 1), axis = 1)
+        #baseline_mean_diff       = np.mean(np.diff(bl_indexes, axis = 1), axis = 1)
+
         less_bl_datapoints = np.where(baseline_length<100)[0]
         baseline_mean_diff[less_bl_datapoints] = self.fs/(baseline_length[less_bl_datapoints]+2) # a hack to overcome if no baselines...
-        baseline_diff_skew[less_bl_datapoints] = 0.0  # a hack to overcome if no baselines...
+        baseline_index_diff_skew[less_bl_datapoints] = 0.0
 
+        #same just in case mask slips through somehow
+        #if baseline_mean_diff.mask.any():
+        #    baseline_mean_diff[baseline_mean_diff.mask] = self.fs/(baseline_length[less_bl_datapoints]+2)
+        #if baseline_index_diff_skew.mask.any():
+        #    baseline_index_diff_skew[baseline_index_diff_skew.mask]  = 0.0
 
-        self.baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_diff_skew]).T
+        self.baseline_features = np.vstack([baseline_length, baseline_mean_diff,baseline_index_diff_skew]).T
         self.baseline_features_labels = ['bl_len','bl_mean_diff', 'bl_skew']
+        print(self.baseline_features)
 
     def peaks_and_valleys(self, delta_val = 3.0):
         '''underlying peak det function is slow...
