@@ -9,7 +9,7 @@ pip install pyecog
 ```
 
 ### How to use
-- [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation/demo_loading_ndfs_notebook.ipynb)
+- [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation_notebooks/demo_loading_ndfs_notebook.ipynb)
 
 ### Repository contents:
 * NDF:          code is the current working directory.
