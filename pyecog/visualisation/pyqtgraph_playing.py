@@ -2,7 +2,7 @@
 """
 Plans:
 
-** Dont understand the difference bewtween views, layout etc, documentation seems very hard to find
+** Dont understand the difference bewtween views, layout etc, documentation_notebooks seems very hard to find
 Lets just make miminum viable thing - scrolling and ability to load and select
 
  - left right arrow
