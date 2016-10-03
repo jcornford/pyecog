@@ -8,6 +8,9 @@ Currently under heavy construction!
 pip install pyecog
 ```
 
+### How to use
+- [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation/demo_loading_ndfs_notebook.ipynb)
+
 ### Repository contents:
 * NDF:          code is the current working directory.
 * light_code:   contains old code. PyECoG was originally "networkclassifer", this is that code, kept for analysing further experiments.
