@@ -177,7 +177,7 @@ class FeatureExtractor():
 
         # reshape data into array, stich together
         data_arr = np.reshape(padded_data,
-                              newshape=(int(3600/chunk_len)+1, int(chunk_len*fs)), # +1 due to padding
+                              newshape=(int(len(padded_data)/fs/chunk_len), int(chunk_len*fs)), # changed in order to compensate for files which are not 3600seconds long
                               order= 'C')
         data_arr_stiched = np.concatenate([data_arr[:-1], data_arr[1:]], axis = 1)
 
