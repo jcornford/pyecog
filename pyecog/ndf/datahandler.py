@@ -450,7 +450,7 @@ apply_async_with_callback()
             ndf = NdfFile(filename, fs = fs)
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids, scale_and_filter = scale_and_filter_flag)
-                abs_savename = os.path.join(savedir, filename.split('/')[-1][:-4]+ndf_time+' tids_'+str(tids))
+                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(tids))
                 ndf.save(save_file_name= abs_savename)
             else:
                 logging.warning('Not all read tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
