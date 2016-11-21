@@ -50,3 +50,6 @@ On windows you will also need to install visual studio in order to install pomeg
 * NDF:          code is the current working directory.
 * light_code:   contains old code. PyECoG was originally "networkclassifer", this is that code, kept for analysing further experiments.
 * visualisation: contains a bunch of visualisation experiments
+
+
+
