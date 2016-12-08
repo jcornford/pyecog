@@ -18,7 +18,7 @@ def main():
     datafilenames = glob.glob(pattern)
     if datafilenames:
         for filename in datafilenames:
-            print 'Converting ',filename
+            print ('Converting '+str(filename))
             data = stfio.read(filename,ftype = "abf")
             x = data.aspandas()
             x = x.values
