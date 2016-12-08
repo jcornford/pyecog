@@ -1,5 +1,9 @@
-import glob, os, numpy
-import stfio
+import glob, os, numpy, sys
+try:
+    import stfio
+except:
+    sys.path.append('C:\Python27\Lib\site-packages')
+    import stfio
 
 def main():
 
