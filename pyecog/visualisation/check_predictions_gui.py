@@ -3,11 +3,11 @@ import os
 import numpy as np
 import pandas as pd
 from PyQt4 import QtGui#,# uic
-from PyQt4.QtCore import QThread, SIGNAL, Qt
+from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect
 import pyqtgraph as pg
+import inspect
 
 from  pyecog.visualisation import check_preds_design
-
 from pyecog.ndf.h5loader import H5File
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
@@ -28,6 +28,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.select_folder_btn.clicked.connect(self.set_h5_folder)
         self.load_preds_btn.clicked.connect(self.load_pred_file)
+        self.export_csv.clicked.connect(self.tree_export_csv)
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.tid_box.setValue(6)
@@ -35,30 +36,65 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #self.channel_selector.valueChanged.connect(self.plot_traces)
         self.treeWidget.itemSelectionChanged.connect(self.tree_selection)
 
-        #self.plot_1.scene().sigMouseMoved.connect(self.print_mouse_position)
-        #self.mouseline = pg.InfiniteLine(pos = None)
-        #self.plot_1.addItem(self.mouseline, ignoreBounds = True)
-        #self.coords_label = pg.TextItem()
-        #self.plot_1.addItem(self.coords_label)
-
         self.debug_load_pred_files()
+
+        # Below resizes to better geometries - should really use this to save etc!
+        # doesnt quite work correctly!
+        self.widget_dict = {'top_container':self.horizontalLayout, 'plot':self.GraphicsLayoutWidget,
+                       'button_box' :self.horizontalLayout_2, 'tree':self.treeWidget}
+        resized = {'top_container' : QRect(12, 12, 1049, 304),
+                   'plot':QRect(368,0,681,304),
+                   'tree':QRect(0, 0,361,304),
+                   'button_box':QRect(12, 330,1049,36)}
+        for key in list(self.widget_dict.keys()):
+            self.widget_dict[key].setGeometry(resized[key])
+
+        self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
+
+    def tree_export_csv(self):
+        root = self.treeWidget.invisibleRootItem()
+        child_count = root.childCount()
+        print(child_count)
+        index, start, end, tid, fname = [],[],[],[],[]
+
+        for i in range(child_count):
+            item = root.child(i)
+            index.append(item.text(0)) # text at first (0) column
+            start.append(item.text(1))
+            end.append(item.text(2))
+            tid.append(item.text(3))
+            fname.append(item.text(4))
+        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,tid]).T,columns = ['old_index','filename','start','end','tid'] )
+        #print(exported_df)
+
+        if self.h5directory:
+            default_dir = os.path.dirname(self.h5directory)
+        else:
+            default_dir = ""
+        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save annotation .csv file',default_dir)
+        save_name = save_name.strip('.csv')
+        exported_df.to_csv(save_name+'.csv')
+
+
+
     def tree_selection(self):
         "grab tree detail and use to plot"
 
         seizure_buffer = 5 # seconds either side of seizure to plot
         current_item = self.treeWidget.currentItem()
-        if current_item.text(0).endswith('.h5'):
-            root = current_item
-            fields = current_item.parent()
-        else:
-            fields = current_item
-            root = current_item.child(0)
-            #print(fields.text(0))
+        #if current_item.text(0).endswith('.h5'):
+        #    root = current_item
+        #    fields = current_item.parent()
+        #else:
+        #    fields = current_item
+        #    root = current_item.child(0)
+        #   #print(fields.text(0))
+        fields = current_item
         tid = int(float(fields.text(3)))
         start = int(float(fields.text(1)))
         end = int(float(fields.text(2)))
         index = int(float(fields.text(0)))
-        fpath = os.path.join(self.h5directory, root.text(0))
+        fpath = os.path.join(self.h5directory, fields.text(4))
 
         h5 = H5File(fpath)
         data_dict = h5[tid]
@@ -70,17 +106,41 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
         hdf5_plot.setHDF5(data_dict['data'], data_dict['time'], self.fs)
         self.plot_1.addItem(hdf5_plot)
-        lpen = pg.mkPen((255,0,0), width=2, style= Qt.DashLine)
-        self.plot_1.addItem(pg.InfiniteLine(pos=start, pen =lpen, movable=True,label='{value:0.2f}',
-                       labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,50), 'movable': True}))
-        self.plot_1.addItem(pg.InfiniteLine(pos=end, pen = lpen, movable=True,label='{value:0.2f}',
-                       labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,50), 'movable': True}))
+
+        start_pen = pg.mkPen((85, 168, 104), width=3, style= Qt.DashLine)
+        end_pen = pg.mkPen((210,88,88), width=3, style= Qt.DashLine)
+        self.start_line = pg.InfiniteLine(pos=start, pen =start_pen, movable=True,label='{value:0.2f}',
+                       labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
+        self.end_line = pg.InfiniteLine(pos=end, pen = end_pen, movable=True,label='{value:0.2f}',
+                       labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
+        self.plot_1.addItem(self.start_line)
+        self.plot_1.addItem(self.end_line)
+        self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
+        self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
 
         self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer)
-        self.plot_1.setTitle(str(index)+' - '+ root.text(0)+ '\n' + str(start)+' - ' +str(end))
+        self.plot_1.setTitle(str(index)+' - '+ fields.text(4)+ '\n' + str(start)+' - ' +str(end))
         self.plot_1.setLabel('left', 'Voltage (uV)')
         self.plot_1.setLabel('bottom','Time (s)')
+
+        if self.print_widget_coords:
+            for key in list(self.widget_dict.keys()):
+                print(key)
+                obj = self.widget_dict[key]
+                print(obj.geometry().x(),obj.geometry().y())
+                #print(object.frameGeometry())
+                print(obj.geometry().width())
+                print(obj.geometry().height())
+                print('******')
         #self.plot_traces()
+
+    def update_tree_element_start_time(self):
+        tree_row = self.treeWidget.currentItem()
+        tree_row.setText(1,'{:.2f}'.format(self.start_line.x()))
+
+    def update_tree_element_end_time(self):
+        tree_row = self.treeWidget.currentItem()
+        tree_row.setText(2,'{:.2f}'.format(self.end_line.x()))
 
     def plot_traces(self, data_dict):
 
@@ -101,26 +161,26 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def populate_tree(self, row, tids):
         #self.treeWidget.setColumnCount(1)
-        self.treeWidget.setColumnCount(4)
+        self.treeWidget.setColumnCount(5)
         #self.treeWidget.setFirstColumnSpanned(True)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end', 'tid'])
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end', 'tid', 'fname'])
         filename = row['Filename']
         index =  row['Index']
         start =  row['Start']
         end = row['End']
          # flipped these two to read better
         fname_entry = [str(filename)]
-        details_entry = [str(index), str(start), str(end),str(tids[0])] # bad, should make only having one explcit
+        details_entry = [str(index), str(start), str(end),str(tids[0]),str(filename)] # bad, should make only having one explcit
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
-
-        item.addChild(QtGui.QTreeWidgetItem(fname_entry))
+        #item.addChild(QtGui.QTreeWidgetItem(fname_entry))
         self.tree_items.append(item)
 
         self.treeWidget.addTopLevelItems(self.tree_items)
 
     def print_mouse_position(self, pos):
+        # not used
         mousepoint = self.plot_1.getViewBox().mapSceneToView(pos)
         print(mousepoint)
         self.mouseline.setPos(mousepoint.x())
@@ -129,6 +189,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def keyPressEvent(self, eventQKeyEvent):
         key = eventQKeyEvent.key()
+
         x,y = self.plot_1.getViewBox().viewRange()
         if key == Qt.Key_Up:
             self.plot_1.getViewBox().setYRange(min = y[0]*0.9, max = y[1]*0.9, padding = 0)
@@ -140,9 +201,10 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         if key == Qt.Key_Left:
             scroll_i = (x[1]-x[0])*0.05
             self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
-        #if type(event) == QtGui.QKeyEvent:
-            #print(event.key())
-            #event.accept()
+        if key == Qt.Key_Backspace or key == Qt.Key_Delete:
+            current_item = self.treeWidget.currentItem()
+            root = self.treeWidget.invisibleRootItem()
+            root.removeChild(current_item)
 
     def load_pred_file(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'select predicitons file', self.home)
@@ -159,7 +221,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         for i,row in list(self.predictions_df.iterrows()):
             fpath = os.path.join(self.h5directory,row['Filename'])
-            #TODO
+            #TODO : decide what to do with tids, this needs to be filename extraction
             #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
             # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
             # problem is with files with many false positives, spend time loading for too long!

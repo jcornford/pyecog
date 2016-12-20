@@ -65,6 +65,9 @@ class Ui_MainWindow(object):
         self.tid_box.setMinimum(1)
         self.tid_box.setObjectName(_fromUtf8("tid_box"))
         self.horizontalLayout_2.addWidget(self.tid_box)
+        self.export_csv = QtGui.QPushButton(self.centralwidget)
+        self.export_csv.setObjectName(_fromUtf8("export_csv"))
+        self.horizontalLayout_2.addWidget(self.export_csv)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_2.addItem(spacerItem)
         self.gridLayout_2.addLayout(self.horizontalLayout_2, 1, 0, 1, 1)
@@ -77,5 +80,6 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
         self.select_folder_btn.setText(_translate("MainWindow", "Select h5 folder", None))
         self.load_preds_btn.setText(_translate("MainWindow", "Load predictions", None))
+        self.export_csv.setText(_translate("MainWindow", "Export seizure times (not implemented)", None))
 
 from pyqtgraph import GraphicsLayoutWidget
