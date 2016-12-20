@@ -1,5 +1,9 @@
-import glob, os, numpy
-import stfio
+import glob, os, numpy, sys
+try:
+    import stfio
+except:
+    sys.path.append('C:\Python27\Lib\site-packages')
+    import stfio
 
 def main():
 
@@ -18,7 +22,7 @@ def main():
     datafilenames = glob.glob(pattern)
     if datafilenames:
         for filename in datafilenames:
-            print 'Converting ',filename
+            print ('Converting '+str(filename))
             data = stfio.read(filename,ftype = "abf")
             x = data.aspandas()
             x = x.values
