@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from PyQt4 import QtGui#,# uic
-from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect
+from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect, QTimer
 import pyqtgraph as pg
 import inspect
 
@@ -14,10 +14,18 @@ from pyecog.ndf.h5loader import H5File
 #TODO
 # - you are currently loading the entire h5 file into memory..
 
-class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
+class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
-        super(PVio, self).__init__(parent)
+        super(CheckPredictionsGui, self).__init__(parent)
         self.setupUi(self)
+        self.scroll_flag = -1
+        if self.blink_box.isChecked():
+            self.blink      = 1
+        else:
+            self.blink      = -1
+        self.scroll_sign = 1
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.simple_scroll)
 
         self.fs = 256 # change !
         self.data_obj = None
@@ -31,7 +39,8 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.export_csv.clicked.connect(self.tree_export_csv)
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
-        self.tid_box.setValue(6)
+        self.plot_overview = self.overview_plot.addPlot()
+        #self.tid_box.setValue(6)
         #self.traceSelector.valueChanged.connect(self.plot_traces)
         #self.channel_selector.valueChanged.connect(self.plot_traces)
         self.treeWidget.itemSelectionChanged.connect(self.tree_selection)
@@ -40,16 +49,18 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         # Below resizes to better geometries - should really use this to save etc!
         # doesnt quite work correctly!
+        '''
         self.widget_dict = {'top_container':self.horizontalLayout, 'plot':self.GraphicsLayoutWidget,
-                       'button_box' :self.horizontalLayout_2, 'tree':self.treeWidget}
+                       'button_box' :self.buttons_layout, 'tree':self.treeWidget}
         resized = {'top_container' : QRect(12, 12, 1049, 304),
                    'plot':QRect(368,0,681,304),
                    'tree':QRect(0, 0,361,304),
                    'button_box':QRect(12, 330,1049,36)}
         for key in list(self.widget_dict.keys()):
             self.widget_dict[key].setGeometry(resized[key])
-
+        '''
         self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
+
 
     def tree_export_csv(self):
         root = self.treeWidget.invisibleRootItem()
@@ -76,7 +87,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         exported_df.to_csv(save_name+'.csv')
 
 
-
+    # this method does too much
     def tree_selection(self):
         "grab tree detail and use to plot"
 
@@ -123,6 +134,30 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.setLabel('left', 'Voltage (uV)')
         self.plot_1.setLabel('bottom','Time (s)')
 
+        # hit up the linked view here
+        self.plot_overview.clear()
+        self.plot_overview.enableAutoRange(False,False)
+        self.plot_overview.setXRange(0,3600) # hardcoding in the hour here...
+        self.plot_overview.setMouseEnabled(x = False, y= True)
+        self.bx_overview = self.plot_overview.getViewBox()
+        hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
+        hdf5_plotoverview.setHDF5(data_dict['data'], data_dict['time'], self.fs)
+        self.plot_overview.addItem(hdf5_plotoverview)
+        self.plot_overview.setLabel('left', 'Voltage (uV)')
+        self.plot_overview.setLabel('bottom','Time (s)')
+        self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fields.text(4))
+
+
+        self.lr = pg.LinearRegionItem(self.plot_1.getViewBox().viewRange()[0])
+        self.lr.setZValue(-10)
+        self.plot_overview.addItem(self.lr)
+        # is this good practice?
+
+        self.lr.sigRegionChanged.connect(self.updatePlot)
+        self.plot_1.sigXRangeChanged.connect(self.updateRegion)
+        self.updatePlot()
+
+        # not part of the method, was silly stuff to reset  the gui when reloading
         if self.print_widget_coords:
             for key in list(self.widget_dict.keys()):
                 print(key)
@@ -133,6 +168,11 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 print(obj.geometry().height())
                 print('******')
         #self.plot_traces()
+    # these two methods are for the lr plot connection, refactor names
+    def updatePlot(self):
+        self.plot_1.setXRange(*self.lr.getRegion(), padding=0)
+    def updateRegion(self):
+        self.lr.setRegion(self.plot_1.getViewBox().viewRange()[0])
 
     def update_tree_element_start_time(self):
         tree_row = self.treeWidget.currentItem()
@@ -192,19 +232,79 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         x,y = self.plot_1.getViewBox().viewRange()
         if key == Qt.Key_Up:
-            self.plot_1.getViewBox().setYRange(min = y[0]*0.9, max = y[1]*0.9, padding = 0)
+            if self.scroll_flag==True:
+                scroll_rate = self.scroll_speed_box.value()
+                new_rate = scroll_rate * 2
+                self.scroll_speed_box.setValue(new_rate)
+                if self.blink ==True: self.reset_timer()
+            else:
+                self.plot_1.getViewBox().setYRange(min = y[0]*0.9, max = y[1]*0.9, padding = 0)
+
         if key == Qt.Key_Down:
-            self.plot_1.getViewBox().setYRange(min = y[0]*1.1, max = y[1]*1.1,padding = 0)
+            if self.scroll_flag==True:
+                scroll_rate = self.scroll_speed_box.value()
+                if scroll_rate > 1:
+                    new_rate = int(scroll_rate / 2)
+                    self.scroll_speed_box.setValue(new_rate)
+                    if self.blink ==True: self.reset_timer()
+            else: # just zoom
+                self.plot_1.getViewBox().setYRange(min = y[0]*1.1, max = y[1]*1.1,padding = 0)
+
         if key == Qt.Key_Right:
-            scroll_i = (x[1]-x[0])*0.05
-            self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+            if self.scroll_flag==True:
+                self.scroll_sign = 1
+            else:
+                scroll_i = (x[1]-x[0])*0.001
+                self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+
         if key == Qt.Key_Left:
-            scroll_i = (x[1]-x[0])*0.05
-            self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
+            if self.scroll_flag==True:
+                self.scroll_sign = -1
+            else:
+                scroll_i = (x[1]-x[0])*0.001
+                self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
+
         if key == Qt.Key_Backspace or key == Qt.Key_Delete:
             current_item = self.treeWidget.currentItem()
             root = self.treeWidget.invisibleRootItem()
             root.removeChild(current_item)
+
+        if key == Qt.Key_B:
+            if self.scroll_flag==True:
+                self.blink *= -1
+                if self.blink == True:
+                    self.blink_box.setChecked(True)
+                else:
+                    self.blink_box.setChecked(False)
+                self.reset_timer()
+
+        if key == Qt.Key_Space:
+            self.scroll_sign = 1
+            self.scroll_flag *= -1
+            self.reset_timer()
+
+    def reset_timer(self):
+        scroll_rate = self.scroll_speed_box.value()
+        if self.scroll_flag==True:
+            self.timer.stop()
+            if self.blink_box.isChecked():
+                rate = int(2000/scroll_rate)
+                #print(rate)
+                self.timer.start(rate)
+            else:
+                self.timer.start(20)
+        else:
+            self.timer.stop()
+
+    def simple_scroll(self):
+        x,y = self.plot_1.getViewBox().viewRange()
+        scroll_rate = self.scroll_speed_box.value()
+        if self.blink_box.isChecked() != True:
+            scroll_i = (x[1]-x[0])*(0.001*scroll_rate)*self.scroll_sign
+            self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+        elif self.blink_box.isChecked():
+            scroll_i = (x[1]-x[0])*self.scroll_sign
+            self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
 
     def load_pred_file(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'select predicitons file', self.home)
@@ -221,7 +321,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         for i,row in list(self.predictions_df.iterrows()):
             fpath = os.path.join(self.h5directory,row['Filename'])
-            #TODO : decide what to do with tids, this needs to be filename extraction
+            #TODO : decide what to do with tids, this is not thought out at the moment
             #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
             # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
             # problem is with files with many false positives, spend time loading for too long!
@@ -230,7 +330,8 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
             #h5 = H5File(fpath)
             #tids = h5.attributes['t_ids']
-            tids = [self.tid_box.value()]
+            tids = [int(fpath.split(']')[0].split('[')[1])]
+            #tids = [int(fpath.split(']')[0].split]
             s,e = row['Start'], row['End']
             self.populate_tree(row, tids)
 
@@ -241,7 +342,7 @@ class PVio(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_df['Index'] = self.predictions_df.index
         for i,row in list(self.predictions_df.iterrows()):
             fpath = os.path.join(self.h5directory,row['Filename'])
-            tids = [self.tid_box.value()]
+            tids = [int(fpath.split(']')[0].split('[')[1])]
             s,e = row['Start'], row['End']
             self.populate_tree(row, tids)
 
@@ -399,7 +500,7 @@ class HDF5Plot(pg.PlotCurveItem):
 
 def main():
     app = QtGui.QApplication(sys.argv)
-    form = PVio()
+    form = CheckPredictionsGui()
     form.show()
     app.exec_()
 
