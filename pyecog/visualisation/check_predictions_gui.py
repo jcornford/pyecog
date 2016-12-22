@@ -27,7 +27,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
 
-        self.fs = 256 # change !
+        self.fs = None # change !
         self.data_obj = None
         self.predictions_df = None
         self.h5directory = None
@@ -109,8 +109,8 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         h5 = H5File(fpath)
         data_dict = h5[tid]
+        self.fs = eval(h5.attributes['fs_dict'])[tid]
 
-        #if not self.holdPlot.isChecked():
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
 
@@ -199,7 +199,18 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def set_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
 
+    def clear_QTreeWidget(self):
+            root = self.treeWidget.invisibleRootItem()
+            n_kids = root.childCount()
+            print(n_kids, 'n kids')
+            for i in range(n_kids):
+                #child = root.takeChild(i)
+                child = self.treeWidget.itemAt(i)
+                root.removeChild(child)
+
+
     def populate_tree(self, row, tids):
+
         #self.treeWidget.setColumnCount(1)
         self.treeWidget.setColumnCount(5)
         #self.treeWidget.setFirstColumnSpanned(True)
@@ -219,6 +230,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.treeWidget.addTopLevelItems(self.tree_items)
 
+    #TODO implement this clicking stuff! click and move the region
     def print_mouse_position(self, pos):
         # not used
         mousepoint = self.plot_1.getViewBox().mapSceneToView(pos)
@@ -226,6 +238,24 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.mouseline.setPos(mousepoint.x())
         #self.coords_label.setText("<span style='font-size: 6pt'> x=%0.1f <div style='text-align: center'> , <span style='font-size: 6pt''color: red'>y=%0.1f</span>" % (1111,2222))
         #self.coords_label.setText(str(mousepoint.x()))
+
+    def mousePressEvent(self, QMouseEvent):
+        #print('click!')
+        #event = QMouseEvent
+        #position = QMouseEvent.pos()
+        #print(position)
+        print('gloabl mouse position is...',QMouseEvent.globalPos())
+
+        #print(self.plot_1.sceneBoundingRect())
+        #print(self.plot_1.getViewBox().sceneBoundingRect())
+        #if self.plot_1.getViewBox().sceneBoundingRect().contains(position):
+        #    print('plot 1 contains postion!')
+        #print(QMouseEvent.posF())
+        #mousepoint = self.plot_1.getViewBox().mapSceneToView(position)
+        #print(mousepoint)
+        #region_coords = self.plot_1.getViewBox().viewRange()[0]
+        #print(region_coords)
+        #self.plot_1.setXRange(QMouseEvent.x(), region_coords[1])
 
     def keyPressEvent(self, eventQKeyEvent):
         key = eventQKeyEvent.key()
@@ -282,7 +312,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.scroll_sign = 1
             self.scroll_flag *= -1
             self.reset_timer()
-
+# TODO call this when blink or scroll boxa are changed through the gui, not just buttons
     def reset_timer(self):
         scroll_rate = self.scroll_speed_box.value()
         if self.scroll_flag==True:
@@ -307,6 +337,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
 
     def load_pred_file(self):
+        #self.clear_QTreeWidget()
         fname = QtGui.QFileDialog.getOpenFileName(self, 'select predicitons file', self.home)
         if fname.endswith('.csv'):
             self.predictions_df = pd.read_csv(fname)
