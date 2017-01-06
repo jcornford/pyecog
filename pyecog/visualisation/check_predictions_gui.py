@@ -26,6 +26,8 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.scroll_sign = 1
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
+        self.blink_box.stateChanged.connect(self.blink_box_change)
+        self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
 
         self.fs = None # change !
         self.data_obj = None
@@ -313,6 +315,12 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.scroll_flag *= -1
             self.reset_timer()
 # TODO call this when blink or scroll boxa are changed through the gui, not just buttons
+    def blink_box_change(self):
+        self.reset_timer()
+        #print('someone changed the blink box')
+    def scroll_speed_change(self):
+        self.reset_timer()
+
     def reset_timer(self):
         scroll_rate = self.scroll_speed_box.value()
         if self.scroll_flag==True:
