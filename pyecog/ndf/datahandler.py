@@ -62,15 +62,77 @@ apply_async_with_callback()
         self.parallel_savedir = None
         self.parrallel_flag_pred = False
 
-
-    def add_features_seizure_library(self, libary_path, overwrite = False, run_peaks = True):
+    def add_labels_to_seizure_library(self, library_path, overwrite, timewindow):
         '''
+
+        Called by self.add_features_seizure_library()
+
+        '''
+        logging.info('Adding labels to '+ library_path)
+        # todo check timewindows go into n seconds precisely
+        with h5py.File(library_path, 'r+') as f:
+            seizure_datasets = [f[group] for group in list(f.keys())]
+
+            for i, group in enumerate(seizure_datasets):
+                # First check if there are labels already there. If overwrite, go to except block
+                try:
+                    if not overwrite:
+                        features = group['labels']
+                        logging.info(str(group)+' already has labels, skipping')
+                    if overwrite:
+                        raise
+                except:
+                    try: # attempt to delete, will throw error if group doesn't exist.
+                        del group['labels']
+                        del group.attrs['chunked_annotation']
+
+                        logging.debug('Deleted old labels')
+                    except:
+                        pass
+                    # make labels dataset here:
+                    # first work out the would-be shape of the data array
+                    data = group['data'][:]
+                    fs = group.attrs['fs']
+                    n_traces = int(data.shape[0] / (fs * timewindow))
+                    #dp_lost =  int(data.shape[0] % (fs * timewindow))
+                    # dp per chunk is then int(fs * timewindow))
+                    #print(n_traces)
+                    labels = np.zeros(n_traces)
+                    #print(group.attrs['precise_annotation'])
+                    group.attrs['chunk_length'] = timewindow
+                    for row in group.attrs['precise_annotation']:
+                        start_i = int(np.floor(row[0]/timewindow))
+                        end_i   = int(np.ceil(row[1]/timewindow))
+                        labels[start_i:end_i] = 1
+
+                        try:
+                            group.attrs['chunked_annotation'] = np.vstack([group.attrs['chunked_annotation'],
+                                                                           np.array([(start_i*timewindow,end_i*timewindow)]) ])
+                        except KeyError:
+                            group.attrs['chunked_annotation'] = np.array([(start_i*timewindow,end_i*timewindow)])
+                    ###
+                    #print(group.attrs['chunked_annotation'])
+
+
+                    group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
+
+    def add_features_seizure_library(self, library_path, overwrite = False, run_peaks = True, timewindow = 5):
+        '''
+        Inputs:
+        - overwrite: if false, will only add labels and features to seizures in the library that do not already
+          have accompanying labels and features.
+
         This is painfully slow at the moment, not accessing hdf5 groups in parallel.
-
+        Both adding features to library and prediction h5 file now are expecting unchunked data. This method
+        will make labels too though
         '''
-        logging.info('Adding features to '+ libary_path)
+        logging.info('First adding labels to ' + library_path)
+        print('Adding labels first...', end=' ')
+        self.add_labels_to_seizure_library(library_path, overwrite, timewindow)
+        print('Done')
 
-        with h5py.File(libary_path, 'r+') as f:
+        logging.info('Adding features to ' + library_path)
+        with h5py.File(library_path, 'r+') as f:
             seizure_datasets = [f[group] for group in list(f.keys())]
 
             l = len(seizure_datasets)-1
@@ -87,12 +149,13 @@ apply_async_with_callback()
                         raise
                 except:
                     data_array = group['data'][:]
+                    data_array = self._make_array_from_data(data_array, fs = group.attrs['fs'], timewindow = timewindow)
                     assert len(data_array.shape) > 1
 
                     if data_array is not None:
                         extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], run_peakdet = run_peaks)
                         features = extractor.feature_array
-                        try:
+                        try: # attempt to delete, will throw error if group doesn't exist.
                             del group['features']
                             logging.debug('Deleted old features')
                         except:
@@ -251,8 +314,11 @@ apply_async_with_callback()
         '''
 
         logging.info('Datahandler - creating SeizureLibrary')
-
-        annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+        try:
+            annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+        except:
+            print("Error getting annotations from your file. Please ensure columns are named: 'name', 'transmitter','start','end'")
+            annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
@@ -338,6 +404,7 @@ apply_async_with_callback()
                                   verbose = False,
                                   scale_and_filter = False):
 
+
         logging.debug('Adding '+str(annotation['fname']))
         if annotation['fname'].endswith('.ndf'):
             file_obj = NdfFile(annotation['fname'],fs = fs)
@@ -348,26 +415,45 @@ apply_async_with_callback()
             print('ERROR: Unrecognised file-type')
 
         # add in filtering and scaling here
-        data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
+        #data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
+        data_array = file_obj[annotation['tid']]['data'] # just 1D at the moment!
 
         # use the start and end times to make labels
-        labels = np.zeros(shape = (data_array.shape[0]))
-        start_i = int(np.floor(annotation['start']/timewindow))
-        end_i   = int(np.ceil(annotation['end']/timewindow))
+        #labels = np.zeros(shape = (data_array.shape[0]))
+        #start_i = int(np.floor(annotation['start']/timewindow))
+        #end_i   = int(np.ceil(annotation['end']/timewindow))
+
+        #print('  ')
+        #print(annotation['start'], ': ', start_i*timewindow)
+        #print(annotation['end'], ':', end_i*timewindow)
 
         with h5py.File(seizure_library_path, 'r+') as f:
             if annotation['dataset_name'] in f.keys():
                 logging.info(str(annotation['dataset_name'])+' has more than one seizure!')
-                labels =  f[annotation['dataset_name']+'/labels']
-                labels[start_i:end_i] = 1
+                #labels =  f[annotation['dataset_name']+'/labels']
+                # todo wrap this in try, not possible to have end earlier than start of the seizure, will throw reverse selection error
+                #labels[start_i:end_i] = 1
+                print('more than one seizure')
+
+                #f[annotation['dataset_name']].attrs['chunked_annotation'] = np.vstack(
+                #    [f[annotation['dataset_name']].attrs['chunked_annotation'], np.array([(120,160)]) ])
+
+                #print(f[annotation['dataset_name']].attrs['chunked_annotation'])
+                f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack(
+                    [f[annotation['dataset_name']].attrs['precise_annotation'], np.array([(annotation['start'],annotation['end'])])])
+                print((f[annotation['dataset_name']].attrs['precise_annotation']))
+                print(dict(f[annotation['dataset_name']].attrs))
+
             else:
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
                 group.attrs['fs']  = fs
                 group.attrs['scaled_and_filtered'] = scale_and_filter
+                #group.attrs['chunked_annotation'] = np.array([(100,160)])
+                group.attrs['precise_annotation'] = np.array([(annotation['start'],annotation['end'])])
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
-                labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
-                group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
+                #labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
+                #group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
             f.close()
 
     @staticmethod

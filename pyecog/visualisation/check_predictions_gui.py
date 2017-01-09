@@ -39,6 +39,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.select_folder_btn.clicked.connect(self.set_h5_folder)
         self.load_preds_btn.clicked.connect(self.load_pred_file)
         self.export_csv.clicked.connect(self.tree_export_csv)
+        #self.
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
@@ -126,6 +127,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                        labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
         self.end_line = pg.InfiniteLine(pos=end, pen = end_pen, movable=True,label='{value:0.2f}',
                        labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
+        # todo add all lines per file in one go
         self.plot_1.addItem(self.start_line)
         self.plot_1.addItem(self.end_line)
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)

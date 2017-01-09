@@ -75,6 +75,7 @@ class FeatureExtractor():
 
         N.B Scaling to unit std should be done here!
         '''
+        # todo do not assume an hour?
 
         self.start = time.clock()
         standardiser = StdDevStandardiser(data,std_sigfigs=2)
