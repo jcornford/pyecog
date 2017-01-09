@@ -348,6 +348,7 @@ class NdfFile:
                                                  data=self.tid_data_time_dict[tid]['data'],
                                                  compression = "gzip", dtype='f4',
                                                  chunks = self.tid_data_time_dict[tid]['data'].shape)
+                # todo WHY ARE YOU SAVING TIME?!!!! Just generate it when you load up h5
                 transmitter_group.create_dataset('time',
                                                  data=self.tid_data_time_dict[tid]['time'],
                                                  compression = "gzip", dtype='f4',
