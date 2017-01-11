@@ -433,7 +433,7 @@ apply_async_with_callback()
                 #labels =  f[annotation['dataset_name']+'/labels']
                 # todo wrap this in try, not possible to have end earlier than start of the seizure, will throw reverse selection error
                 #labels[start_i:end_i] = 1
-                print('more than one seizure')
+                #print('more than one seizure')
 
                 #f[annotation['dataset_name']].attrs['chunked_annotation'] = np.vstack(
                 #    [f[annotation['dataset_name']].attrs['chunked_annotation'], np.array([(120,160)]) ])
@@ -441,8 +441,8 @@ apply_async_with_callback()
                 #print(f[annotation['dataset_name']].attrs['chunked_annotation'])
                 f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack(
                     [f[annotation['dataset_name']].attrs['precise_annotation'], np.array([(annotation['start'],annotation['end'])])])
-                print((f[annotation['dataset_name']].attrs['precise_annotation']))
-                print(dict(f[annotation['dataset_name']].attrs))
+                #print((f[annotation['dataset_name']].attrs['precise_annotation']))
+                #print(dict(f[annotation['dataset_name']].attrs))
 
             else:
                 group = f.create_group(annotation['dataset_name'])
