@@ -1,1 +1,1 @@
-from pyecog.visualisation import check_predictions_gui
+from pyecog.visualisation import pyecog_gui_v1

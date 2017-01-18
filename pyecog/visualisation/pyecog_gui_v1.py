@@ -8,12 +8,37 @@ import pyqtgraph as pg
 import inspect
 import h5py
 
-from  pyecog.visualisation import check_preds_design
+from  pyecog.visualisation import check_preds_design, loading_subwindow
 from pyecog.ndf.h5loader import H5File
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
-#TODO
-# - you are currently loading the entire h5 file into memory..
+#TODO - you are currently loading the entire h5 file into memory..
+
+class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        self.setupUi(self)
+
+        self.set_prediction_file.clicked.connect(self.get_pred_filename)
+        self.set_h5_folder.clicked.connect(self.get_h5_folder)
+
+        self.home = '' # default folder to be inherited
+        self.predictions_fname = None
+        self.h5directory       = None
+
+    def get_h5_folder(self):
+        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        self.update_h5_folder_display()
+
+    def update_h5_folder_display(self):
+        self.h5_display.setText(str(self.h5directory))
+
+    def update_predictionfile_display(self):
+        self.prediction_display.setText(str(self.predictions_fname))
+
+    def get_pred_filename(self):
+        self.predictions_fname = QtGui.QFileDialog.getOpenFileName(self, 'Select a predicitons file', self.home)
+        self.update_predictionfile_display()
 
 class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
@@ -39,10 +64,13 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
         self.home = '/Volumes/G-DRIVE with Thunderbolt/'
 
-        self.select_folder_btn.clicked.connect(self.set_h5_folder)
-        self.load_preds_btn.clicked.connect(self.load_pred_file)
-        self.export_csv.clicked.connect(self.tree_export_csv)
-        self.load_library.clicked.connect(self.load_seizure_library)
+        #self.select_folder_btn.clicked.connect(self.set_h5_folder)
+        #self.load_preds_btn.clicked.connect(self.load_pred_file)
+
+        # Hook up the file bar stuff here
+        self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
+        self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
+        self.actionLoad_Library.triggered.connect(self.load_seizure_library)
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
@@ -70,6 +98,18 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                    'button_box':QRect(12, 330,1049,36)}
         for key in list(self.widget_dict.keys()):
             self.widget_dict[key].setGeometry(resized[key])
+
+         # not part of the method, was silly stuff to reset  the gui when reloading
+        if self.print_widget_coords:
+            for key in list(self.widget_dict.keys()):
+                print(key)
+                obj = self.widget_dict[key]
+                print(obj.geometry().x(),obj.geometry().y())
+                #print(object.frameGeometry())
+                print(obj.geometry().width())
+                print(obj.geometry().height())
+                print('******')
+        #self.plot_traces()
         '''
         self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
 
@@ -109,7 +149,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         details_entry = [str(row['index']),
                          str(row['start']),
                          str(row['end']),
-                         str( (row['end'] - row['start']) ),
+                         str((row['end'] - row['start']) ),
                          str(row['chunk_start']),
                          str(row['chunk_end']),
                          str(row['tid']),
@@ -120,35 +160,70 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.tree_items.append(item)
 
+    def master_tree_export_csv(self):
+        if self.predictions_up:
+            self.predictions_tree_export_csv()
+        elif self.library_up:
+            self.library_tree_export_csv()
+        elif self.file_dir_up:
+            self.file_tree_export_csv()
+    def file_tree_export_csv(self):
+        pass
 
-    def tree_export_csv(self):
-        # todo only avalibale if predictions are up
-        assert self.predictions_up == True
+    def library_tree_export_csv(self):
+        if self.h5directory:
+            default_dir = os.path.dirname(self.h5directory)
+        else:
+            default_dir = ""
+        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save library details in a .csv file',default_dir)
+        if save_name is '':
+            print('nothing selected')
+            return 0
+        # now build dataframe from the tree
         root = self.treeWidget.invisibleRootItem()
         child_count = root.childCount()
-        print(child_count)
         index, start, end, tid, fname, duration = [],[],[],[],[], []
         for i in range(child_count):
             item = root.child(i)
-            index.append(item.text(0)) # text at first (0) column
+            index.append(item.text(0))
             start.append(item.text(1))
             end.append(item.text(2))
-            tid.append(item.text(4))
-            fname.append(item.text(5))
+            tid.append(item.text(6))
+            fname.append(item.text(7))
             duration.append(item.text(3))
-        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,tid]).T,columns = ['old_index','filename','start','end','duration','tid'] )
-        #print(exported_df)
+        exported_df = pd.DataFrame(data = np.vstack([fname,start,end,duration,tid]).T,columns = ['filename','start','end','duration','tid'] )
 
+        save_name = save_name.strip('.csv')
+        exported_df.to_csv(save_name+'.csv')
+
+    def predictions_tree_export_csv(self):
         if self.h5directory:
             default_dir = os.path.dirname(self.h5directory)
         else:
             default_dir = ""
         save_name = QtGui.QFileDialog.getSaveFileName(self,'Save annotation .csv file',default_dir)
+        if save_name is '':
+            print('nothing selected')
+            return 0
+        # now build dataframe from the tree
+        root = self.treeWidget.invisibleRootItem()
+        child_count = root.childCount()
+        index, start, end, tid, fname, duration = [],[],[],[],[], []
+        for i in range(child_count):
+            item = root.child(i)
+            index.append(item.text(0))
+            start.append(item.text(1))
+            end.append(item.text(2))
+            tid.append(item.text(4))
+            fname.append(item.text(5))
+            duration.append(item.text(3))
+        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','tid'] )
+
         save_name = save_name.strip('.csv')
         exported_df.to_csv(save_name+'.csv')
 
     def master_tree_selection(self):
-        if not self.deleteing:       # this is a hack as was being called as I was clearing the items
+        if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
             if self.predictions_up:
                 self.tree_selection_predictions()
             elif self.library_up:
@@ -164,23 +239,20 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         current_item = self.treeWidget.currentItem()
         fields = current_item
 
-        # todo, these really should be floats?. not ints?
         index = int(float(fields.text(0)))
         start = float(fields.text(1))
         end = float(fields.text(2))
         duration = float(fields.text(3))
-        chunk_start = int(float(fields.text(4)))
-        chunk_end = int(float(fields.text(5)))
-        tid = int(float(fields.text(6)))
+        chunk_start = float(fields.text(4))
+        chunk_end = float(fields.text(5))
+        tid = float(fields.text(6))
         key = fields.text(7)
 
         with h5py.File(self.library) as f:
             dataset = f[key]
             self.fs = dataset.attrs['fs']
-            # now plot, there is overlap with below...
-            # todo, refactor these with a unified plotting method
-            # todo, this whole thing assumes you have added features? then labesl need to be calculated second?
-            # i guess you can just add labels?
+            # todo, then assumes you have calculated labels need to be calculated second?
+            # i guess you can just add labels before?
 
             self.plot_1.clear()
             self.bx1 = self.plot_1.getViewBox()
@@ -188,9 +260,6 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             data = dataset['data'][:]
             time = np.linspace(0, data.shape[0]/self.fs, data.shape[0])
             self.add_data_to_plots(data,time)
-            #hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
-            #hdf5_plot.setHDF5(data, time, self.fs)
-            #self.plot_1.addItem(hdf5_plot)
 
             start_pen = pg.mkPen((85, 168, 104), width=3, style= Qt.DashLine)
             end_pen = pg.mkPen((210,88,88), width=3, style= Qt.DashLine)
@@ -212,32 +281,9 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.addItem(self.end_coarse)
             self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
             self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
-
             self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer)
             self.plot_1.setTitle(str(index)+' - '+ key+ '\n' + str(start)+' - ' +str(end))
-            #self.plot_1.setLabel('left', 'Voltage (uV)')
-            #self.plot_1.setLabel('bottom','Time (s)')
-
-            # hit up the linked view here
-            #self.plot_overview.clear()
-            #self.plot_overview.enableAutoRange(False,False)
-            #self.plot_overview.setXRange(0,3600) # hardcoding in the hour here...
-            #self.plot_overview.setMouseEnabled(x = False, y= True)
-            #self.bx_overview = self.plot_overview.getViewBox()
-            #hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
-            #hdf5_plotoverview.setHDF5(data, time, self.fs)
-            #self.plot_overview.addItem(hdf5_plotoverview)
-            #self.plot_overview.setLabel('left', 'Voltage (uV)')
-            #self.plot_overview.setLabel('bottom','Time (s)')
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
-
-            #self.lr = pg.LinearRegionItem(self.plot_1.getViewBox().viewRange()[0])
-            #self.lr.setZValue(-10)
-            #self.plot_overview.addItem(self.lr)
-            # is this good practice?
-
-            #self.lr.sigRegionChanged.connect(self.updatePlot)
-            #self.plot_1.sigXRangeChanged.connect(self.updateRegion)
             self.updatePlot()
 
     def tree_selection_predictions(self):
@@ -248,9 +294,9 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         fields = current_item
         tid = int(float(fields.text(4)))
-        start = int(float(fields.text(1)))
-        end = int(float(fields.text(2)))
-        index = int(float(fields.text(0)))
+        start = float(fields.text(1))
+        end = float(fields.text(2))
+        index = float(fields.text(0))
         # duration is fields.text(3)
         fpath = os.path.join(self.h5directory, fields.text(5))
 
@@ -259,14 +305,6 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.fs = eval(h5.attributes['fs_dict'])[tid]
 
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
-
-        #self.plot_1.clear()
-        #self.bx1 = self.plot_1.getViewBox()
-
-        #hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
-        #hdf5_plot.setHDF5(data_dict['data'], data_dict['time'], self.fs)
-        #self.plot_1.addItem(hdf5_plot)
-
         start_pen = pg.mkPen((85, 168, 104), width=3, style= Qt.DashLine)
         end_pen = pg.mkPen((210,88,88), width=3, style= Qt.DashLine)
         self.start_line = pg.InfiniteLine(pos=start, pen =start_pen, movable=True,label='{value:0.2f}',
@@ -281,41 +319,8 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n' + str(start)+' - ' +str(end))
-
-
-        # hit up the linked view here
-        #self.plot_overview.clear()
-        #self.plot_overview.enableAutoRange(False,False)
-        #self.plot_overview.setXRange(0,3600) # hardcoding in the hour here...
-        #self.plot_overview.setMouseEnabled(x = False, y= True)
-        #self.bx_overview = self.plot_overview.getViewBox()
-        #hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
-        #hdf5_plotoverview.setHDF5(data_dict['data'], data_dict['time'], self.fs)
-        #self.plot_overview.addItem(hdf5_plotoverview)
-        #self.plot_overview.setLabel('left', 'Voltage (uV)')
-        #self.plot_overview.setLabel('bottom','Time (s)')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
-
-        #self.lr = pg.LinearRegionItem(self.plot_1.getViewBox().viewRange()[0])
-        #self.lr.setZValue(-10)
-        #self.plot_overview.addItem(self.lr)
-        # is this good practice?
-
-        #self.lr.sigRegionChanged.connect(self.updatePlot)
-        #self.plot_1.sigXRangeChanged.connect(self.updateRegion)
         self.updatePlot()
-
-        # not part of the method, was silly stuff to reset  the gui when reloading
-        if self.print_widget_coords:
-            for key in list(self.widget_dict.keys()):
-                print(key)
-                obj = self.widget_dict[key]
-                print(obj.geometry().x(),obj.geometry().y())
-                #print(object.frameGeometry())
-                print(obj.geometry().width())
-                print(obj.geometry().height())
-                print('******')
-        #self.plot_traces()
 
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
@@ -342,11 +347,9 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.lr.setZValue(-10)
         self.plot_overview.addItem(self.lr)
         # is this good practice?
-
         self.lr.sigRegionChanged.connect(self.updatePlot)
         self.plot_1.sigXRangeChanged.connect(self.updateRegion)
         self.updatePlot()
-
 
     # these two methods are for the lr plot connection, refactor names
     def updatePlot(self):
@@ -383,18 +386,8 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.setXRange(row['Start'], row['End'])
         #self.plot_1.ti
 
-    def set_h5_folder(self):
-        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        self.update_h5_folder_display()
-
-    def update_h5_folder_display(self):
-        self.h5_folder_display.setText(str(self.h5directory))
-
-    def update_predictionfile_display(self):
-        self.predictions_file_display.setText(str(self.predictions_fname))
-
     def clear_QTreeWidget(self):
-        # not sure if i need this
+        # not sure if i need this top bit
         self.deleteing = True
         if self.treeWidget.currentItem():
             current_item = self.treeWidget.currentItem()
@@ -410,7 +403,85 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
         self.deleteing = False
 
-    def populate_tree_items_list(self, row, tids):
+    def load_predictions_gui(self):
+        ''' here make the window for choosing h5 file directory and predictions '''
+        # we want something displaying the two files and lets you optionally change the h5 folder.
+        print('loading new window!')
+        child = LoadingSubwindow()
+        child.show()
+        child.home = self.home # will this inherit? :p
+        if child.exec_():
+            print(child.predictions_fname)
+            self.h5directory = child.h5directory
+            self.predictions_fname = child.predictions_fname
+
+            self.update_h5_folder_display()
+            self.update_predictionfile_display()
+            self.load_pred_file()
+
+    def update_h5_folder_display(self):
+        self.h5_folder_display.setText(str(self.h5directory))
+
+    def update_predictionfile_display(self):
+        self.predictions_file_display.setText(str(self.predictions_fname))
+
+    def load_pred_file(self):
+        self.clear_QTreeWidget()
+        if self.predictions_fname.endswith('.csv'):
+            self.predictions_df = pd.read_csv(self.predictions_fname)
+        elif self.predictions_fname.endswith('.xlsx'):
+            self.predictions_df = pd.read_excel(self.predictions_fname)
+        else:
+            print('Please select .csv or .xlsx file')
+            return 0
+        self.update_predictionfile_display()
+        self.predictions_df['Index'] = self.predictions_df.index
+        if self.h5directory is None:
+            self.set_h5_folder()
+
+        for i,row in list(self.predictions_df.iterrows()):
+            fpath = os.path.join(self.h5directory,row['Filename'])
+            #TODO : decide what to do with tids, this is not thought out at the moment
+            #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
+            # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
+            # problem is with files with many false positives, spend time loading for too long!
+            # or have a button for this...
+
+            #h5 = H5File(fpath)
+            #tids = h5.attributes['t_ids']
+            tids = [int(fpath.split(']')[0].split('[')[1])]
+            s,e = row['Start'], row['End']
+            self.populate_tree_items_list_from_predictions(row, tids)    # this just populates self.tree_items
+        self.treeWidget.addTopLevelItems(self.tree_items)
+
+        self.predictions_up = True
+        self.library_up = False
+        self.file_dir_up = False
+
+    def debug_load_pred_files(self): # stripped down version of the above for debugging gui code
+        self.clear_QTreeWidget()
+        try:
+            self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/M6'
+            self.update_h5_folder_display()
+            self.predictions_fname = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/clf_predictions_m6_201610_no_pks.csv'
+            self.update_predictionfile_display()
+            self.predictions_df = pd.read_csv(self.predictions_fname)
+            self.predictions_df['Index'] = self.predictions_df.index
+            print('loading up files for debug')
+            for i,row in list(self.predictions_df.iterrows()):
+                fpath = os.path.join(self.h5directory,row['Filename'])
+                tids = [int(fpath.split(']')[0].split('[')[1])]
+                s,e = row['Start'], row['End']
+                self.populate_tree_items_list_from_predictions(row, tids)
+            self.treeWidget.addTopLevelItems(self.tree_items)
+
+            self.predictions_up = True
+            self.library_up = False
+            self.file_dir_up = False
+        except:
+            print('Error, with debug loading')
+
+    def populate_tree_items_list_from_predictions(self, row, tids):
         # todo refactor this name
 
         self.treeWidget.setColumnCount(5)
@@ -435,7 +506,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         #self.treeWidget.addTopLevelItems(self.tree_items) # now beeing called once all items are there.
 
-    #TODO implement this clicking stuff! click and move the region
+    #TODO implement this clicking stuff! click and move the region, these two methods below
     def print_mouse_position(self, pos):
         # not used
         mousepoint = self.plot_1.getViewBox().mapSceneToView(pos)
@@ -517,7 +588,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.scroll_sign = 1
             self.scroll_flag *= -1
             self.reset_timer()
-# TODO call this when blink or scroll boxa are changed through the gui, not just buttons
+
     def blink_box_change(self):
         self.reset_timer()
         #print('someone changed the blink box')
@@ -546,63 +617,6 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         elif self.blink_box.isChecked():
             scroll_i = (x[1]-x[0])*self.scroll_sign
             self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
-
-    def load_pred_file(self):
-        self.clear_QTreeWidget()
-
-        self.predictions_fname = QtGui.QFileDialog.getOpenFileName(self, 'select predicitons file', self.home)
-        if self.predictions_fname.endswith('.csv'):
-            self.predictions_df = pd.read_csv(self.predictions_fname)
-        elif self.predictions_fname.endswith('.xlsx'):
-            self.predictions_df = pd.read_excel(self.predictions_fname)
-        else:
-            print('Please select .csv or .xlsx file')
-            return 0
-        self.update_predictionfile_display()
-        self.predictions_df['Index'] = self.predictions_df.index
-        if self.h5directory is None:
-            self.set_h5_folder()
-
-        for i,row in list(self.predictions_df.iterrows()):
-            fpath = os.path.join(self.h5directory,row['Filename'])
-            #TODO : decide what to do with tids, this is not thought out at the moment
-            #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
-            # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
-            # problem is with files with many false positives, spend time loading for too long!
-
-            # or have a button for this...
-
-            #h5 = H5File(fpath)
-            #tids = h5.attributes['t_ids']
-            tids = [int(fpath.split(']')[0].split('[')[1])]
-            #tids = [int(fpath.split(']')[0].split]
-            s,e = row['Start'], row['End']
-            self.populate_tree_items_list(row, tids) # this just populates self.tree_items
-        self.treeWidget.addTopLevelItems(self.tree_items)
-
-        self.predictions_up = True
-        self.library_up = False
-        self.file_dir_up = False
-
-    def debug_load_pred_files(self): # stripped down version of the above for debugging gui code
-        self.clear_QTreeWidget()
-        self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/M6'
-        self.update_h5_folder_display()
-        self.predictions_fname = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/clf_predictions_m6_201610_no_pks.csv'
-        self.update_predictionfile_display()
-        self.predictions_df = pd.read_csv(self.predictions_fname)
-        self.predictions_df['Index'] = self.predictions_df.index
-        print('loading up files for debug')
-        for i,row in list(self.predictions_df.iterrows()):
-            fpath = os.path.join(self.h5directory,row['Filename'])
-            tids = [int(fpath.split(']')[0].split('[')[1])]
-            s,e = row['Start'], row['End']
-            self.populate_tree_items_list(row, tids)
-        self.treeWidget.addTopLevelItems(self.tree_items)
-
-        self.predictions_up = True
-        self.library_up = False
-        self.file_dir_up = False
 
     def load_h5_file(self,fname):
 
