@@ -408,7 +408,7 @@ apply_async_with_callback()
         logging.debug('Adding '+str(annotation['fname']))
         if annotation['fname'].endswith('.ndf'):
             file_obj = NdfFile(annotation['fname'],fs = fs)
-            file_obj.load(annotation['tid'],scale_and_filter= scale_and_filter)
+            file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
             file_obj = H5File(annotation['fname'])
         else:
@@ -470,11 +470,10 @@ apply_async_with_callback()
         return data_array
 
     @staticmethod
-    def _fullpath_listdir(d):
+    def fullpath_listdir(d):
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto',
-                                    scale_and_filter = False):
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
         """
 
         Args:
@@ -487,9 +486,9 @@ apply_async_with_callback()
         ndfs conversion seem to be pretty buggy...
 
         """
-        self.scale_and_filter = scale_and_filter
+
         self.fs_for_parallel_conversion = fs
-        files = [f for f in self._fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
+        files = [f for f in self.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
 
         # check ids
         ndf = NdfFile(files[0])
@@ -514,17 +513,16 @@ apply_async_with_callback()
         pool = multiprocessing.Pool(n_cores)
         l = len(files)
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        for i, _ in enumerate(pool.imap(self._convert_ndf, files), 1):
+        for i, _ in enumerate(pool.imap(self.convert_ndf, files), 1):
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         pool.close()
         pool.join()
 
-    def _convert_ndf(self,filename):
+    def convert_ndf(self, filename):
 
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
-        scale_and_filter_flag = self.scale_and_filter
 
         # convert m name
         mname = os.path.split(filename)[1]
@@ -535,7 +533,7 @@ apply_async_with_callback()
         try:
             ndf = NdfFile(filename, fs = fs)
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
-                ndf.load(tids, scale_and_filter = scale_and_filter_flag)
+                ndf.load(tids)
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(tids))
                 ndf.save(save_file_name= abs_savename)
             else:

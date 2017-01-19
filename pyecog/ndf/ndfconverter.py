@@ -373,7 +373,7 @@ class NdfFile:
              auto_glitch_removal = True,
              auto_resampling = True,
              auto_filter = True,
-             scale_and_filter = False):
+             scale_to_mode_std = False):
         '''
         N.B. Should run glitch removal before high pass filtering and auto resampling... If unhappy with glitches,
         turn off filtering and the resampling and then run their methods etc.
@@ -383,7 +383,7 @@ class NdfFile:
             auto_glitch_removal: to automatically detect glitches with default tactic median abs deviation
             auto_resampling: to resample fs to regular sampling frequency
             auto_filter : high pass filter traces at default 1 hz
-            scale_and_filter: high pass filter (default 1 hz) and scale to mode std dev 5 second blocks of trace
+            scale_to_mode_std: high pass filter (default 1 hz) and scale to mode std dev 5 second blocks of trace
             WARNING: This is more for visualisation of what the feature extractor is working on. TO keep things
             simple, when saving HDF5 files, save non-scaled.
 
@@ -404,14 +404,14 @@ class NdfFile:
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
 
-        # read everything in 8bits, grabs time stamps, then get_file props has already read these ids
+        # read everything in 8bits, grabs time stamps, get_valid_tids_and_fs called on init has already has ids
         self.t_stamps_256 = self._e_bit_reads[3::4]
 
         # read again, but in 16 bit chunks, grab messages
         f.seek(self.data_address + 1)
-        self.voltage_messages = np.fromfile(f, '>u2')[::2]
 
-        self._merge_coarse_and_fine_clocks() # this assigns self.time_array
+        self.voltage_messages = np.fromfile(f, '>u2')[::2]
+        self._merge_coarse_and_fine_clocks() # this generates self.time_array
 
         for read_id in self.read_ids:
             assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
@@ -428,11 +428,10 @@ class NdfFile:
             self.correct_sampling_frequency()
             # there should now be no nans surviving here!
 
-        if auto_filter and not scale_and_filter:
+        if auto_filter:
             self.highpass_filter()
 
-        if scale_and_filter:
-            self.highpass_filter()
+        if scale_to_mode_std: # not normally called
             self.standardise_to_mode_stddev()
 
 

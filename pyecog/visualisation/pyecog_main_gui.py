@@ -8,38 +8,14 @@ import pyqtgraph as pg
 import inspect
 import h5py
 
-from  pyecog.visualisation import check_preds_design, loading_subwindow
+from pyecog.visualisation import check_preds_design, loading_subwindow, convert_ndf_window
+from pyecog.visualisation import subwindows
 from pyecog.ndf.h5loader import H5File
+from pyecog.ndf.datahandler import DataHandler
+
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
 #TODO - you are currently loading the entire h5 file into memory..
-
-class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
-    def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
-        self.setupUi(self)
-
-        self.set_prediction_file.clicked.connect(self.get_pred_filename)
-        self.set_h5_folder.clicked.connect(self.get_h5_folder)
-
-        self.home = '' # default folder to be inherited
-        self.predictions_fname = None
-        self.h5directory       = None
-
-    def get_h5_folder(self):
-        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        self.update_h5_folder_display()
-
-    def update_h5_folder_display(self):
-        self.h5_display.setText(str(self.h5directory))
-
-    def update_predictionfile_display(self):
-        self.prediction_display.setText(str(self.predictions_fname))
-
-    def get_pred_filename(self):
-        self.predictions_fname = QtGui.QFileDialog.getOpenFileName(self, 'Select a predicitons file', self.home)
-        self.update_predictionfile_display()
-
 class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
         pg.setConfigOption('background', 'w')
@@ -71,6 +47,16 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
         self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
         self.actionLoad_Library.triggered.connect(self.load_seizure_library)
+        self.actionLoad_h5_folder.triggered.connect(self.not_done_yet) # this is still to do in its entireity
+        self.actionSet_default_folder.triggered.connect(self.set_home)
+
+        # Hook up analyse menu bar to functions here
+        self.actionConvert_ndf_to_h5.triggered.connect(self.convert_ndf_folder_to_h5)
+        self.actionMake_library.triggered.connect(self.not_done_yet)
+        self.actionAdd_to_library.triggered.connect(self.not_done_yet)
+        self.actionAdd_labels_to_library.triggered.connect(self.not_done_yet)
+        self.actionAdd_features_to_library.triggered.connect(self.not_done_yet)
+
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
@@ -84,7 +70,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.file_dir_up = False
 
 
-        self.debug_load_pred_files()
+        #self.debug_load_pred_files()
 
 
         # Below resizes to better geometries - should really use this to save etc!
@@ -112,6 +98,20 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #self.plot_traces()
         '''
         self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
+
+    def not_done_yet(self):
+        QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Not implemented yet! Jonny has been lazy!")
+
+    def convert_ndf_folder_to_h5(self):
+        child = subwindows.ConvertingNDFsWindow()
+        child.show()
+        child.home = self.home # will this inherit? :p
+        if child.exec_():
+            print('exec_was called')
+        return 0
+
+    def set_home(self):
+        self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
 
     def load_seizure_library(self):
 
@@ -407,7 +407,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         ''' here make the window for choosing h5 file directory and predictions '''
         # we want something displaying the two files and lets you optionally change the h5 folder.
         print('loading new window!')
-        child = LoadingSubwindow()
+        child = subwindows.LoadingSubwindow()
         child.show()
         child.home = self.home # will this inherit? :p
         if child.exec_():

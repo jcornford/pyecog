@@ -17,7 +17,7 @@ import logging
 logger = logging.getLogger()
 logpath = os.getcwd()
 #fhandler = logging.FileHandler(filename=os.path.join(os.path.split(logpath)[0], 'Datahandler.log'), mode='w')
-fhandler = logging.FileHandler(filename=os.path.join(logpath, 'PyECoG_log.log'), mode='a+')
+fhandler = logging.FileHandler(filename=os.path.join(logpath, 'PyECoG_logfile.log'), mode='a+')
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 fhandler.setFormatter(formatter)
 logger.addHandler(fhandler)
