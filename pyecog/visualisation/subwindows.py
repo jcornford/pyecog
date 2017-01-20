@@ -30,43 +30,60 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.use_peaks.clicked.connect(self.use_peaks_changed)
         self.use_peaks.stateChanged.connect(self.use_peaks_changed)
         self.overwrite_box.stateChanged.connect(self.overwrite_box_changed)
+        self.fs_box.textChanged.connect(self.fs_box_changed)
 
         self.library_path = None
         self.annotation_path = None
         self.h5_folder_path = None
         self.home = None # inherit default folder
-        self.chosen_chunk_length = self.chunk_length.text()
+        self.chosen_chunk_length = int(self.chunk_length.text())
         self.annotation_df = None
+        self.overwrite_box.setChecked(True)
         self.overwrite_bool = self.overwrite_box.isChecked()
         self.use_peaks_bool = self.use_peaks.isChecked()
+        self.fs = int(self.fs_box.text())
 
         #self.progressBar etc...
         #self.progressBar_label_above2
 
+        self.worker = LibraryWorkerThread()
+        self.connect(self.worker, SIGNAL("update_label_above2(QString)"), self.update_label_above2)
+        self.connect(self.worker, SIGNAL("update_label_below(QString)"), self.update_label_below)
+        self.connect(self.worker, SIGNAL("setMaximum_progressbar(QString)"), self.set_max_bar)
+        self.connect(self.worker, SIGNAL("SetProgressBar(QString)"), self.update_progress)
+        self.connect(self.worker, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
+
     def select_annotations_method(self):
         self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)
         self.annotations_display.setText(self.annotation_path)
+        if self.annotation_path.endswith('.xlsx'):
+            self.annotation_df = pd.read_excel(self.annotation_path)
+        elif self.annotation_path.endswith('.csv'):
+            self.annotation_df = pd.read_csv(self.annotation_path)
+        else:
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please use .csv or .xlsx files!")
+        try:
+            self.annotation_df.columns = [label.lower() for label in self.annotation_df.columns]
+            self.annotation_df.columns  = [label.strip(' ') for label in self.annotation_df.columns]
+            assert 'filename' in self.annotation_df
+            assert 'start' in self.annotation_df
+            assert 'end'   in self.annotation_df
+            assert 'transmitter' in self.annotation_df
+        except:
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please make sure annotations file contains at least 'Filename', 'Start', 'End', 'Transmitter'!")
+
         # here check fileheadings are all good
 
     def select_h5_folder_method(self):
         self.h5_folder_path = QtGui.QFileDialog.getExistingDirectory(self, "Pick h5 folder", self.home)
         self.h5_folder_display.setText(self.h5_folder_path)
 
-    def make_new_library(self):
-        pass
-
-    def append_to_library(self):
-        pass
-
-    def calculate_features_for_library(self):
-        pass
-
-    def calculate_labels_for_library(self):
-        pass
-
     def chunk_len_changed(self):
-        self.chosen_chunk_length = self.chunk_length.text()
+        self.chosen_chunk_length = int(self.chunk_length.text())
         print(self.chosen_chunk_length)
+
+    def fs_box_changed(self):
+        self.fs = int(self.fs_box.text())
 
     def use_peaks_changed(self):
         self.use_peaks_bool = self.use_peaks.isChecked()
@@ -75,7 +92,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.overwrite_bool = self.overwrite_box.isChecked()
 
     def select_library(self):
-        self.library_path = QtGui.QFileDialog.getOpenFileName(self, "Pick a Library file", self.home)
+        self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", self.home)
         self.update_library_path_display()
 
     def clear_library_path(self):
@@ -84,6 +101,187 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
     def update_library_path_display(self):
         self.library_path_display.setText(self.library_path)
+
+    def update_label_above2(self, label_string):
+        self.progressBar_label_above2.setText(label_string)
+    def update_progress_label(self, label_string):
+        self.progressBar_lable_above1.setText(label_string)
+    def update_label_below(self, label_string):
+        self.progressBar_label_below.setText(label_string)
+    def set_max_bar(self, signal):
+        self.progressBar.setMaximum(int(signal))
+    def update_progress(self, signal):
+        self.progressBar.setValue(int(signal))
+
+    def make_new_library(self):
+        self.library_path = QtGui.QFileDialog.getSaveFileName(self,  "Make new Library file", self.home)
+        self.update_library_path_display()
+
+
+        if self.worker.isRunning():
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+        elif self.worker.isFinished():
+            self.worker.set_library_attributes(self.library_path,
+                                     self.annotation_df,
+                                     self.h5_folder_path,
+                                     self.chosen_chunk_length,
+                                     self.overwrite_bool,
+                                     self.fs)
+
+            self.worker.new_library_mode()
+            self.worker.start()
+
+            print('Worker finished')
+        else:
+            print('else got called')
+            self.worker.set_library_attributes(self.library_path,
+                                     self.annotation_df,
+                                     self.h5_folder_path,
+                                     self.chosen_chunk_length,
+                                     self.overwrite_bool,
+                                     self.fs)
+
+            self.worker.new_library_mode()
+            self.worker.start()
+
+    def append_to_library(self):
+        if self.library_path is None:
+            self.select_library()
+            self.update_library_path_display()
+        s
+
+        if self.worker.isRunning():
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+        elif self.worker.isFinished():
+            self.worker.set_library_attributes(self.library_path,
+                                     self.annotation_df,
+                                     self.h5_folder_path,
+                                     self.chosen_chunk_length,
+                                     self.overwrite_bool,
+                                     self.fs)
+
+            self.worker.append_to_library_mode()
+            self.worker.start()
+            print('Worker finished')
+        else:
+            print('else got called in append to library')
+            self.worker.set_library_attributes(self.library_path,
+                                     self.annotation_df,
+                                     self.h5_folder_path,
+                                     self.chosen_chunk_length,
+                                     self.overwrite_bool,
+                                     self.fs)
+
+            self.worker.append_to_library_mode()
+            self.worker.start()
+
+    def calculate_features_for_library(self):
+        if self.library_path is None:
+            self.select_library()
+            self.update_library_path_display()
+
+        if self.worker.isRunning():
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+        elif self.worker.isFinished():
+            self.worker.add_features_mode()
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.start()
+            print('Worker finished')
+        else:
+            print('else got called in labels to library')
+            self.worker.add_features_mode()
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.start()
+
+
+    def calculate_labels_for_library(self):
+        if self.library_path is None:
+            self.select_library()
+            self.update_library_path_display()
+
+        if self.worker.isRunning():
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+        elif self.worker.isFinished():
+            self.worker.add_labels_mode()
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.start()
+            print('Worker finished')
+
+        else:
+            print('else got called in labels to library')
+            self.worker.add_labels_mode()
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.start()
+
+class LibraryWorkerThread(QThread):
+    def __init__(self):
+        QThread.__init__(self)
+        self.handler = DataHandler()
+
+    def set_library_attributes(self, l_path, a_df, h5_path, timewindow, overwrite_bool, fs):
+        self.library_path = l_path
+        self.h5_path = h5_path
+        self.annotations_df = a_df
+        self.t_len = timewindow
+        self.overwrite_bool = overwrite_bool
+        self.fs = fs
+
+    def set_library_attributes_for_feats(self, l_path, timewindow, overwrite_bool, peaks_bool):
+        self.library_path = l_path
+        self.t_len = timewindow
+        self.overwrite_bool = overwrite_bool
+        self.run_peaks_bool = peaks_bool
+
+    def add_labels_mode(self):
+        self.labels_or_features = True
+        self.add_features = False
+
+    def add_features_mode(self):
+        self.labels_or_features = True
+        self.add_features = True
+
+    def new_library_mode(self):
+        self.appending_to_library = False
+        self.labels_or_features = False
+
+    def append_to_library_mode(self):
+        self.appending_to_library = True
+        self.labels_or_features = False
+
+    def run(self):
+
+        # this is gonna be a bit of a hack...
+        if self.labels_or_features == False:
+            if self.appending_to_library:
+                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.handler.append_to_seizure_library(df = self.annotations_df,
+                                                       file_dir=self.h5_path,
+                                                       seizure_library_path=self.library_path,
+                                                       overwrite=self.overwrite_bool,
+                                                       timewindow=self.t_len, fs=self.fs)
+            else:
+                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.handler.make_seizure_library(df = self.annotations_df,
+                                                       file_dir=self.h5_path,
+                                                       seizure_library_name=self.library_path,
+                                                       overwrite=self.overwrite_bool,
+                                                       timewindow=self.t_len, fs=self.fs)
+        elif self.labels_or_features == True:
+            if not self.add_features:
+                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.handler.add_labels_to_seizure_library(self.library_path,self.overwrite_bool,self.t_len)
+                print('labels done, chunked: '+ str(self.t_len))
+
+            elif self.add_features:
+                print('lets do the features')
+                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.handler.add_features_seizure_library(self.library_path,self.overwrite_bool,self.run_peaks_bool, self.t_len)
+                print('features done, chunked: '+ str(self.t_len))
+
 
 
 class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h5):

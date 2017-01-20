@@ -197,7 +197,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid.append(item.text(6))
             fname.append(item.text(7))
             duration.append(item.text(3))
-        exported_df = pd.DataFrame(data = np.vstack([fname,start,end,duration,tid]).T,columns = ['filename','start','end','duration','tid'] )
+        exported_df = pd.DataFrame(data = np.vstack([fname,start,end,duration,tid]).T,columns = ['filename','start','end','duration','transmitter'] )
 
         save_name = save_name.strip('.csv')
         exported_df.to_csv(save_name+'.csv')
@@ -223,7 +223,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid.append(item.text(4))
             fname.append(item.text(5))
             duration.append(item.text(3))
-        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','tid'] )
+        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','transmitter'] )
 
         save_name = save_name.strip('.csv')
         exported_df.to_csv(save_name+'.csv')

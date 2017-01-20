@@ -248,7 +248,7 @@ apply_async_with_callback()
         pool.close()
         pool.join()
         self.parrallel_flag_pred = False
-    def _get_annotations_from_df_datadir_matches(self, df, file_dir):
+    def get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
         This function matches the entries in a dataframe with files in a directory
 
@@ -262,11 +262,13 @@ apply_async_with_callback()
 
         # now loop through matching the tid to datafile in the annotations
         df.columns = [label.lower() for label in df.columns]
+        df.columns  = [label.strip(' ') for label in df.columns]
+
         reference_count = 0
         annotation_dicts = []
         for row in df.iterrows():
             # annotation name is bad, but will ultimately be the library h5 dataset name
-            annotation_name = str(row[1]['name']).split('.')[0]+'_tid_'+str(int(row[1]['transmitter']))
+            annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(int(row[1]['transmitter']))
             for datafile in data_filenames:
                 if datafile.startswith(annotation_name.split('_')[0]):
                     start = row[1]['start']
@@ -291,7 +293,7 @@ apply_async_with_callback()
         '''
         Args:
 
-            df : pandas dataframe. Column titles need to be "name", "start","end", "transmitter"
+            df : pandas dataframe. Column titles need to be "filename", "start","end", "transmitter"
             file_dir: path to converted h5, or ndf directory, that contains files referenced in
                       the dataframe
             timewindow: size to chunk the data up with
@@ -315,10 +317,10 @@ apply_async_with_callback()
 
         logging.info('Datahandler - creating SeizureLibrary')
         try:
-            annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+            annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
             print("Error getting annotations from your file. Please ensure columns are named: 'name', 'transmitter','start','end'")
-            annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+            annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
@@ -385,7 +387,7 @@ apply_async_with_callback()
         '''
 
         logging.info('Appending to seizure library')
-        annotation_dicts = self._get_annotations_from_df_datadir_matches(df, file_dir)
+        annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
