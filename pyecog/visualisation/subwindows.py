@@ -8,9 +8,82 @@ from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect, QTimer
 import pyqtgraph as pg
 import h5py
 import logging
-from pyecog.visualisation import check_preds_design, loading_subwindow, convert_ndf_window
+from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow
 from pyecog.ndf.h5loader import H5File
 from pyecog.ndf.datahandler import DataHandler, NdfFile
+
+class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
+    ''' this is for the predictions, csv and h5 folder needed '''
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        self.setupUi(self)
+
+        self.select_annotations.clicked.connect(self.select_annotations_method)
+        self.select_h5_folder.clicked.connect(self.select_h5_folder_method)
+        self.new_library.clicked.connect(self.make_new_library)
+        self.add_to_library.clicked.connect(self.append_to_library)
+        self.set_library.clicked.connect(self.select_library)
+        self.clear_library.clicked.connect(self.clear_library_path)
+        self.chunk_length.textChanged.connect(self.chunk_len_changed)
+        self.add_labels.clicked.connect(self.calculate_labels_for_library)
+        self.add_features.clicked.connect(self.calculate_features_for_library)
+        self.use_peaks.clicked.connect(self.use_peaks_changed)
+        self.use_peaks.stateChanged.connect(self.use_peaks_changed)
+        self.overwrite_box.stateChanged.connect(self.overwrite_box_changed)
+
+        self.library_path = None
+        self.annotation_path = None
+        self.h5_folder_path = None
+        self.home = None # inherit default folder
+        self.chosen_chunk_length = self.chunk_length.text()
+        self.annotation_df = None
+        self.overwrite_bool = self.overwrite_box.isChecked()
+        self.use_peaks_bool = self.use_peaks.isChecked()
+
+        #self.progressBar etc...
+        #self.progressBar_label_above2
+
+    def select_annotations_method(self):
+        self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)
+        self.annotations_display.setText(self.annotation_path)
+        # here check fileheadings are all good
+
+    def select_h5_folder_method(self):
+        self.h5_folder_path = QtGui.QFileDialog.getExistingDirectory(self, "Pick h5 folder", self.home)
+        self.h5_folder_display.setText(self.h5_folder_path)
+
+    def make_new_library(self):
+        pass
+
+    def append_to_library(self):
+        pass
+
+    def calculate_features_for_library(self):
+        pass
+
+    def calculate_labels_for_library(self):
+        pass
+
+    def chunk_len_changed(self):
+        self.chosen_chunk_length = self.chunk_length.text()
+        print(self.chosen_chunk_length)
+
+    def use_peaks_changed(self):
+        self.use_peaks_bool = self.use_peaks.isChecked()
+
+    def overwrite_box_changed(self):
+        self.overwrite_bool = self.overwrite_box.isChecked()
+
+    def select_library(self):
+        self.library_path = QtGui.QFileDialog.getOpenFileName(self, "Pick a Library file", self.home)
+        self.update_library_path_display()
+
+    def clear_library_path(self):
+        self.library_path = ''
+        self.update_library_path_display()
+
+    def update_library_path_display(self):
+        self.library_path_display.setText(self.library_path)
 
 
 class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h5):
@@ -60,10 +133,10 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.connect(self.converting_thread, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
         try:
             logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
-            self.time_elapsed.setText(str(logfilepath))
+            self.logpath_dsplay.setText(str(logfilepath))
         except:
             print('couldnt get logpath')
-            logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
+            #logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
         try:
             # pass
             # you've made a log file, let them know where it is!
@@ -75,7 +148,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
                                                 fs=fs)
             self.converting_thread.start()
         except:
-            QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Errors: /n Stop fucking around!")
+            QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Error!: /n Stop fucking around?! Currently set to re-run, so check errors in terminal")
             self.converting_thread.convert_ndf_directory_to_h5(ndf_dir=self.ndf_folder,
                                                 save_dir=self.h5directory,
                                                 tids=tids,

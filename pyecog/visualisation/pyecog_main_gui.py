@@ -52,11 +52,9 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         # Hook up analyse menu bar to functions here
         self.actionConvert_ndf_to_h5.triggered.connect(self.convert_ndf_folder_to_h5)
-        self.actionMake_library.triggered.connect(self.not_done_yet)
-        self.actionAdd_to_library.triggered.connect(self.not_done_yet)
-        self.actionAdd_labels_to_library.triggered.connect(self.not_done_yet)
-        self.actionAdd_features_to_library.triggered.connect(self.not_done_yet)
-
+        self.actionLibrary_logistics.triggered.connect(self.load_library_management_subwindow)
+        self.actionClassifier_components.triggered.connect(self.not_done_yet)
+        self.actionAdd_features_to_h5_folder.triggered.connect(self.not_done_yet)
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
@@ -101,6 +99,14 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Not implemented yet! Jonny has been lazy!")
+
+    def load_library_management_subwindow(self):
+        child = subwindows.LibraryWindow()
+        child.show()
+        child.home = self.home # will this inherit? :p
+        if child.exec_():
+            print('exec_was called')
+        return 0
 
     def convert_ndf_folder_to_h5(self):
         child = subwindows.ConvertingNDFsWindow()

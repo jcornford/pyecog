@@ -538,7 +538,6 @@ apply_async_with_callback()
                 ndf.save(save_file_name= abs_savename)
             else:
                 logging.warning('Not all read tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
-                #print('not all tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
 
         except Exception:
             print('Something unexpected went wrong loading '+str(tids)+' from '+mname+' :')

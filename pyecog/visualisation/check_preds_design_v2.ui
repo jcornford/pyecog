@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>936</width>
+    <width>967</width>
     <height>716</height>
    </rect>
   </property>
@@ -25,11 +25,19 @@
         <enum>Qt::Horizontal</enum>
        </property>
        <widget class="QTreeWidget" name="treeWidget">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Helvetica Neue</family>
+         </font>
         </property>
         <property name="autoExpandDelay">
          <number>-1</number>
@@ -37,6 +45,9 @@
         <property name="columnCount">
          <number>4</number>
         </property>
+        <attribute name="headerDefaultSectionSize">
+         <number>50</number>
+        </attribute>
         <column>
          <property name="text">
           <string notr="true">1</string>
@@ -62,6 +73,12 @@
         <property name="enabled">
          <bool>true</bool>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>400</width>
+          <height>0</height>
+         </size>
+        </property>
        </widget>
       </widget>
       <widget class="GraphicsLayoutWidget" name="overview_plot">
@@ -86,6 +103,12 @@
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="1" column="1">
           <widget class="QLineEdit" name="h5_folder_display">
+           <property name="minimumSize">
+            <size>
+             <width>600</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
              <width>300</width>
@@ -139,6 +162,12 @@
          </item>
          <item row="0" column="1">
           <widget class="QLineEdit" name="predictions_file_display">
+           <property name="minimumSize">
+            <size>
+             <width>600</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
              <width>300</width>
@@ -190,7 +219,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>936</width>
+     <width>967</width>
      <height>22</height>
     </rect>
    </property>
@@ -211,15 +240,11 @@ p, li { white-space: pre-wrap; }
     </property>
     <addaction name="actionConvert_ndf_to_h5"/>
     <addaction name="separator"/>
-    <addaction name="actionMake_library"/>
-    <addaction name="actionAdd_to_library"/>
+    <addaction name="actionAdd_features_to_h5_folder"/>
     <addaction name="separator"/>
-    <addaction name="actionAdd_labels_to_library"/>
-    <addaction name="actionAdd_features_to_library"/>
+    <addaction name="actionLibrary_logistics"/>
     <addaction name="separator"/>
-    <addaction name="actionTrain_classifier_on_library"/>
-    <addaction name="actionRun_classifer_on_h5_dir"/>
-    <addaction name="actionRun_classifer_on_ndf_dir"/>
+    <addaction name="actionClassifier_components"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuAnalyse"/>
@@ -254,9 +279,9 @@ p, li { white-space: pre-wrap; }
     <string>Convert ndf folder to h5</string>
    </property>
   </action>
-  <action name="actionMake_library">
+  <action name="actionLibrary_logistics">
    <property name="text">
-    <string>Make library</string>
+    <string>Library logistics</string>
    </property>
   </action>
   <action name="actionAdd_to_library">
@@ -274,9 +299,9 @@ p, li { white-space: pre-wrap; }
     <string>Add features to library</string>
    </property>
   </action>
-  <action name="actionTrain_classifier_on_library">
+  <action name="actionClassifier_components">
    <property name="text">
-    <string>Train classifier on library</string>
+    <string>Classifier components</string>
    </property>
   </action>
   <action name="actionRun_classifer_on_h5_dir">
@@ -292,6 +317,11 @@ p, li { white-space: pre-wrap; }
   <action name="actionSet_default_folder">
    <property name="text">
     <string>Set default folder</string>
+   </property>
+  </action>
+  <action name="actionAdd_features_to_h5_folder">
+   <property name="text">
+    <string>Add features to h5 folder</string>
    </property>
   </action>
  </widget>

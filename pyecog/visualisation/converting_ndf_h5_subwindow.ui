@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>661</width>
-    <height>417</height>
+    <width>755</width>
+    <height>562</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -45,6 +45,12 @@
     </item>
     <item row="0" column="0">
      <widget class="QPushButton" name="select_ndf_folder">
+      <property name="minimumSize">
+       <size>
+        <width>200</width>
+        <height>0</height>
+       </size>
+      </property>
       <property name="maximumSize">
        <size>
         <width>170</width>
@@ -60,7 +66,7 @@
      <widget class="QPushButton" name="set_h5_folder">
       <property name="minimumSize">
        <size>
-        <width>141</width>
+        <width>200</width>
         <height>0</height>
        </size>
       </property>
@@ -158,11 +164,11 @@
     <string>Convert!</string>
    </property>
   </widget>
-  <widget class="QLabel" name="time_elapsed">
+  <widget class="QLabel" name="logpath_dsplay">
    <property name="geometry">
     <rect>
      <x>60</x>
-     <y>370</y>
+     <y>380</y>
      <width>600</width>
      <height>16</height>
     </rect>
@@ -174,7 +180,7 @@
     </size>
    </property>
    <property name="text">
-    <string>Time elapsed:</string>
+    <string>Path to Logfile:</string>
    </property>
   </widget>
   <widget class="QLabel" name="hidden_label">
