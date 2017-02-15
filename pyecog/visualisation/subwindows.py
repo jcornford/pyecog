@@ -45,14 +45,22 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
         #self.progressBar etc...
         #self.progressBar_label_above2
+        self.spawn_worker()
 
-        self.worker = LibraryWorkerThread()
-        self.connect(self.worker, SIGNAL("update_label_above2(QString)"), self.update_label_above2)
-        self.connect(self.worker, SIGNAL("update_label_below(QString)"), self.update_label_below)
-        self.connect(self.worker, SIGNAL("setMaximum_progressbar(QString)"), self.set_max_bar)
-        self.connect(self.worker, SIGNAL("SetProgressBar(QString)"), self.update_progress)
-        self.connect(self.worker, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
+    def spawn_worker(self):
+            self.worker = LibraryWorkerThread()
+            self.connect(self.worker, SIGNAL("update_label_above2(QString)"), self.update_label_above2)
+            self.connect(self.worker, SIGNAL("update_label_below(QString)"), self.update_label_below)
+            self.connect(self.worker, SIGNAL("setMaximum_progressbar(QString)"), self.set_max_bar)
+            self.connect(self.worker, SIGNAL("SetProgressBar(QString)"), self.update_progress)
+            self.connect(self.worker, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
+            self.connect(self.worker, SIGNAL("finished()"), self.worker_finished)
 
+    def worker_finished(self):
+        print('worker finished! method called - terminating? - needlessly?')
+        if self.worker:
+            print(self.worker)
+        self.spawn_worker()
     def select_annotations_method(self):
         self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)
         self.annotations_display.setText(self.annotation_path)
@@ -131,6 +139,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.new_library_mode()
             self.worker.start()
+            self.worker.wait()
 
             print('Worker finished')
         else:
@@ -144,12 +153,13 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.new_library_mode()
             self.worker.start()
+            self.worker.wait()
 
     def append_to_library(self):
         if self.library_path is None:
             self.select_library()
             self.update_library_path_display()
-        s
+
 
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
@@ -164,6 +174,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.append_to_library_mode()
             self.worker.start()
+            self.worker.wait()
             print('Worker finished')
         else:
             print('else got called in append to library')
@@ -176,6 +187,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.append_to_library_mode()
             self.worker.start()
+            self.worker.wait()
 
     def calculate_features_for_library(self):
         if self.library_path is None:
@@ -221,6 +233,9 @@ class LibraryWorkerThread(QThread):
     def __init__(self):
         QThread.__init__(self)
         self.handler = DataHandler()
+
+    def __del__(self):
+        self.wait()
 
     def set_library_attributes(self, l_path, a_df, h5_path, timewindow, overwrite_bool, fs):
         self.library_path = l_path
@@ -281,6 +296,8 @@ class LibraryWorkerThread(QThread):
                 self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
                 self.handler.add_features_seizure_library(self.library_path,self.overwrite_bool,self.run_peaks_bool, self.t_len)
                 print('features done, chunked: '+ str(self.t_len))
+        self.exit()
+
 
 
 
