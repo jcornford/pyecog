@@ -3,8 +3,8 @@ import os
 import multiprocessing
 import numpy as np
 import pandas as pd
-from PyQt4 import QtGui#,# uic
-from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect, QTimer
+from PyQt5 import QtGui#,# uic
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import h5py
 import logging
@@ -49,12 +49,18 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
     def spawn_worker(self):
             self.worker = LibraryWorkerThread()
-            self.connect(self.worker, SIGNAL("update_label_above2(QString)"), self.update_label_above2)
-            self.connect(self.worker, SIGNAL("update_label_below(QString)"), self.update_label_below)
-            self.connect(self.worker, SIGNAL("setMaximum_progressbar(QString)"), self.set_max_bar)
-            self.connect(self.worker, SIGNAL("SetProgressBar(QString)"), self.update_progress)
-            self.connect(self.worker, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
-            self.connect(self.worker, SIGNAL("finished()"), self.worker_finished)
+            self.worker.finished.connect(self.worker_finished)
+            self.worker.update_progress_label.connect(self.update_progress_label)
+            self.worker.SetProgressBar.connect(self.update_progress)
+            self.worker.setMaximum_progressbar.connect( self.set_max_bar)
+            self.worker.update_label_below.connect( self.update_label_below)
+            self.worker.update_label_above2.connect( self.update_label_above2)
+            #self.connect(self.worker, pyqtSignal("update_label_above2(QString)"), self.update_label_above2)
+            #self.connect(self.worker, pyqtSignal("update_label_below(QString)"), self.update_label_below)
+            #self.connect(self.worker, pyqtSignal("setMaximum_progressbar(QString)"), self.set_max_bar)
+            #self.connect(self.worker, pyqtSignal("SetProgressBar(QString)"), self.update_progress)
+            #self.connect(self.worker, pyqtSignal("update_progress_label(QString)"), self.update_progress_label)
+            #self.connect(self.worker, pyqtSignal("finished()"), self.worker_finished)
 
     def worker_finished(self):
         print('worker finished! method called - terminating? - needlessly?')
@@ -62,7 +68,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             print(self.worker)
         self.spawn_worker()
     def select_annotations_method(self):
-        self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)
+        self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)[0]
         self.annotations_display.setText(self.annotation_path)
         if self.annotation_path.endswith('.xlsx'):
             self.annotation_df = pd.read_excel(self.annotation_path)
@@ -87,8 +93,12 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.h5_folder_display.setText(self.h5_folder_path)
 
     def chunk_len_changed(self):
-        self.chosen_chunk_length = int(self.chunk_length.text())
-        print(self.chosen_chunk_length)
+        try:
+            self.chosen_chunk_length = int(self.chunk_length.text())
+            print(self.chosen_chunk_length)
+        except ValueError:
+            print('Not valid number entered')
+
 
     def fs_box_changed(self):
         self.fs = int(self.fs_box.text())
@@ -100,7 +110,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.overwrite_bool = self.overwrite_box.isChecked()
 
     def select_library(self):
-        self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", self.home)
+        self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", self.home)[0]
         self.update_library_path_display()
 
     def clear_library_path(self):
@@ -122,7 +132,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.progressBar.setValue(int(signal))
 
     def make_new_library(self):
-        self.library_path = QtGui.QFileDialog.getSaveFileName(self,  "Make new Library file", self.home)
+        self.library_path = QtGui.QFileDialog.getSaveFileName(self,  "Make new Library file", self.home)[0]
         self.update_library_path_display()
 
 
@@ -230,6 +240,15 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.start()
 
 class LibraryWorkerThread(QThread):
+
+    finished = pyqtSignal(str)
+    update_progress_label = pyqtSignal(str)
+    SetProgressBar= pyqtSignal(str)
+    setMaximum_progressbar= pyqtSignal(str)
+    update_label_below =pyqtSignal(str)
+    update_label_above2 = pyqtSignal(str)
+
+
     def __init__(self):
         QThread.__init__(self)
         self.handler = DataHandler()
@@ -272,14 +291,15 @@ class LibraryWorkerThread(QThread):
         # this is gonna be a bit of a hack...
         if self.labels_or_features == False:
             if self.appending_to_library:
-                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.append_to_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_path=self.library_path,
                                                        overwrite=self.overwrite_bool,
                                                        timewindow=self.t_len, fs=self.fs)
             else:
-                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.make_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_name=self.library_path,
@@ -287,13 +307,15 @@ class LibraryWorkerThread(QThread):
                                                        timewindow=self.t_len, fs=self.fs)
         elif self.labels_or_features == True:
             if not self.add_features:
-                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.add_labels_to_seizure_library(self.library_path,self.overwrite_bool,self.t_len)
                 print('labels done, chunked: '+ str(self.t_len))
 
             elif self.add_features:
                 print('lets do the features')
-                self.emit(SIGNAL("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
+                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.add_features_seizure_library(self.library_path,self.overwrite_bool,self.run_peaks_bool, self.t_len)
                 print('features done, chunked: '+ str(self.t_len))
         self.exit()
@@ -342,10 +364,14 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
             tids = eval('['+tids+']')
 
         self.converting_thread = ConvertNdfThread()
-        self.connect(self.converting_thread, SIGNAL("update_hidden_label(QString)"), self.update_hidden)
-        self.connect(self.converting_thread, SIGNAL("setMaximum_progressbar(QString)"), self.set_max_bar)
-        self.connect(self.converting_thread, SIGNAL("SetProgressBar(QString)"), self.update_progress)
-        self.connect(self.converting_thread, SIGNAL("update_progress_label(QString)"), self.update_progress_label)
+        self.converting_thread.set_progress_bar.connect(self.update_progress)
+        self.converting_thread.set_max_progress.connect( self.set_max_bar)
+        self.converting_thread.update_hidden_label.connect( self.update_hidden)
+        self.converting_thread.update_progress_label.connect( self.update_progress_label)
+        #self.connect(self.converting_thread, pyqtSignal("update_hidden_label(QString)"), self.update_hidden)
+        #self.connect(self.converting_thread, pyqtSignal("setMaximum_progressbar(QString)"), self.set_max_bar)
+        #self.connect(self.converting_thread, pyqtSignal("SetProgressBar(QString)"), self.update_progress)
+        #self.connect(self.converting_thread, pyqtSignal("update_progress_label(QString)"), self.update_progress_label)
         try:
             logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
             self.logpath_dsplay.setText(str(logfilepath))
@@ -381,9 +407,19 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.progressBar.setValue(int(signal))
 
 class ConvertNdfThread(QThread):
+
+    set_max_progress = pyqtSignal(str)
+    update_hidden_label = pyqtSignal(str)
+    set_progress_bar =  pyqtSignal(str)
+    update_progress_label = pyqtSignal(str)
     def __init__(self):
         QThread.__init__(self)
         self.handler = DataHandler()
+        #self.set_max_progress = pyqtSignal(str)
+        #self.update_hidden_label = pyqtSignal(str)
+        #self.set_progress_bar =  pyqtSignal(str)
+        #self.update_progress_label = pyqtSignal(str)
+
     def convert_ndf_directory_to_h5(self,
                                     ndf_dir,
                                     tids = 'all',
@@ -417,17 +453,22 @@ class ConvertNdfThread(QThread):
 
 
         l = len(self.files)
-        self.emit(SIGNAL("update_hidden_label(QString)"), str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
-        self.emit(SIGNAL("setMaximum_progressbar(QString)"),str(len(self.files)))
+        #self.emit(pyqtSignal("update_hidden_label(QString)"), str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
+        #self.emit(pyqtSignal("setMaximum_progressbar(QString)"),str(len(self.files)))
+        self.set_max_progress.emit(str(len(self.files)))
+        self.update_hidden_label.emit(str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
     def run(self):
         pool = multiprocessing.Pool(self.n_cores)
 
         for i, _ in enumerate(pool.imap(self.handler.convert_ndf, self.files), 1):
-            self.emit(SIGNAL("SetProgressBar(QString)"),str(i))
-            self.emit(SIGNAL("update_progress_label(QString)"),'Progress: ' +str(i)+ ' / '+ str(len(self.files)))
+            self.set_progress_bar.emit(str(i))
+            self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files)))
+            #self.emit(pyqtSignal("SetProgressBar(QString)"),str(i))
+            #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress: ' +str(i)+ ' / '+ str(len(self.files)))
         pool.close()
         pool.join()
-        self.emit(SIGNAL("update_progress_label(QString)"),'Progress: Done')
+        #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress: Done')
+        self.update_progress_label.emit('Progress: Done')
 
 class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
     ''' this is for the predictions, csv and h5 folder needed '''
@@ -444,6 +485,8 @@ class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
 
     def get_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        print(self.h5directory)
+        print(type(self.h5directory))
         self.update_h5_folder_display()
 
     def update_h5_folder_display(self):
@@ -453,5 +496,5 @@ class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
         self.prediction_display.setText(str(self.predictions_fname))
 
     def get_pred_filename(self):
-        self.predictions_fname = QtGui.QFileDialog.getOpenFileName(self, 'Select a predicitons file', self.home)
+        self.predictions_fname = QtGui.QFileDialog.getOpenFileName(self, 'Select a predicitons file', self.home)[0]
         self.update_predictionfile_display()

@@ -2,8 +2,8 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-from PyQt4 import QtGui#,# uic
-from PyQt4.QtCore import QThread, SIGNAL, Qt, QRect, QTimer
+from PyQt5 import QtGui#,# uic
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import inspect
 import h5py
@@ -121,11 +121,12 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def load_seizure_library(self):
 
-        self.library = QtGui.QFileDialog.getOpenFileName(self, "Pick a h5 library file", self.home)
+        self.library = QtGui.QFileDialog.getOpenFileName(self, "Pick a h5 library file", self.home)[0]
         if self.library is '':
             print('nothing selected')
             return 0
-
+        print(self.library)
+        print(type(self.library))
         self.clear_QTreeWidget()
         with h5py.File(self.library) as f:
             group_names = list(f.keys())
@@ -181,7 +182,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             default_dir = os.path.dirname(self.h5directory)
         else:
             default_dir = ""
-        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save library details in a .csv file',default_dir)
+        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save library details in a .csv file',default_dir)[0]
         if save_name is '':
             print('nothing selected')
             return 0
@@ -207,7 +208,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             default_dir = os.path.dirname(self.h5directory)
         else:
             default_dir = ""
-        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save annotation .csv file',default_dir)
+        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save annotation .csv file',default_dir)[0]
         if save_name is '':
             print('nothing selected')
             return 0
@@ -628,7 +629,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.loading_thread = LoadFileThread(fname)
         #self.connect(self.loading_thread, SIGNAL("finished()"), self.done)
-        self.connect(self.loading_thread, SIGNAL("catch_data(PyQt_PyObject)"), self.catch_data)
+        self.connect(self.loading_thread, pyqtSignal("catch_data(PyQt_PyObject)"), self.catch_data)
         self.loading_thread.start()
 
     def catch_data(self, h5obj):
@@ -655,7 +656,7 @@ class LoadFileThread(QThread):
     def run(self):
         print('sup, loading: '+self.filename)
         self.load_file(self.filename)
-        self.emit(SIGNAL('catch_data(PyQt_PyObject)'), self.h5obj)
+        self.emit(pyqtSignal('catch_data(PyQt_PyObject)'), self.h5obj)
 
 class HDF5Plot(pg.PlotCurveItem):
     """
