@@ -57,12 +57,36 @@ USER $NB_USER
 
 # below add the installation of pyecog
 RUN /opt/conda/bin/pip install --upgrade pip
-RUN /opt/conda/bin/pip install pomegranate
+RUN /opt/conda/bin/pip install pomegranate --no-cache-dir
 RUN /opt/conda/bin/pip install pyqtgraph
 RUN /opt/conda/bin/pip install pyecog
 
 USER root
+#RUN apt-get install -y openssh-server libx11-dev libxext-dev x11-apps
+RUN apt-get update
 RUN apt-get install -y openssh-server libx11-dev libxext-dev x11-apps
+RUN mkdir /var/run/sshd
+EXPOSE 22
+ENV KEYFILE=/home/jovyan/.ssh/id_rsa
+RUN mkdir /home/jovyan/.ssh; chown jovyan /home/jovyan/.ssh
+RUN /usr/bin/ssh-keygen -q -t rsa -N "" -f $KEYFILE; cat $KEYFILE.pub >> /home/jovyan/.ssh/authorized_keys
+RUN echo "IdentityFile ~/.ssh/id_rsa" >> /etc/ssh/ssh_config
+RUN touch /home/jovyan/.Xauthority; chown jovyan /home/jovyan/.Xauthority
+CMD ["/usr/sbin/sshd", "-D"]
+RUN apt-get install -qqy x11-apps
+ENV DISPLAY :0
 
 # Switch back to jovyan to avoid accidental container runs as root
 #USER $NB_USER
+
+docker build -t xeyes - << __EOF__
+FROM debian
+RUN apt-get update
+RUN apt-get install -qqy x11-apps
+ENV DISPLAY $DISPLAY
+CMD xeyes
+__EOF__
+XSOCK=/tmp/.X11-unix
+XAUTH=/tmp/.docker.xauth
+xauth nlist $DISPLAY | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
+docker run -ti -v $XSOCK:$XSOCK -v $XAUTH:$XAUTH -e DISPLAY=$DISPLAY xeyes
