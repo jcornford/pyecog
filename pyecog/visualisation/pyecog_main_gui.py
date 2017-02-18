@@ -128,6 +128,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         print(self.library)
         print(type(self.library))
         self.clear_QTreeWidget()
+        # todo here check if got chunked thing from lirbary.. if not, throw messagebox error and return 0
         with h5py.File(self.library) as f:
             group_names = list(f.keys())
             groups = [f[key] for key in group_names]

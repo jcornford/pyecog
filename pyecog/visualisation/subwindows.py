@@ -67,6 +67,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         if self.worker:
             print(self.worker)
         self.spawn_worker()
+
     def select_annotations_method(self):
         self.annotation_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)[0]
         self.annotations_display.setText(self.annotation_path)
@@ -109,8 +110,12 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
     def overwrite_box_changed(self):
         self.overwrite_bool = self.overwrite_box.isChecked()
 
-    def select_library(self):
-        self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", self.home)[0]
+    def select_library(self, default_lib = None):
+        if default_lib:
+            self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", default_lib)[0]
+        else:
+            self.library_path = QtGui.QFileDialog.getOpenFileName(self,  "Choose Library file", self.home)[0]
+
         self.update_library_path_display()
 
     def clear_library_path(self):
@@ -166,14 +171,19 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.wait()
 
     def append_to_library(self):
-        if self.library_path is None:
+        if self.library_path:
+            self.select_library(default_lib=self.library_path)
+        else:
             self.select_library()
-            self.update_library_path_display()
 
+        if self.library_path == '':
+            print ('No library path chosen')
+            return 0
 
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
+        #todo catch not having the annotations and h5 files
         elif self.worker.isFinished():
             self.worker.set_library_attributes(self.library_path,
                                      self.annotation_df,
@@ -186,7 +196,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.start()
             self.worker.wait()
             print('Worker finished')
-        else:
+        else: # why do you have this - for running first time off??
             print('else got called in append to library')
             self.worker.set_library_attributes(self.library_path,
                                      self.annotation_df,
