@@ -128,7 +128,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         print(pd.Series(np.ravel(self.clf.labels[:])).value_counts().values)
 
     def update_h5_folder_display(self):
-        self.h5_display.setText(str(self.h5directory))
+        self.h5_folder_display.setText(str(self.h5directory))
 
     def train_clf_method(self):
         # boot up a thread here and re-implement the train method of the classifier... maybe with more sensible resampling stuff!
@@ -136,7 +136,6 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
             if self.worker.isRunning():
                 QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-
 
         self.worker = TrainClassifierThread() # assume the previous finished thread is garbage collected...!
         self.worker.update_progress_label.connect(self.update_progress_label)
@@ -148,7 +147,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
         ntrees = int(self.n_trees.text())
-        ncores = int(self.n_cores.text())
+        ncores = self.n_cores.text()
         if ncores == 'all':
             ncores = -1
         else:
@@ -169,7 +168,23 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.progressBar.setValue(int(signal))
 
     def predict_seizures(self):
-        pass
+        if self.worker:
+            if self.worker.isRunning():
+                QtGui.QMessageBox.information(self, "What is this second string?", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+
+        self.worker = PredictSeizuresThread() # assume the previous finished thread is garbage collected...!
+        self.worker.update_progress_label.connect(self.update_progress_label)
+        self.worker.SetProgressBar.connect(self.update_progress)
+        self.worker.setMaximum_progressbar.connect(self.set_max_bar)
+        self.worker.update_label_below.connect( self.update_label_below)
+        self.worker.update_label_above2.connect( self.update_label_above2)
+
+        h5_folder = self.h5_folder_display.text()
+        excel_sheet = QtGui.QFileDialog.getSaveFileName(self,  "make output csv file", self.home)[0]
+
+        self.worker.set_params(self.clf, h5_folder, excel_sheet)
+        self.worker.start()
 
 class PredictSeizuresThread(QThread):
     finished = pyqtSignal(str)
@@ -181,10 +196,15 @@ class PredictSeizuresThread(QThread):
 
     def __init__(self):
         QThread.__init__(self)
-    def set_params(self):
-        pass
+    def set_params(self, clf, prediction_dir, excel_sheet):
+        self.clf = clf
+        self.prediction_dir = prediction_dir
+        self.excel_output = excel_sheet.split('.')[0]+'.csv'
+
     def run(self):
-        pass
+        self.update_progress_label.emit('We are now rolling!')
+        self.clf.predict_dir(self.prediction_dir,self.excel_output)
+        self.update_label_above2.emit('Code this so you get a breakdown - you actually have to as not rf...:p')
 
 
 class TrainClassifierThread(QThread):
