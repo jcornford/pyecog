@@ -319,7 +319,7 @@ apply_async_with_callback()
         try:
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
-            print("Error getting annotations from your file. Please ensure columns are named: 'name', 'transmitter','start','end'")
+            print("Error getting annotations from your file. Please ensure columns are named: 'filename', 'transmitter','start','end'")
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9

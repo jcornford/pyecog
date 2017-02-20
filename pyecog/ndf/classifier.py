@@ -123,7 +123,7 @@ class Classifier():
             y_test  = self.labels[test_ix]
 
             y_counts = pd.Series(y_train).value_counts().values
-            target_resample = (y_counts[1]*50,y_counts[1]) # no undersampling if pass ycounts straight
+            target_resample = (y_counts[1]*50,y_counts[1]) #ie. 50* seizures n
             samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
 
             print('running balanced, undersampling only')
@@ -191,7 +191,7 @@ class Classifier():
 
 
     def make_hmm_model(self):
-        self.emission_probs = self.get_cross_validation_emission_probs(self.features, self.labels)
+        self.emission_probs = self.get_cross_validation_emission_probs(self.features, self.labels, nfolds = 3)
         print('Emission probs')
         print (self.emission_probs)
         self.transition_probs = hmm.get_state_transition_probs(self.labels)
@@ -253,7 +253,7 @@ class Classifier():
 
         return resampled_labels, resampled_features
 
-    def get_cross_validation_emission_probs(self, X, y, nfolds = 5):
+    def get_cross_validation_emission_probs(self, X, y, nfolds = 3):
         '''
         - X has been imputed and cleaned etc...
         - Also, we are using default RF, should nest some

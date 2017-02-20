@@ -8,10 +8,143 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import h5py
 import logging
-from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow
+import pickle
+from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
 from pyecog.ndf.h5loader import H5File
 from pyecog.ndf.datahandler import DataHandler, NdfFile
+from pyecog.ndf.classifier import Classifier
 
+# todo : these classes could inherit classes that have signals and slots already made, as you kept the gui element names the same when possible.
+
+class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
+    ''' For handling the classifier...'''
+    def __init__(self, parent = None):
+        QtGui.QDialog.__init__(self, parent)
+        self.setupUi(self)
+
+        self.home = '' # default folder that can get set when this is class is called from main window
+        self.h5directory  = None
+        self.library_path = None
+        self.clf = None
+
+        self.set_h5_folder.clicked.connect(self.get_h5_folder)
+        self.set_library.clicked.connect(self.get_library)
+        self.make_classifier.clicked.connect(self.make_classifier_method)
+        self.save_classifier.clicked.connect(self.save_classifier_method)
+        self.load_classifier.clicked.connect(self.load_classifier_method)
+        self.train_clf.clicked.connect(self.train_clf_method)
+        self.estimate_error
+        self.run_clf_on_folder
+
+    def get_library(self):
+        self.library_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)[0]
+        if self.library_path == '':
+            print('No path selected')
+            return 0
+        self.library_path_display.setText(self.library_path)
+
+    def make_classifier_method(self):
+        if self.library_path:
+            try:
+                self.clf = Classifier(self.library_path)
+                QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
+            except:
+                QtGui.QMessageBox.information(self, "Not?", "ERROR: Something went wrong making the classifier - is the library ready?")
+                return 0
+        else:
+            QtGui.QMessageBox.information(self, "Not?", "Please choose a valid library path")
+            return 0
+
+    def save_classifier_method(self):
+        self.clf_path = QtGui.QFileDialog.getSaveFileName(self, "Choose savename", self.home)[0]
+        print(self.clf_path)
+        if self.clf:
+            self.clf.save(fname = self.clf_path)
+            self.update_clf_path_display()
+        else:
+            QtGui.QMessageBox.information(self, "Not?", "No classifier to save")
+            return 0
+
+    def load_classifier_method(self):
+        temp_clf_path = QtGui.QFileDialog.getOpenFileName(self, "Select pickled classifier to load", self.home)[0]
+        if temp_clf_path == '':
+            print('No folder selected')
+            return 0
+        else:
+            try:
+                with open(temp_clf_path, 'rb') as f:
+                    self.clf = pickle.load(f)
+            except:
+                QtGui.QMessageBox.information(self, "Not?", "ERROR: Classifier loading failed. ")
+                with open(temp_clf_path, 'rb') as f:
+                    self.clf = pickle.load(f)
+                return 0
+
+            self.clf_path = temp_clf_path
+            self.update_clf_path_display()
+
+    def get_h5_folder(self):
+        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        if self.h5directory == '':
+            print('No folder selected')
+            return 0
+        self.update_h5_folder_display()
+
+    def update_clf_path_display(self):
+        self.clf_path_display.setText(str(self.clf_path))
+        print(pd.Series(np.ravel(self.clf.labels[:])).value_counts().values)
+
+    def update_h5_folder_display(self):
+        self.h5_display.setText(str(self.h5directory))
+
+    def train_clf_method(self):
+        # boot up a thread here and re-implement the train method of the classifier... maybe with more sensible resampling stuff!
+        self.clf.train(resample = (50,3)) # this is not having any effect at the moment
+
+        #self.worker = ClassifierThread()
+        self.worker.finished.connect(self.worker_finished)
+        self.worker.update_progress_label.connect(self.update_progress_label)
+        self.worker.SetProgressBar.connect(self.update_progress)
+        self.worker.setMaximum_progressbar.connect( self.set_max_bar)
+        self.worker.update_label_below.connect( self.update_label_below)
+        self.worker.update_label_above2.connect( self.update_label_above2)
+
+
+    def update_label_above2(self, label_string):
+        self.progressBar_label_above2.setText(label_string)
+    def update_progress_label(self, label_string):
+        self.progressBar_lable_above1.setText(label_string)
+    def update_label_below(self, label_string):
+        self.progressBar_label_below.setText(label_string)
+    def set_max_bar(self, signal):
+        self.progressBar.setMaximum(int(signal))
+    def update_progress(self, signal):
+        self.progressBar.setValue(int(signal))
+
+    def worker_finished(self):
+        print('worker finished! method called ??!!?? is it? - terminating? - needlessly?')
+        if self.worker:
+            print(self.worker)
+        self.spawn_worker()
+
+class ClassifierThread(QThread):
+    # add in signals here
+    finished = pyqtSignal(str)
+    update_progress_label = pyqtSignal(str)
+    SetProgressBar= pyqtSignal(str)
+    setMaximum_progressbar= pyqtSignal(str)
+    update_label_below = pyqtSignal(str)
+    update_label_above2 = pyqtSignal(str)
+
+    def __init__(self):
+        QThread.__init__(self)
+        # you sort out the re-sampling and n trees here
+        # or do you want to use the class importances?
+        pass
+
+    def run(self):
+        #emit the correct signals
+        pass
 
 class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_make_features):
 
@@ -35,8 +168,6 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
     def get_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        print(self.h5directory)
-        print(type(self.h5directory))
         if self.h5directory == '':
             print('No foldrr selected')
             return 0
@@ -442,7 +573,7 @@ class LibraryWorkerThread(QThread):
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.add_features_seizure_library(self.library_path,self.overwrite_bool,self.run_peaks_bool, self.t_len)
                 print('features done, chunked: '+ str(self.t_len))
-        self.exit()
+        self.exit() # does this emit the finished signal? dont think so
 
 
 
