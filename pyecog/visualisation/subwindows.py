@@ -9,6 +9,10 @@ import pyqtgraph as pg
 import h5py
 import logging
 import pickle
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import metrics
+
 from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
 from pyecog.ndf.h5loader import H5File
 from pyecog.ndf.datahandler import DataHandler, NdfFile
@@ -26,6 +30,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.h5directory  = None
         self.library_path = None
         self.clf = None
+        self.worker = None
 
         self.set_h5_folder.clicked.connect(self.get_h5_folder)
         self.set_library.clicked.connect(self.get_library)
@@ -33,8 +38,13 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.save_classifier.clicked.connect(self.save_classifier_method)
         self.load_classifier.clicked.connect(self.load_classifier_method)
         self.train_clf.clicked.connect(self.train_clf_method)
-        self.estimate_error
-        self.run_clf_on_folder
+        self.downsample_bl.textChanged.connect(self.updated_sampling_params)
+        self.upsample_s_factor.textChanged.connect(self.updated_sampling_params)
+        self.estimate_error.clicked.connect(self.not_done_yet)
+        self.run_clf_on_folder.clicked.connect(self.predict_seizures)
+
+    def not_done_yet(self):
+        QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Not implemented yet! Jonny has been lazy!")
 
     def get_library(self):
         self.library_path = QtGui.QFileDialog.getOpenFileName(self, "Pick an annotations file", self.home)[0]
@@ -43,11 +53,33 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
             return 0
         self.library_path_display.setText(self.library_path)
 
+    def get_label_counts(self):
+        self.counts = pd.Series(np.ravel(self.clf.labels[:])).value_counts().values
+        self.label_n_baseline.setText('Library has '+ str(self.counts[0]) +' BL chunks')
+        self.label_n_seizures.setText('and '+ str(self.counts[1]) +' Seizure chunks. '+str(np.round((self.counts[1]/self.counts[0])*100, 2)) + '%')
+
+        dwnsample_factor = int(self.downsample_bl.text())
+        upsample_factor = int(self.upsample_s_factor.text())
+        expected_resample = (int(self.counts[0]/dwnsample_factor),self.counts[1]*upsample_factor)
+        self.label_resampled_numbers.setText('Expected resample: ' +str(list(expected_resample)) + '. '+
+                                             str(np.round((expected_resample[1]/expected_resample[0])*100, 2)) + '%')
+    def updated_sampling_params(self):
+        try:
+            dwnsample_factor = int(self.downsample_bl.text())
+            upsample_factor = int(self.upsample_s_factor.text())
+        except ValueError:
+            #print('Not valid number entered')
+            return 0
+
+        expected_resample = (int(self.counts[0]/dwnsample_factor),self.counts[1]*upsample_factor)
+        self.label_resampled_numbers.setText('Expected resample: ' +str(list(expected_resample)) + '. '+
+                                             str(np.round((expected_resample[1]/expected_resample[0])*100, 2)) + '%')
     def make_classifier_method(self):
         if self.library_path:
             try:
                 self.clf = Classifier(self.library_path)
                 QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
+                self.get_label_counts()
             except:
                 QtGui.QMessageBox.information(self, "Not?", "ERROR: Something went wrong making the classifier - is the library ready?")
                 return 0
@@ -82,6 +114,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
             self.clf_path = temp_clf_path
             self.update_clf_path_display()
+            self.get_label_counts()
 
     def get_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
@@ -99,16 +132,30 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
     def train_clf_method(self):
         # boot up a thread here and re-implement the train method of the classifier... maybe with more sensible resampling stuff!
-        self.clf.train(resample = (50,3)) # this is not having any effect at the moment
+        if self.worker:
+            if self.worker.isRunning():
+                QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
 
-        #self.worker = ClassifierThread()
-        self.worker.finished.connect(self.worker_finished)
+
+        self.worker = TrainClassifierThread() # assume the previous finished thread is garbage collected...!
         self.worker.update_progress_label.connect(self.update_progress_label)
         self.worker.SetProgressBar.connect(self.update_progress)
-        self.worker.setMaximum_progressbar.connect( self.set_max_bar)
+        self.worker.setMaximum_progressbar.connect(self.set_max_bar)
         self.worker.update_label_below.connect( self.update_label_below)
         self.worker.update_label_above2.connect( self.update_label_above2)
 
+        dwnsample_factor = int(self.downsample_bl.text())
+        upsample_factor = int(self.upsample_s_factor.text())
+        ntrees = int(self.n_trees.text())
+        ncores = int(self.n_cores.text())
+        if ncores == 'all':
+            ncores = -1
+        else:
+            ncores = int(ncores)
+
+        self.worker.set_training_params(self.clf, dwnsample_factor, upsample_factor,ntrees, ncores)
+        self.worker.start()
 
     def update_label_above2(self, label_string):
         self.progressBar_label_above2.setText(label_string)
@@ -121,13 +168,26 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
     def update_progress(self, signal):
         self.progressBar.setValue(int(signal))
 
-    def worker_finished(self):
-        print('worker finished! method called ??!!?? is it? - terminating? - needlessly?')
-        if self.worker:
-            print(self.worker)
-        self.spawn_worker()
+    def predict_seizures(self):
+        pass
 
-class ClassifierThread(QThread):
+class PredictSeizuresThread(QThread):
+    finished = pyqtSignal(str)
+    update_progress_label = pyqtSignal(str)
+    SetProgressBar= pyqtSignal(str)
+    setMaximum_progressbar= pyqtSignal(str)
+    update_label_below = pyqtSignal(str)
+    update_label_above2 = pyqtSignal(str)
+
+    def __init__(self):
+        QThread.__init__(self)
+    def set_params(self):
+        pass
+    def run(self):
+        pass
+
+
+class TrainClassifierThread(QThread):
     # add in signals here
     finished = pyqtSignal(str)
     update_progress_label = pyqtSignal(str)
@@ -138,13 +198,36 @@ class ClassifierThread(QThread):
 
     def __init__(self):
         QThread.__init__(self)
+
+    def set_training_params(self, clf, downsample_bl_by_x, upsample_seizure_by_x, ntrees, n_cores):
         # you sort out the re-sampling and n trees here
         # or do you want to use the class importances?
-        pass
+        self.clf = clf
+        self.n_cores = n_cores
+        self.ntrees = ntrees
+        self.downsample_bl_factor    = downsample_bl_by_x
+        self.upsample_seizure_factor = upsample_seizure_by_x
+
+        counts = pd.Series(np.ravel(self.clf.labels[:])).value_counts().values
+        target_resample = (int(counts[0]/self.downsample_bl_factor),counts[1]*self.upsample_seizure_factor)
+        self.update_label_above2.emit('Resampling [BL S] from '+str(counts)+' to ' + str(list(target_resample)))
+        self.res_y, self.res_x = self.clf.resample_training_dataset(self.clf.labels, self.clf.features,
+                                                      sizes = target_resample)
 
     def run(self):
         #emit the correct signals
-        pass
+        self.update_progress_label.emit('Training Random Forest...')
+        self.clf.rf =  RandomForestClassifier(n_jobs=self.n_cores, n_estimators= self.ntrees, oob_score=True, bootstrap=True)
+        self.clf.rf.fit(self.res_x, np.ravel(self.res_y))
+        self.update_progress_label.emit('Getting Hidden Markov Model params...')
+        self.clf.make_hmm_model()
+
+        print ('********* oob results on resampled data  - not including HMM *******')
+        self.oob_preds = np.round(self.clf.rf.oob_decision_function_[:,1])
+        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(self.res_y), self.clf.rf.oob_decision_function_[:,1])))
+        print('Recall: '+str(metrics.recall_score(np.ravel(self.res_y), self.oob_preds)))
+        print('F1: '+str(metrics.f1_score(np.ravel(self.res_y), self.oob_preds)))
+        print(metrics.classification_report(np.ravel(self.res_y),self.oob_preds))
 
 class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_make_features):
 
