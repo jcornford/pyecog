@@ -233,7 +233,7 @@ apply_async_with_callback()
         self.parrallel_flag_pred = True
         self.run_pkdet = run_peakdet
         self.twindow = timewindow
-        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')]
+        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')] #switch to self.fullpath_listdir()
         if n_cores == -1:
             n_cores = multiprocessing.cpu_count()
 
@@ -473,6 +473,7 @@ apply_async_with_callback()
 
     @staticmethod
     def fullpath_listdir(d):
+        ''' returns full filepath,  excludes hidden files, starting with .'''
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
     def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):

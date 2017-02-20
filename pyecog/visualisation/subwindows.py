@@ -8,9 +8,128 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import h5py
 import logging
-from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow
+from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow
 from pyecog.ndf.h5loader import H5File
 from pyecog.ndf.datahandler import DataHandler, NdfFile
+
+
+class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_make_features):
+
+    ''' Add predictions to h5 folder '''
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        self.setupUi(self)
+
+        self.set_h5_folder.clicked.connect(self.get_h5_folder)
+        self.extract_features_button.clicked.connect(self.run_pred_feature_extraction)
+        self.run_peakdet_checkBox.stateChanged.connect(self.use_peaks_changed)
+
+        self.home = '' # default folder that can get set when this is class is called from main window
+        self.h5directory  = None
+
+        self.extraction_thread = ExtractPredictionFeaturesThread()
+        self.extraction_thread.set_progress_bar.connect(self.update_progress)
+        self.extraction_thread.set_max_progress.connect( self.set_max_bar)
+        self.extraction_thread.update_hidden_label.connect( self.update_hidden)
+        self.extraction_thread.update_progress_label.connect( self.update_progress_label)
+
+    def get_h5_folder(self):
+        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        print(self.h5directory)
+        print(type(self.h5directory))
+        if self.h5directory == '':
+            print('No foldrr selected')
+            return 0
+        self.update_h5_folder_display()
+
+    def update_h5_folder_display(self):
+        self.h5_display.setText(str(self.h5directory))
+
+    def use_peaks_changed(self):
+        self.use_peaks_bool = self.run_peakdet_checkBox.isChecked()
+
+    def update_hidden(self, label_string):
+        self.hidden_label.setText(label_string)
+    def update_progress_label(self, label_string):
+        self.progress_bar_label.setText(label_string)
+    def set_max_bar(self, signal):
+        self.progressBar.setMaximum(int(signal))
+    def update_progress(self, signal):
+        self.progressBar.setValue(int(signal))
+
+    def run_pred_feature_extraction(self):
+        # grab the settings...
+
+        if self.extraction_thread.isRunning():
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            return 0
+
+        chunk_len   = int(self.chunk_len_box.text())
+        ncores = self.cores_to_use.text()
+        use_peaks_bool = self.run_peakdet_checkBox.isChecked()
+
+        if ncores == 'all':
+            ncores = -1
+        else:
+            ncores = int(ncores)
+
+        try:
+            logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
+            self.logpath_dsplay.setText(str(logfilepath))
+        except:
+            print('couldnt get logpath')
+
+
+
+        self.extraction_thread.set_params_for_extraction(h5_folder=self.h5directory,
+                                            timewindow = chunk_len,
+                                            run_peakdet_flag = use_peaks_bool,
+                                            n_cores=ncores)
+        self.extraction_thread.start()
+
+
+
+class ExtractPredictionFeaturesThread(QThread):
+    set_max_progress = pyqtSignal(str)
+    update_hidden_label = pyqtSignal(str)
+    set_progress_bar =  pyqtSignal(str)
+    update_progress_label = pyqtSignal(str)
+
+    def __init__(self):
+        QThread.__init__(self)
+        self.handler = DataHandler()
+
+    def set_params_for_extraction(self, h5_folder,
+                                        timewindow,
+                                        run_peakdet_flag,
+                                        n_cores = -1):
+
+        self.handler.parrallel_flag_pred = True
+        self.handler.run_pkdet = run_peakdet_flag
+        self.handler.twindow = timewindow
+        self.files_to_add_features = [f for f in self.handler.fullpath_listdir(h5_folder) if f.endswith('.h5')]
+        if n_cores == -1:
+            n_cores = multiprocessing.cpu_count()
+        self.n_cores = n_cores
+
+        #l = len(self.files_to_add_features)
+
+        self.set_max_progress.emit(str(len(self.files_to_add_features)))
+        self.update_hidden_label.emit(str(len(self.files_to_add_features))+' Files to extract features from')
+
+    def run(self):
+        pool = multiprocessing.Pool(self.n_cores)
+
+        for i, _ in enumerate(pool.imap(self.handler.add_predicition_features_to_h5_file, self.files_to_add_features), 1):
+            self.set_progress_bar.emit(str(i))
+            self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files_to_add_features)))
+
+        pool.close()
+        pool.join()
+
+        self.update_progress_label.emit('Progress: Done')
+        self.handler.parrallel_flag_pred = False # really not sure this is needed- just a hangover from the datahandler code?
+
 
 class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
     ''' this is for the predictions, csv and h5 folder needed '''
@@ -55,12 +174,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.setMaximum_progressbar.connect( self.set_max_bar)
             self.worker.update_label_below.connect( self.update_label_below)
             self.worker.update_label_above2.connect( self.update_label_above2)
-            #self.connect(self.worker, pyqtSignal("update_label_above2(QString)"), self.update_label_above2)
-            #self.connect(self.worker, pyqtSignal("update_label_below(QString)"), self.update_label_below)
-            #self.connect(self.worker, pyqtSignal("setMaximum_progressbar(QString)"), self.set_max_bar)
-            #self.connect(self.worker, pyqtSignal("SetProgressBar(QString)"), self.update_progress)
-            #self.connect(self.worker, pyqtSignal("update_progress_label(QString)"), self.update_progress_label)
-            #self.connect(self.worker, pyqtSignal("finished()"), self.worker_finished)
+
 
     def worker_finished(self):
         print('worker finished! method called - terminating? - needlessly?')
@@ -425,10 +539,7 @@ class ConvertNdfThread(QThread):
     def __init__(self):
         QThread.__init__(self)
         self.handler = DataHandler()
-        #self.set_max_progress = pyqtSignal(str)
-        #self.update_hidden_label = pyqtSignal(str)
-        #self.set_progress_bar =  pyqtSignal(str)
-        #self.update_progress_label = pyqtSignal(str)
+
 
     def convert_ndf_directory_to_h5(self,
                                     ndf_dir,
@@ -481,7 +592,7 @@ class ConvertNdfThread(QThread):
         self.update_progress_label.emit('Progress: Done')
 
 class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
-    ''' this is for the predictions, csv and h5 folder needed '''
+    ''' this is for checking out predictions on main gui, csv and h5 folder needed '''
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
