@@ -90,6 +90,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
     def save_classifier_method(self):
         self.clf_path = QtGui.QFileDialog.getSaveFileName(self, "Choose savename", self.home)[0]
         print(self.clf_path)
+        self.clf_path = self.clf_path if self.clf_path.endswith('.p') else self.clf_path+'.p'
         if self.clf:
             self.clf.save(fname = self.clf_path)
             self.update_clf_path_display()
@@ -132,10 +133,13 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
     def train_clf_method(self):
         # boot up a thread here and re-implement the train method of the classifier... maybe with more sensible resampling stuff!
-        if self.worker:
-            if self.worker.isRunning():
-                QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
-            return 0
+        try:
+            if self.worker:
+                if self.worker.isRunning():
+                    QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+                return 0
+        except:
+            pass
 
         self.worker = TrainClassifierThread() # assume the previous finished thread is garbage collected...!
         self.worker.update_progress_label.connect(self.update_progress_label)
@@ -143,6 +147,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.setMaximum_progressbar.connect(self.set_max_bar)
         self.worker.update_label_below.connect( self.update_label_below)
         self.worker.update_label_above2.connect( self.update_label_above2)
+        self.worker.finished.connect(self.end_training)
 
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
@@ -156,6 +161,20 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.set_training_params(self.clf, dwnsample_factor, upsample_factor,ntrees, ncores)
         self.worker.start()
 
+    def end_training(self):
+        # todo quit threads properly
+        QtGui.QMessageBox.information(self, "Not implemented, lazy!", "You probably want to save the trained classifier...!")
+        self.save_classifier_method()
+        self.worker.quit()
+        self.worker.terminate()
+        del self.worker
+
+    def end_prediction(self):
+        self.worker.quit()
+        self.worker.terminate()
+        del self.worker
+
+
     def update_label_above2(self, label_string):
         self.progressBar_label_above2.setText(label_string)
     def update_progress_label(self, label_string):
@@ -168,10 +187,22 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.progressBar.setValue(int(signal))
 
     def predict_seizures(self):
-        if self.worker:
-            if self.worker.isRunning():
-                QtGui.QMessageBox.information(self, "What is this second string?", "Worker thread still running, please wait for previous orders to be finished!")
-            return 0
+        try:
+            if self.worker:
+                if self.worker.isRunning():
+                    QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+                return 0
+        except:
+            pass
+
+        if self.h5directory  == None:
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a h5 folder!")
+            self.get_h5_folder()
+        if self.clf == None:
+            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a trained, pickled classifier!")
+            self.load_classifier_method()
+
+
 
         self.worker = PredictSeizuresThread() # assume the previous finished thread is garbage collected...!
         self.worker.update_progress_label.connect(self.update_progress_label)
@@ -179,6 +210,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.setMaximum_progressbar.connect(self.set_max_bar)
         self.worker.update_label_below.connect( self.update_label_below)
         self.worker.update_label_above2.connect( self.update_label_above2)
+        self.worker.finished.connect(self.end_prediction)
 
         h5_folder = self.h5_folder_display.text()
         excel_sheet = QtGui.QFileDialog.getSaveFileName(self,  "make output csv file", self.home)[0]
@@ -187,7 +219,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.start()
 
 class PredictSeizuresThread(QThread):
-    finished = pyqtSignal(str)
+    finished = pyqtSignal()
     update_progress_label = pyqtSignal(str)
     SetProgressBar= pyqtSignal(str)
     setMaximum_progressbar= pyqtSignal(str)
@@ -200,16 +232,62 @@ class PredictSeizuresThread(QThread):
         self.clf = clf
         self.prediction_dir = prediction_dir
         self.excel_output = excel_sheet.split('.')[0]+'.csv'
+        if os.path.exists(self.excel_output):
+            os.remove(self.excel_output)
 
     def run(self):
+        self.update_label_below.emit('Saving predictions: '+ self.excel_output)
         self.update_progress_label.emit('We are now rolling!')
-        self.clf.predict_dir(self.prediction_dir,self.excel_output)
-        self.update_label_above2.emit('Code this so you get a breakdown - you actually have to as not rf...:p')
+        files_to_predict = [os.path.join(self.prediction_dir,f) for f in os.listdir(self.prediction_dir) if not f.startswith('.')]
+        n_files = len(files_to_predict)
+        self.setMaximum_progressbar.emit(str(n_files))
+        self.update_label_above2.emit('Looking through '+ str(n_files) + ' files for seizures: ')
+        for i,fpath in enumerate(files_to_predict):
+            fname = str(os.path.split(fpath)[1])
+            try:
+                with h5py.File(fpath, 'r+') as f:
+                    group = f[list(f.keys())[0]]
+                    tid = group[list(group.keys())[0]]
+                    pred_features = tid['features'][:]
 
+                logging.info(fname + ' now predicting!: ')
+                self.update_progress_label.emit(fname+ ': '+ str(i)+'/'+str(n_files))
+                self.SetProgressBar.emit(str(i))
+
+                pred_features = self.clf.cleaner.transform(pred_features)
+                pred_y_emitts = self.clf.rf.predict(pred_features)
+                logp, path = self.clf.hm_model.viterbi(pred_y_emitts)
+                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
+
+                if sum(vit_decoded_y):
+                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
+                    #print (name_array.shape)
+                    pred_sheet = self.clf.make_excel_spreadsheet([name_array,vit_decoded_y])
+                    #print(pred_sheet.head())
+                    if not os.path.exists(self.excel_output):
+                        pred_sheet.to_csv(self.excel_output,index = False)
+                    else:
+                        with open(self.excel_output, 'a') as f:
+                            pred_sheet.to_csv(f, header=False, index = False)
+
+
+            except KeyError:
+                logging.error(str(fname) + ' did not contain any features! Skipping')
+                self.update_label_below('ERROR: '+ fname + ' did not contain any features! Skipping')
+
+            else:
+                pass
+                #print ('no seizures')
+
+        self.update_progress_label.emit('Re - ordering spreadsheet by date')
+        self.clf.reorder_prediction_csv(self.excel_output)
+        self.update_progress_label.emit('Done')
+        self.finished.emit()
+        self.exit()
 
 class TrainClassifierThread(QThread):
     # add in signals here
-    finished = pyqtSignal(str)
+    finished = pyqtSignal()
     update_progress_label = pyqtSignal(str)
     SetProgressBar= pyqtSignal(str)
     setMaximum_progressbar= pyqtSignal(str)
@@ -248,6 +326,8 @@ class TrainClassifierThread(QThread):
         print('Recall: '+str(metrics.recall_score(np.ravel(self.res_y), self.oob_preds)))
         print('F1: '+str(metrics.f1_score(np.ravel(self.res_y), self.oob_preds)))
         print(metrics.classification_report(np.ravel(self.res_y),self.oob_preds))
+        self.finished.emit()
+        self.exit()
 
 class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_make_features):
 
@@ -486,6 +566,12 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
     def make_new_library(self):
         self.library_path = QtGui.QFileDialog.getSaveFileName(self,  "Make new Library file", self.home)[0]
+        if not self.library_path.endswith('.h5'):
+            try:
+                self.library_path = self.library_path.split('.')[0]+'.h5'
+            except:
+                self.library_path = self.library_path +'.h5'
+
         self.update_library_path_display()
 
 
@@ -542,7 +628,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.append_to_library_mode()
             self.worker.start()
-            self.worker.wait()
+            #self.worker.wait()
             print('Worker finished')
         else: # why do you have this - for running first time off??
             print('else got called in append to library')
@@ -555,7 +641,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
             self.worker.append_to_library_mode()
             self.worker.start()
-            self.worker.wait()
+            #self.worker.wait()
 
     def calculate_features_for_library(self):
         if self.library_path is None:
@@ -612,7 +698,8 @@ class LibraryWorkerThread(QThread):
         self.handler = DataHandler()
 
     def __del__(self):
-        self.wait()
+        #self.wait()
+        self.exit()
 
     def set_library_attributes(self, l_path, a_df, h5_path, timewindow, overwrite_bool, fs):
         self.library_path = l_path
@@ -695,10 +782,10 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.progressBar.setValue(0)
         self.cores_to_use.setText(str(1))
         self.transmitter_ids.setText(str(8))
-        self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/test_h5'
-        self.ndf_folder  = '/Volumes/G-DRIVE with Thunderbolt/test_ndfs'
-        self.h5_display.setText(str(self.h5directory))
-        self.ndf_display.setText(str(self.ndf_folder))
+        #self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/test_h5'
+        #self.ndf_folder  = '/Volumes/G-DRIVE with Thunderbolt/test_ndfs'
+        #self.h5_display.setText(str(self.h5directory))
+        #self.ndf_display.setText(str(self.ndf_folder))
 
 
     def get_h5_folder(self):
@@ -726,10 +813,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.converting_thread.set_max_progress.connect( self.set_max_bar)
         self.converting_thread.update_hidden_label.connect( self.update_hidden)
         self.converting_thread.update_progress_label.connect( self.update_progress_label)
-        #self.connect(self.converting_thread, pyqtSignal("update_hidden_label(QString)"), self.update_hidden)
-        #self.connect(self.converting_thread, pyqtSignal("setMaximum_progressbar(QString)"), self.set_max_bar)
-        #self.connect(self.converting_thread, pyqtSignal("SetProgressBar(QString)"), self.update_progress)
-        #self.connect(self.converting_thread, pyqtSignal("update_progress_label(QString)"), self.update_progress_label)
+
         try:
             logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
             self.logpath_dsplay.setText(str(logfilepath))
@@ -737,8 +821,6 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
             print('couldnt get logpath')
             #logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
         try:
-            # pass
-            # you've made a log file, let them know where it is!
 
             self.converting_thread.convert_ndf_directory_to_h5(ndf_dir=self.ndf_folder,
                                                 save_dir=self.h5directory,

@@ -38,7 +38,8 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_df = None
         self.h5directory = None
         self.tree_items = []
-        self.home = '/Volumes/G-DRIVE with Thunderbolt/'
+        # todo wipe this before pushing
+        #self.home = '/Volumes/G-DRIVE with Thunderbolt/'
 
         #self.select_folder_btn.clicked.connect(self.set_h5_folder)
         #self.load_preds_btn.clicked.connect(self.load_pred_file)
