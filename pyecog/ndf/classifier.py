@@ -59,7 +59,7 @@ class FeaturePreProcesser():
         return X
 
 class Classifier():
-
+    ''' we drop the actual data... so this is a lot smaller than the library used to train it '''
     def __init__(self, library_path):
         with h5py.File(library_path, 'r+') as f:
             self.keys = list(f.keys())
@@ -80,24 +80,31 @@ class Classifier():
         pickle.dump(self,f)
 
     def load(self, fname):
-        fname = fname if fname.endswith('.p') else fname+'.p'
-        f = open(fname,'wb')
-        pickle.dump(self,f)
+        print('This is a function of the module, not a particular classifier! (Naturally will not exist)')
+        return 0
 
-    def train(self, resample = (50,3)):
+    def train(self, downsample_bl_by_x = 3,
+                    upsample_seizure_by_x = 1,
+                    ntrees=800, n_cores = -1,
+                    n_emission_prob_cvfolds = 3):
+        
+        if upsample_seizure_by_x != 1:
+            print('Warning: you are upsampling minority class - oob error cannot be trusted' )
+        
         counts = pd.Series(np.ravel(self.labels[:])).value_counts().values
-        target_resample = (counts[1]*50,counts[1]) # only undersample
+        target_resample = (int(counts[0]/self.downsample_bl_factor),counts[1]*self.upsample_seizure_factor)
+
         logging.info('Training classifier: ')
         logging.info('Resampling training - upsampling seizure seconds, downsampling baseline periods...')
         res_y, res_x = self.resample_training_dataset(self.labels, self.features,
                                                       sizes = target_resample)
+
         logging.info('Training Random Forest on resampled data')
-        self.clf =  RandomForestClassifier(n_jobs=-1, n_estimators= 800, oob_score=True, bootstrap=True)
+        self.clf =  RandomForestClassifier(n_jobs=n_cores, n_estimators= ntrees, oob_score=True, bootstrap=True)
         self.clf.fit(res_x, np.ravel(res_y))
 
-
         logging.info('Getting HMM params')
-        self.make_hmm_model()
+        self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
 
         print ('********* oob results on resampled data *******')
         self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
@@ -107,6 +114,107 @@ class Classifier():
         print(metrics.classification_report(np.ravel(res_y),self.oob_preds))
 
         self.feature_weightings = sorted(zip(self.clf.feature_importances_, self.feature_names),reverse = True)
+
+    def make_hmm_model(self, n_emission_prob_folds = 3):
+        # how to get these bad boys...
+        self.emission_probs = self.get_cross_validation_emission_probs(self.features,
+                                                                       self.labels,
+                                                                       nfolds = n_emission_prob_folds)
+        print('Emission probs')
+        print (self.emission_probs)
+        self.transition_probs = hmm.get_state_transition_probs(self.labels)
+        print ('Transition probs')
+        print (self.transition_probs)
+        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
+        
+    def get_cross_validation_emission_probs(self, X, y, nfolds = 3):
+        '''
+        - X has been imputed and cleaned etc...
+        - Also, we are using default RF, should nest some
+        tuning within it! - too long
+
+        Returns:
+            - HMM model emission probs.
+            - ToDO: Error (though HMM?)
+            - ToDO: best RF parameters...
+            - ToDO: potentially threshold
+            - ToDO: best resampling?
+        '''
+        logging.info('Starting stratified cross validation with '+ str(nfolds)+ ' folds!' )
+
+        emission_matrices_list = [] # to hold the result from the k fold
+
+        if len(y.shape) != 1: # ravel labels if they need it
+            y = np.ravel(y)
+
+        self.printProgress(0,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
+        fold = 1
+
+        skf = cv.StratifiedKFold(y, nfolds, random_state= 7)
+        precision, recall, f1 = [],[],[]
+        oob_precision, oob_recall, oob_f1 = [],[],[]
+        for train_ix,test_ix in skf:
+
+            # index for the k fold
+            X_train = X[train_ix,:]
+            y_train = y[train_ix]
+            X_test  = X[test_ix,:]
+            y_test  = y[test_ix]
+
+            # work out desired resampling - this needs to be inheritied
+            y_counts = pd.Series(y_train).value_counts().values
+            target_resample = (y_counts[1]*50,y_counts[1])
+            samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
+
+            # train clf on resampled
+            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
+            rf.fit(samp_x, np.ravel(samp_y))
+
+            # see how well it did
+            train_emitts = rf.predict(X_train)
+            test_emitts  = rf.predict(X_test)
+
+            # this is the test set
+            p_score = metrics.precision_score(y_test, test_emitts)
+            precision.append(p_score)
+            recall_score = metrics.recall_score(y_test, test_emitts)
+            recall.append(recall_score)
+            f1_score = metrics.f1_score(y_test, test_emitts)
+            f1.append(f1_score)
+
+
+            # this is the oob on the resampled
+            oob_preds = np.round(rf.oob_decision_function_[:,1]) # round the 1 column for 1 issezi. 0 is baseline
+            oob_p_score = metrics.precision_score(np.ravel(samp_y), oob_preds)
+            oob_precision.append(oob_p_score)
+            oob_recall_score = metrics.recall_score(np.ravel(samp_y), oob_preds)
+            oob_recall.append(oob_recall_score)
+            oob_f1_score = metrics.f1_score(np.ravel(samp_y), oob_preds)
+            oob_f1.append(oob_f1_score)
+
+
+            binary_states = np.where(y_test==0,0,1) # this is for when multiple labels
+            emission_matrix = hmm.get_state_emission_probs(test_emitts, binary_states)
+            emission_matrices_list.append(emission_matrix)
+            self.printProgress(fold,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
+            fold += 1
+
+        logging.info('Precision: ' + str(precision))
+        logging.info('Recall: ' + str(recall))
+        logging.info('F1: ' + str(f1))
+
+        logging.info('OOB is on the resampled data:')
+        logging.info('oob_Precision: ' + str(oob_precision))
+        logging.info('oob_Recall: ' + str(oob_recall))
+        logging.info('oob_F1: ' + str(oob_f1))
+
+        #print( 'Mean precision'+ str(np.mean(precision)) )
+        #print( 'Mean recall: '+ str(np.mean(recall)) )
+        #print( 'Mean f1: '+str(np.mean(f1)) )
+
+        ems = np.stack(emission_matrices_list, axis = 2)
+        mean_emitt_matrix = np.mean(ems, axis = 2)
+        return mean_emitt_matrix
 
     def estimate_clf_error(self, nfolds = 3):
         #self.printProgress(0,nfolds, prefix = 'Cross validation:', suffix = 'Complete', barLength = 50)
@@ -189,16 +297,6 @@ class Classifier():
             print ('Mean fb recall:    '+ str(map_clf_recall))
             print ('Mean fb f1:        '+ str(map_clf_f1))
 
-
-    def make_hmm_model(self):
-        self.emission_probs = self.get_cross_validation_emission_probs(self.features, self.labels, nfolds = 3)
-        print('Emission probs')
-        print (self.emission_probs)
-        self.transition_probs = hmm.get_state_transition_probs(self.labels)
-        print ('Transition probs')
-        print (self.transition_probs)
-        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
-
     def resample_training_dataset(self, labels, feature_array, sizes = (5000,500)):
         """
         Inputs:
@@ -253,98 +351,12 @@ class Classifier():
 
         return resampled_labels, resampled_features
 
-    def get_cross_validation_emission_probs(self, X, y, nfolds = 3):
-        '''
-        - X has been imputed and cleaned etc...
-        - Also, we are using default RF, should nest some
-        tuning within it!
-
-        Returns:
-            - HMM model emission probs.
-            - ToDO: Error (though HMM?)
-            - ToDO: best RF parameters...
-            - ToDO: potentially threshold
-            - ToDO: best resampling?
-        '''
-        logging.info('Starting stratified cross validation with '+ str(nfolds)+ ' folds!' )
-
-        emission_matrixes_list = [] # to hold the result from the k fold
-
-        if len(y.shape) != 1:
-            y = np.ravel(y)
-
-        self.printProgress(0,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
-        fold = 1
-
-        skf = cv.StratifiedKFold(y, nfolds, random_state= 7)
-        precision, recall, f1 = [],[],[]
-        oob_precision, oob_recall, oob_f1 = [],[],[]
-        for train_ix,test_ix in skf:
-
-            # index for the k fold
-            X_train = X[train_ix,:]
-            y_train = y[train_ix]
-            X_test  = X[test_ix,:]
-            y_test  = y[test_ix]
-
-            # work out desired resampling
-            y_counts = pd.Series(y_train).value_counts().values
-            target_resample = (y_counts[1]*50,y_counts[1])
-            samp_y, samp_x = self.resample_training_dataset(y_train, X_train, sizes = target_resample)
-
-            # train clf on resampled
-            rf = RandomForestClassifier(n_jobs=-1, n_estimators= 500, oob_score=True, bootstrap=True)
-            rf.fit(samp_x, np.ravel(samp_y))
-
-            # see how well it did
-            train_emitts = rf.predict(X_train)
-            test_emitts  = rf.predict(X_test)
-
-            # this is the test set
-            p_score = metrics.precision_score(y_test, test_emitts)
-            precision.append(p_score)
-            recall_score = metrics.recall_score(y_test, test_emitts)
-            recall.append(recall_score)
-            f1_score = metrics.f1_score(y_test, test_emitts)
-            f1.append(f1_score)
-
-
-            # this is the oob on the resampled
-            oob_preds = np.round(rf.oob_decision_function_[:,1]) # round the 1 column for 1 issezi. 0 is baseline
-            oob_p_score = metrics.precision_score(np.ravel(samp_y), oob_preds)
-            oob_precision.append(oob_p_score)
-            oob_recall_score = metrics.recall_score(np.ravel(samp_y), oob_preds)
-            oob_recall.append(oob_recall_score)
-            oob_f1_score = metrics.f1_score(np.ravel(samp_y), oob_preds)
-            oob_f1.append(oob_f1_score)
-
-
-            binary_states = np.where(y_test==0,0,1) # this is for when multiple labels
-            emission_matrix = hmm.get_state_emission_probs(test_emitts, binary_states)
-            emission_matrixes_list.append(emission_matrix)
-            self.printProgress(fold,nfolds, prefix = 'Getting hmm emission probs:', suffix = 'Complete', barLength = 30)
-            fold += 1
-
-        logging.info('Precision: ' + str(precision))
-        logging.info('Recall: ' + str(recall))
-        logging.info('F1: ' + str(f1))
-
-        logging.info('OOB is on the resampled data:')
-        logging.info('oob_Precision: ' + str(oob_precision))
-        logging.info('oob_Recall: ' + str(oob_recall))
-        logging.info('oob_F1: ' + str(oob_f1))
-
-        #print( 'Mean precision'+ str(np.mean(precision)) )
-        #print( 'Mean recall: '+ str(np.mean(recall)) )
-        #print( 'Mean f1: '+str(np.mean(f1)) )
-
-        ems = np.stack(emission_matrixes_list, axis = 2)
-        mean_emitt_matrix = np.mean(ems, axis = 2)
-        return mean_emitt_matrix
 
     def tune_hyperparameters(self):
         pass
         # just a placeholderfor now - code is in ipython notebook
+        # we want to tune class weights?
+        # also depth, leaves and n features?
 
 
     def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv'):
