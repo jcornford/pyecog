@@ -13,7 +13,7 @@ import pickle
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 
-from pyecog.visualisation import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
+import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
 from pyecog.ndf.h5loader import H5File
 from pyecog.ndf.datahandler import DataHandler, NdfFile
 from pyecog.ndf.classifier import Classifier

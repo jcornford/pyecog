@@ -1,1 +1,1 @@
-from pyecog.visualisation import pyecog_main_gui
+import pyecog_main_gui

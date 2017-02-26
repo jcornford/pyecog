@@ -8,19 +8,20 @@ import pyqtgraph as pg
 import inspect
 import h5py
 
-from pyecog.visualisation import check_preds_design, loading_subwindow, convert_ndf_window
-from pyecog.visualisation import subwindows
-from pyecog.ndf.h5loader import H5File
+import check_preds_design, loading_subwindow, convert_ndf_window
+from ..ndf.h5loader import H5File
+import subwindows
+
 from pyecog.ndf.datahandler import DataHandler
 
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
 #TODO - you are currently loading the entire h5 file into memory..
-class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
+class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
-        super(CheckPredictionsGui, self).__init__(parent)
+        super(MainGui, self).__init__(parent)
         self.setupUi(self)
         self.scroll_flag = -1
         if self.blink_box.isChecked():
@@ -104,7 +105,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def load_clf_subwindow(self):
         child = subwindows.ClfWindow()
         child.show()
-        child.home = self.home # will this inherit? :p
+        child.home = self.home
         if child.exec_():
             print('exec_() was called')
         return 0
@@ -112,7 +113,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def load_add_prediction_features_subwindow(self):
         child = subwindows.AddPredictionFeaturesWindow()
         child.show()
-        child.home = self.home # will this inherit? :p
+        child.home = self.home
         if child.exec_():
             print('exec_() was called')
         return 0
@@ -120,7 +121,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def load_library_management_subwindow(self):
         child = subwindows.LibraryWindow()
         child.show()
-        child.home = self.home # will this inherit? :p
+        child.home = self.home
         if child.exec_():
             print('exec_was called')
         return 0
@@ -128,7 +129,7 @@ class CheckPredictionsGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def convert_ndf_folder_to_h5(self):
         child = subwindows.ConvertingNDFsWindow()
         child.show()
-        child.home = self.home # will this inherit? :p
+        child.home = self.home
         if child.exec_():
             print('exec_was called')
         return 0
@@ -800,7 +801,7 @@ class HDF5Plot(pg.PlotCurveItem):
 
 def main():
     app = QtGui.QApplication(sys.argv)
-    form = CheckPredictionsGui()
+    form = MainGui()
     form.show()
     app.exec_()
 
