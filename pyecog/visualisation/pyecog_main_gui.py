@@ -8,12 +8,12 @@ import pyqtgraph as pg
 import inspect
 import h5py
 
-import check_preds_design, loading_subwindow, convert_ndf_window
-from ..ndf.h5loader import H5File
-import subwindows
+# todo test if these work without being called from main_gui at pyecog level
+from . import check_preds_design, loading_subwindow, convert_ndf_window
+from ndf.h5loader import H5File
+from . import subwindows
 
-from pyecog.ndf.datahandler import DataHandler
-
+#from ndf.datahandler import DataHandler
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
 
 #TODO - you are currently loading the entire h5 file into memory..
@@ -805,5 +805,3 @@ def main():
     form.show()
     app.exec_()
 
-if __name__ == '__main__':
-    main()
