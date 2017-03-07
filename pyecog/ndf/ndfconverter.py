@@ -279,7 +279,7 @@ class NdfFile:
                                  self.data_to_deglitch[location - 512:location + 512], 'k')
                         plt.ylabel('Time (s)'); plt.title('Glitch '+str(glitch_count+1))
                         plt.show()
-                    try:
+                    try: # todo work out what this does?
                         value = self.data_to_deglitch[i] + (self.time_to_deglitch[location] - self.time_to_deglitch[i]) * (
                         self.data_to_deglitch[ii] - self.data_to_deglitch[i]) / (self.data_to_deglitch[ii] - self.data_to_deglitch[i])
                         self.data_to_deglitch[location] = value
