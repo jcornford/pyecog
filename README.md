@@ -3,46 +3,31 @@
 This module is for detecting epileptiform activity from *single* channel intracranial EEG (or ECoG) recordings.
 Currently under heavy construction!
 
-Strongly recommended to use python 3.5, untested and likely (more) buggy with 2. 
+Strongly recommended to use python 3.6, untested and likely (more) buggy with 2. 
 
-### Installing PyECoG
-It is advised to create a conda python 3.5 enviroment and to run:
 
+### Installing PyECoG from PIP _(recommended)_
+
+
+1. Install Anaconda. Choose the Python 3.6 64-bit version for your operating system (Linux, Windows, or OS X).
+2. Open a terminal (on Windows, cmd) in the directory where you saved the file and type:
 ```{bash}
+conda create --name pyecog
+source activate pyecog  or  activate pyecog on windows
 pip install pyecog
 ```
-### Dependency issues:
+3. To run:
+### Installing PyECoG from Github source code
 
-##### Installing PyQt4
-You will also need to install PyQt4 to use the gui elements:
-Unfortunately PyQt4 cannot be installed from pip (http://stackoverflow.com/questions/22640640/how-to-install-pyqt4-on-windows-using-pip), you will need to install from here:
-https://riverbankcomputing.com/software/pyqt/download
 
-Alternatively, for Windows you can download the appropriate package from here:
-http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyqt4
-Then open command prompt and navigate to the folder that the package is in and enter:
+1. Install Anaconda. Choose the Python 3.6 64-bit version for your operating system (Linux, Windows, or OS X).
+2. Download the latest source code from [here](https://github.com/jcornford/pyecog/archive/master.zip).
+3. Open a terminal (on Windows, cmd) in the pyecog directory containing the environment file and type:
 ```{bash}
-pip install PyQt4-4.11.4-cp35-none-win_amd64.whl
+conda env create -n pyecog
+source activate pyecog  or  activate pyecog on windows
 ```
-If you do not have Microsoft Visual Studio installed, you may also need to install Visual C++ Redistributable for Visual Studio 2015 (https://www.microsoft.com/en-gb/download/details.aspx?id=48145)
-
-
-##### Installing Pomegranate
-This is required for the Hidden Markov decoding of classifier predictions. There are sometimes issues: (https://github.com/jmschrei/pomegranate/issues/114)
-
-```python
-38 from .hmm import *
-...
-ImportError: No module named utils
-```
-This can be solved with:
-
-```bash
-pip uninstall pomegranate
-pip install pomegranate --no-cache-dir
-```
-On windows you will also need to install visual studio in order to install pomegranate.
-
+4. To run :
 ### How to use
 - [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation_notebooks/demo_loading_ndfs_notebook.ipynb)
 
