@@ -13,11 +13,16 @@ import pickle
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 
-from . import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
-from ndf.h5loader import H5File
-from ndf.datahandler import DataHandler, NdfFile
-from ndf.classifier import Classifier
-
+try:
+    from . import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
+    from ndf.h5loader import H5File
+    from ndf.datahandler import DataHandler, NdfFile
+    from ndf.classifier import Classifier
+except:
+    import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
+    from pyecog.ndf.h5loader import H5File
+    from pyecog.ndf.datahandler import DataHandler, NdfFile
+    from pyecog.ndf.classifier import Classifier
 # todo : these classes could inherit classes that have signals and slots already made, as you kept the gui element names the same when possible.
 
 class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):

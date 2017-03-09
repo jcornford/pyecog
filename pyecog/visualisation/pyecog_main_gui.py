@@ -9,9 +9,14 @@ import inspect
 import h5py
 
 # todo test if these work without being called from main_gui at pyecog level
-from . import check_preds_design, loading_subwindow, convert_ndf_window
-from ndf.h5loader import H5File
-from . import subwindows
+if __name__ != '__main__':
+    from . import check_preds_design, loading_subwindow, convert_ndf_window
+    from ndf.h5loader import H5File
+    from . import subwindows
+else:
+    import check_preds_design, loading_subwindow, convert_ndf_window
+    from pyecog.ndf.h5loader import H5File
+    import subwindows
 
 #from ndf.datahandler import DataHandler
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
@@ -805,3 +810,5 @@ def main():
     form.show()
     app.exec_()
 
+if __name__ == '__main__':
+    main()
