@@ -48,8 +48,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.h5directory = None
         self.tree_items = []
 
-        self.home = os.getcwd()
-        #self.home = '/Volumes/G-DRIVE with Thunderbolt/'
+        #self.home = os.getcwd()
+        self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
 
         #self.select_folder_btn.clicked.connect(self.set_h5_folder)
         #self.load_preds_btn.clicked.connect(self.load_pred_file)
@@ -58,7 +58,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
         self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
         self.actionLoad_Library.triggered.connect(self.load_seizure_library)
-        self.actionLoad_h5_folder.triggered.connect(self.not_done_yet) # this is still to do in its entireity
+        self.actionLoad_h5_folder.triggered.connect(self.load_h5_folder) # this is still to do in its entireity
         self.actionSet_default_folder.triggered.connect(self.set_home)
 
         # Hook up analyse menu bar to functions here
@@ -145,6 +145,39 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def set_home(self):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
 
+
+    def load_h5_folder(self):
+        self.h5directory_to_load = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        if self.h5directory_to_load == '':
+            print('No folder selected')
+            return 0
+
+        self.clear_QTreeWidget()
+        for i,fname in enumerate(os.listdir(self.h5directory_to_load)):
+            #fpath = os.path.join(self.h5directory_to_load,fname)
+            tids = [int(fname.split(']')[0].split('[')[1])]
+            self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
+
+        self.treeWidget.addTopLevelItems(self.tree_items)
+
+        self.predictions_up = False
+        self.library_up = False
+        self.file_dir_up = True
+
+    def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
+        self.treeWidget.setColumnCount(3)
+        self.treeWidget.setHeaderLabels(['index', 'tid', 'fname'])
+
+        fname_entry = [str(fpath)] # us this pointless!?
+        details_entry = [str(index),
+                         str(tids[0]), # bad, should make only tid having one explicit
+                         str(fpath)]
+
+        item = QtGui.QTreeWidgetItem(details_entry)
+        item.setFirstColumnSpanned(True)
+
+        self.tree_items.append(item)
+
     def load_seizure_library(self):
 
         self.library = QtGui.QFileDialog.getOpenFileName(self, "Pick a h5 library file", self.home)[0]
@@ -201,6 +234,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.library_tree_export_csv()
         elif self.file_dir_up:
             self.file_tree_export_csv()
+
     def file_tree_export_csv(self):
         pass
 
@@ -263,10 +297,35 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             elif self.library_up:
                 self.tree_selection_library()
             elif self.file_dir_up:
-                self.tree_selection_file_dir
+                self.tree_selection_file_dir()
 
     def tree_selection_file_dir(self):
-        pass
+        # this method does too much
+        "grab tree detail and use to plot"
+        print('tree_selection_file dir called')
+        current_item = self.treeWidget.currentItem()
+        fields = current_item
+
+        tid = float(fields.text(1))
+        path = fields.text(2)
+        index = float(fields.text(0))
+        # duration is fields.text(3)
+        fpath = os.path.join(self.h5directory_to_load, path)
+
+        h5 = H5File(fpath)
+        data_dict = h5[tid]
+        self.fs = eval(h5.attributes['fs_dict'])[tid]
+
+        self.add_data_to_plots(data_dict['data'], data_dict['time'])
+
+        # todo add all lines per file in one go - more than one seizure
+
+
+        self.plot_1.setXRange(0, 5)
+        self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
+        self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
+        self.updatePlot()
+
 
     def tree_selection_library(self):
         seizure_buffer = 5 # seconds either side of seizure to plot
