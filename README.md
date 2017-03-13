@@ -35,10 +35,19 @@ Use python 3.6, untested and likely (even more) buggy with 2.
     pip install pomegranate --no-cache
     ```
 
-3. Finally, you are set to run 
-```{bash}
-pip install pyecog
-```
+3. Finally, you are ready to run 
+    ```{bash}
+    pip install pyecog
+    python
+    >>> import pyecog
+    >>> pyecog
+    <module 'pyecog' from '//anaconda/envs/pyecog_env/lib/python3.5/site-packages/pyecog/__init__.py'>
+    ```
+    You are free to import pyecog into whichever scripts or jupyter notebooks you wish. The main gui can also be run with:
+    
+    ```
+    >>> pyecog.pyecog_main_gui.main()
+    ```
 
 
 ### Recommended procedure for running PyECoG from Github source code:
