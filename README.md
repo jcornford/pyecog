@@ -12,28 +12,28 @@ Use python 3.6, untested and likely (even more) buggy with 2.
 1. Install Anaconda. Choose the Python 3.6 64-bit version for your operating system (Linux, Windows, or OS X).
   You can also use python 2, but just make sure your python version for the environment is 3. 
 2. Make a new environment and install dependencies: Open a terminal windows (on Windows,a cmd prompt) and type or copy :
-```{bash}
-conda create conda create --name pyecog_env python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 bokeh=0.12.4 pyqt=5.6
-source activate pyecog_env  # or just "activate pyecog_env" if on windows
-pip install pyqtgraph==0.10
-pip install pomegranate==0.6.1
-```
-#### WARNING: pomegranate often fails to build properly!
-To test your installation, try:
-```{bash}
-python
->>> import pomegranate
-```
-If you get the following error:
-```{bash}
-ImportError: No module named 'pomegranate.utils'
-```
-This can be resolved by uninstalling and reinstalling:
-```{bash}
->>> quit()
-pip uninstall pomegranate
-pip install pomegranate --no-cache
-```
+    ```{bash}
+    conda create --name pyecog_env python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 bokeh=0.12.4 pyqt=5.6
+    source activate pyecog_env  # or just "activate pyecog_env" if on windows
+    pip install pyqtgraph==0.10
+    pip install pomegranate==0.6.1
+    ```
+    #### WARNING: pomegranate often fails to build properly!
+    To test your installation, try:
+    ```{bash}
+    python
+    >>> import pomegranate
+    ```
+    If you get the following error:
+    ```{bash}
+    ImportError: No module named 'pomegranate.utils'
+    ```
+    This can be resolved by uninstalling and reinstalling:
+    ```{bash}
+    >>> quit()
+    pip uninstall pomegranate
+    pip install pomegranate --no-cache
+    ```
 
 3. Finally, you are set to run 
 ```{bash}

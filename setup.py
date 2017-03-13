@@ -9,5 +9,5 @@ setup(
   url = 'https://github.com/jcornford/pyecog', # use the URL to the github repo
   download_url = 'https://github.com/jcornford/pyecog/tarball/0.1.32',
   keywords = ['iEEG', 'ECoG'], # arbitrary keywords
-  install_requires=['numpy','scipy','scikit-learn', 'pandas', 'matplotlib', 'seaborn','h5py','xlrd', 'bokeh', 'pyqtgraph', 'pomegranate']
+  install_requires=['numpy','scipy','scikit-learn','jupyter' ,'pandas', 'matplotlib', 'seaborn','h5py','xlrd', 'bokeh', 'pyqtgraph', 'pomegranate']
 )
