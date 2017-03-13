@@ -453,19 +453,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.sigXRangeChanged.connect(self.updateRegion)
         self.updatePlot()
 
-    def mouse_click_in_overview(self,evt):
-        # evt[0] should be a pyqtgraph.GraphicsScene.mouseEvents.MouseClickEvent
-
-        pos = evt[0].scenePos()
-        #print('scenepos',pos)
-
-        if self.plot_overview.sceneBoundingRect().contains(pos):
-            mousePoint = self.bx_overview.mapSceneToView(pos)
-
-            x = int(mousePoint.x())
-            y = int(mousePoint.y())
-            print(x,y)
-
 
     # these two methods are for the lr plot connection, refactor names
     def updatePlot(self):
@@ -622,46 +609,30 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         #self.treeWidget.addTopLevelItems(self.tree_items) # now beeing called once all items are there.
 
-    #TODO implement this clicking stuff! click and move the region, these two methods below
-    def print_mouse_position(self, pos):
-        # not used
-        mousepoint = self.plot_1.getViewBox().mapSceneToView(pos)
-        print(mousepoint)
-        self.mouseline.setPos(mousepoint.x())
-        #self.coords_label.setText("<span style='font-size: 6pt'> x=%0.1f <div style='text-align: center'> , <span style='font-size: 6pt''color: red'>y=%0.1f</span>" % (1111,2222))
-        #self.coords_label.setText(str(mousepoint.x()))
+    def mouse_click_in_overview(self,evt):
+        # signal for this is coming from self.data,
+        # evt[0] should be a pyqtgraph.GraphicsScene.mouseEvents.MouseClickEvent
 
-    def mousePressEvent(self, QMouseEvent):
-        #print('click!')
-        #event = QMouseEvent
-        #position = QMouseEvent.pos()
-        #print(position)
-        try:
-            #print('gloabl mouse position is...',QMouseEvent.globalPos())
-            #self.bx_overview
-            #self.plot_overview
+        pos = evt[0].scenePos()
+        if self.plot_overview.sceneBoundingRect().contains(pos):
+            mousePoint = self.bx_overview.mapSceneToView(pos)
+            x = int(mousePoint.x())
+            y = int(mousePoint.y())
 
-            position = QMouseEvent.pos()
-            position_2 = QMouseEvent.globalPos()
-            #print(type(self.plot_overview) )
-            #print(position,position_2)
-            #print(self.bx_overview().mapSceneToView(position))
-            #print(self.bx_overview().mapSceneToView(position_2))
-        except:
-            'you got an error'
-            pass
+            xlims = self.plot_1.getViewBox().viewRange()[0]
+            xrange = xlims[1]-xlims[0]
+            try:
+                assert xrange > 0
+            except:
+                print('Your view range is messed up')
+            #xmid = xlims[0]+xrange/2.0
 
-        #print(self.plot_1.sceneBoundingRect())
-        #print(self.plot_1.getViewBox().sceneBoundingRect())
-        #if self.plot_1.getViewBox().sceneBoundingRect().contains(position):
-        #    print('plot 1 contains postion!')
-        #print(QMouseEvent.posF())
-        #mousepoint = self.plot_1.getViewBox().mapSceneToView(position)
-        #print(mousepoint)
+            self.plot_1.getViewBox().setXRange(min = x - xrange/2.0,
+                                               max = x + xrange/2.0, padding=0)
 
 
     def keyPressEvent(self, eventQKeyEvent):
-        
+
         key = eventQKeyEvent.key()
 
         x,y = self.plot_1.getViewBox().viewRange()
