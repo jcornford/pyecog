@@ -24,9 +24,11 @@ Use python 3.6, untested and likely (even more) buggy with 2.
     python
     >>> import pomegranate
     ```
-    If you get the following error:
+    If you get a following error such as:
     ```{bash}
     ImportError: No module named 'pomegranate.utils'
+    # or 
+    ImportError: No module named 'pomegranate.kmeans'
     ```
     This can be resolved by uninstalling and reinstalling:
     ```{bash}
