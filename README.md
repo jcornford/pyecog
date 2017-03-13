@@ -14,7 +14,7 @@ Use python 3.6, untested and likely (even more) buggy with 2.
 2. Make a new environment and install dependencies: Open a terminal windows (on Windows,a cmd prompt) and type or copy :
 ```{bash}
 conda create conda create --name pyecog_env python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 bokeh=0.12.4 pyqt=5.6
-source activate pyecog_env  # or  activate pyecog_env if on windows
+source activate pyecog_env  # or just "activate pyecog_env" if on windows
 pip install pyqtgraph==0.10
 pip install pomegranate==0.6.1
 ```
@@ -46,7 +46,7 @@ pip install pyecog
 2. Download the latest source code from [here](https://github.com/jcornford/pyecog/archive/master.zip) and extract.
 3. Navigate to the folder in terminal/cmd, or open a terminal/cmd window at the extracted folder.
 ```{bash}
-source activate pyecog_env  # or  activate pyecog on windows
+source activate pyecog_env  # or just "activate pyecog_env" if on windows
 python
 >>> import pyecog
 >>> pyecog
