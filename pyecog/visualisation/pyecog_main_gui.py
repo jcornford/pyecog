@@ -46,7 +46,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.h5directory = None
         self.tree_items = []
 
-        #self.home = os.getcwd()
+        self.home = os.getcwd()
         #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
 
         #self.select_folder_btn.clicked.connect(self.set_h5_folder)
@@ -615,6 +615,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #position = QMouseEvent.pos()
         #print(position)
         print('gloabl mouse position is...',QMouseEvent.globalPos())
+        #self.bx_overview
+        #self.plot_overview
+        print(type(self.plot_overview) )
+        print(type(self.bx_overview))
 
         #print(self.plot_1.sceneBoundingRect())
         #print(self.plot_1.getViewBox().sceneBoundingRect())
