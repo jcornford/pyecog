@@ -7,11 +7,12 @@ Use python 3.6, untested and likely (even more) buggy with 2.
 
 
 
-### Recommended installation procedure (using pip):
 
-1. Install Anaconda. Choose the Python 3.6 64-bit version for your operating system (Linux, Windows, or OS X).
+### Recommended installation procedure (using pip):
+1. If using windows first install [Visual studio build tools](http://go.microsoft.com/fwlink/?LinkId=691126)
+2. Install Anaconda. Choose the Python 3 64-bit version for your operating system (Linux, Windows, or OS X).
   You can also use python 2, but just make sure your python version for the environment is 3. 
-2. Make a new environment and install dependencies: Open a terminal windows (on Windows,a cmd prompt) and type or copy :
+3. Make a new environment and install dependencies: Open a terminal windows (on Windows,a cmd prompt) and type or copy :
     ```{bash}
     conda create --name pyecog_env python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 bokeh=0.12.4 pyqt=5.6
     source activate pyecog_env  # or just "activate pyecog_env" if on windows
@@ -37,7 +38,7 @@ Use python 3.6, untested and likely (even more) buggy with 2.
     pip install pomegranate --no-cache
     ```
 
-3. Finally, you are ready to run 
+4. Finally, you are ready to run 
     ```{bash}
     pip install pyecog
     python
@@ -53,7 +54,7 @@ Use python 3.6, untested and likely (even more) buggy with 2.
 
 
 ### Recommended procedure for running PyECoG from Github source code:
-1. Follow steps 1 and 2 from above
+1. Follow steps 1 to 3 from above
 2. Download the latest source code from [here](https://github.com/jcornford/pyecog/archive/master.zip) and extract.
 3. Navigate to the folder in terminal/cmd, or open a terminal/cmd window at the extracted folder.
 ```{bash}
