@@ -11,15 +11,13 @@ import h5py
 # todo test if these work without being called from main_gui at pyecog level
 if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
-    try:
-        from ndf.h5loader import H5File
-    except:
-        from ..ndf.h5loader import H5File
     from . import subwindows
+    from .context import H5File
+
 else:
     import check_preds_design, loading_subwindow, convert_ndf_window
-    from pyecog.ndf.h5loader import H5File
     import subwindows
+    from context import H5File
 
 #from ndf.datahandler import DataHandler
 #from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
@@ -298,6 +296,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 self.tree_selection_library()
             elif self.file_dir_up:
                 self.tree_selection_file_dir()
+
+    def get_next_tree_item(self):
+        print('try to grab next treewidget item!')
 
     def tree_selection_file_dir(self):
         # this method does too much
@@ -704,12 +705,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def simple_scroll(self):
         x,y = self.plot_1.getViewBox().viewRange()
         scroll_rate = self.scroll_speed_box.value()
+        # the error is
         if self.blink_box.isChecked() != True:
             scroll_i = (x[1]-x[0])*(0.001*scroll_rate)*self.scroll_sign
-            self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+            new_min =  x[0]+scroll_i
+            new_max =  x[1]+scroll_i
+            if new_min > 3600: #todo this is hardcoded for the hour long ndfs! We are checking for running over the edge
+                self.get_next_tree_item()
+            self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
         elif self.blink_box.isChecked():
             scroll_i = (x[1]-x[0])*self.scroll_sign
-            self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+            new_min =  x[0]+scroll_i
+            new_max =  x[1]+scroll_i
+            if new_min > 3600: #todo this is hardcoded for the hour long ndfs! We are checking for running over the edge
+                self.get_next_tree_item()
+            self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
     def load_h5_file(self,fname):
 
