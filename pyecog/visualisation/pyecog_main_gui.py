@@ -47,7 +47,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
 
         #self.home = os.getcwd()
-        self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
+        #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
 
         #self.select_folder_btn.clicked.connect(self.set_h5_folder)
         #self.load_preds_btn.clicked.connect(self.load_pred_file)
@@ -864,7 +864,7 @@ class HDF5Plot(pg.PlotCurveItem):
             visible_x = visible_x[:targetPtr]
             visible_y = visible_y[:targetPtr]
             #print('**** now downsampling')
-            #print(visible_y.shape, visible_x.shape)
+            print(visible_y.shape, visible_x.shape)
             scale = ds * 0.5
 
         # TODO: setPos, scale, resetTransform methods... scale?
