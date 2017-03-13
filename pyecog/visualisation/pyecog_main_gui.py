@@ -30,6 +30,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         super(MainGui, self).__init__(parent)
         self.setupUi(self)
         self.scroll_flag = -1
+        self.top_splitter.setSizes([200,600])
+        self.bottom_splitter.setSizes([500,300])
+        self.full_splitter.setSizes([300,200,200])
         if self.blink_box.isChecked():
             self.blink      = 1
         else:
@@ -46,8 +49,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.h5directory = None
         self.tree_items = []
 
-        self.home = os.getcwd()
-        #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
+        if os.path.exists('/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'):
+            self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
+        else:
+            self.home = os.getcwd()
+
 
         #self.select_folder_btn.clicked.connect(self.set_h5_folder)
         #self.load_preds_btn.clicked.connect(self.load_pred_file)
@@ -75,7 +81,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = False
-
 
         #self.debug_load_pred_files()
 
@@ -436,6 +441,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.addItem(hdf5_plotoverview)
         self.plot_overview.setLabel('left', 'Voltage (uV)')
         self.plot_overview.setLabel('bottom','Time (s)')
+        # mousePressEvent,mouseDoubleClickEvent ,sigMouseClicked,sigMouseMoved,wheelEvent
+        self.proxy = pg.SignalProxy(self.plot_overview.scene().sigMouseClicked,rateLimit=30,slot=self.mouse_click_in_overview)
+        #print(dir(self.plot_overview.scene()))
 
         self.lr = pg.LinearRegionItem(self.plot_1.getViewBox().viewRange()[0])
         self.lr.setZValue(-10)
@@ -444,6 +452,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.lr.sigRegionChanged.connect(self.updatePlot)
         self.plot_1.sigXRangeChanged.connect(self.updateRegion)
         self.updatePlot()
+
+    def mouse_click_in_overview(self,evt):
+        # evt[0] should be a pyqtgraph.GraphicsScene.mouseEvents.MouseClickEvent
+
+        pos = evt[0].scenePos()
+        #print('scenepos',pos)
+
+        if self.plot_overview.sceneBoundingRect().contains(pos):
+            mousePoint = self.bx_overview.mapSceneToView(pos)
+
+            x = int(mousePoint.x())
+            y = int(mousePoint.y())
+            print(x,y)
+
 
     # these two methods are for the lr plot connection, refactor names
     def updatePlot(self):
@@ -614,11 +636,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #event = QMouseEvent
         #position = QMouseEvent.pos()
         #print(position)
-        print('gloabl mouse position is...',QMouseEvent.globalPos())
-        #self.bx_overview
-        #self.plot_overview
-        print(type(self.plot_overview) )
-        print(type(self.bx_overview))
+        try:
+            #print('gloabl mouse position is...',QMouseEvent.globalPos())
+            #self.bx_overview
+            #self.plot_overview
+
+            position = QMouseEvent.pos()
+            position_2 = QMouseEvent.globalPos()
+            #print(type(self.plot_overview) )
+            #print(position,position_2)
+            #print(self.bx_overview().mapSceneToView(position))
+            #print(self.bx_overview().mapSceneToView(position_2))
+        except:
+            'you got an error'
+            pass
 
         #print(self.plot_1.sceneBoundingRect())
         #print(self.plot_1.getViewBox().sceneBoundingRect())
@@ -627,11 +658,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #print(QMouseEvent.posF())
         #mousepoint = self.plot_1.getViewBox().mapSceneToView(position)
         #print(mousepoint)
-        #region_coords = self.plot_1.getViewBox().viewRange()[0]
-        #print(region_coords)
-        #self.plot_1.setXRange(QMouseEvent.x(), region_coords[1])
+
 
     def keyPressEvent(self, eventQKeyEvent):
+        
         key = eventQKeyEvent.key()
 
         x,y = self.plot_1.getViewBox().viewRange()
@@ -786,10 +816,11 @@ class HDF5Plot(pg.PlotCurveItem):
 
 
     def keyPressEvent(self, event):
+        ''' this doesnt work, change key press to correct it.'''
         if event.key() == QtCore.Qt.Key_Escape:
             self.close()
         else:
-            print(key)
+            print(event.key())
 
     def setHDF5(self, data, time, fs):
         self.hdf5 = data
@@ -868,7 +899,7 @@ class HDF5Plot(pg.PlotCurveItem):
             visible_x = visible_x[:targetPtr]
             visible_y = visible_y[:targetPtr]
             #print('**** now downsampling')
-            print(visible_y.shape, visible_x.shape)
+            #print(visible_y.shape, visible_x.shape)
             scale = ds * 0.5
 
         # TODO: setPos, scale, resetTransform methods... scale?
