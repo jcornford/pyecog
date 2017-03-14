@@ -75,6 +75,12 @@ class Ui_MainWindow(object):
         self.gridLayout_3 = QtWidgets.QGridLayout(self.layoutWidget)
         self.gridLayout_3.setContentsMargins(0, 0, 0, 0)
         self.gridLayout_3.setObjectName("gridLayout_3")
+        self.label_2 = QtWidgets.QLabel(self.layoutWidget)
+        self.label_2.setObjectName("label_2")
+        self.gridLayout_3.addWidget(self.label_2, 1, 2, 1, 1)
+        self.label_4 = QtWidgets.QLabel(self.layoutWidget)
+        self.label_4.setObjectName("label_4")
+        self.gridLayout_3.addWidget(self.label_4, 1, 0, 1, 1)
         self.h5_folder_display = QtWidgets.QLineEdit(self.layoutWidget)
         self.h5_folder_display.setMinimumSize(QtCore.QSize(0, 0))
         self.h5_folder_display.setMaximumSize(QtCore.QSize(16777215, 100))
@@ -83,31 +89,31 @@ class Ui_MainWindow(object):
         self.h5_folder_display.setCursorMoveStyle(QtCore.Qt.VisualMoveStyle)
         self.h5_folder_display.setObjectName("h5_folder_display")
         self.gridLayout_3.addWidget(self.h5_folder_display, 1, 1, 1, 1)
-        self.blink_box = QtWidgets.QCheckBox(self.layoutWidget)
-        self.blink_box.setObjectName("blink_box")
-        self.gridLayout_3.addWidget(self.blink_box, 1, 3, 1, 1)
-        self.label_2 = QtWidgets.QLabel(self.layoutWidget)
-        self.label_2.setObjectName("label_2")
-        self.gridLayout_3.addWidget(self.label_2, 1, 2, 1, 1)
         self.scroll_speed_box = QtWidgets.QSpinBox(self.layoutWidget)
         self.scroll_speed_box.setMaximumSize(QtCore.QSize(100, 16777215))
         self.scroll_speed_box.setMinimum(1)
         self.scroll_speed_box.setObjectName("scroll_speed_box")
         self.gridLayout_3.addWidget(self.scroll_speed_box, 0, 3, 1, 1)
-        self.label = QtWidgets.QLabel(self.layoutWidget)
-        self.label.setObjectName("label")
-        self.gridLayout_3.addWidget(self.label, 0, 2, 1, 1)
+        self.label_3 = QtWidgets.QLabel(self.layoutWidget)
+        self.label_3.setObjectName("label_3")
+        self.gridLayout_3.addWidget(self.label_3, 0, 0, 1, 1)
         self.predictions_file_display = QtWidgets.QLineEdit(self.layoutWidget)
         self.predictions_file_display.setMinimumSize(QtCore.QSize(0, 0))
         self.predictions_file_display.setMaximumSize(QtCore.QSize(16777215, 16777215))
         self.predictions_file_display.setObjectName("predictions_file_display")
         self.gridLayout_3.addWidget(self.predictions_file_display, 0, 1, 1, 1)
-        self.label_3 = QtWidgets.QLabel(self.layoutWidget)
-        self.label_3.setObjectName("label_3")
-        self.gridLayout_3.addWidget(self.label_3, 0, 0, 1, 1)
-        self.label_4 = QtWidgets.QLabel(self.layoutWidget)
-        self.label_4.setObjectName("label_4")
-        self.gridLayout_3.addWidget(self.label_4, 1, 0, 1, 1)
+        self.label = QtWidgets.QLabel(self.layoutWidget)
+        self.label.setObjectName("label")
+        self.gridLayout_3.addWidget(self.label, 0, 2, 1, 1)
+        self.blink_box = QtWidgets.QCheckBox(self.layoutWidget)
+        self.blink_box.setObjectName("blink_box")
+        self.gridLayout_3.addWidget(self.blink_box, 1, 3, 1, 1)
+        self.label_5 = QtWidgets.QLabel(self.layoutWidget)
+        self.label_5.setObjectName("label_5")
+        self.gridLayout_3.addWidget(self.label_5, 2, 2, 1, 1)
+        self.xrange_spinBox = QtWidgets.QSpinBox(self.layoutWidget)
+        self.xrange_spinBox.setObjectName("xrange_spinBox")
+        self.gridLayout_3.addWidget(self.xrange_spinBox, 2, 3, 1, 1)
         self.textBrowser = QtWidgets.QTextBrowser(self.bottom_splitter)
         self.textBrowser.setMaximumSize(QtCore.QSize(400, 16777215))
         self.textBrowser.setObjectName("textBrowser")
@@ -173,24 +179,29 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.blink_box.setText(_translate("MainWindow", "Blinking"))
-        self.label_2.setText(_translate("MainWindow", "Scroll type:"))
-        self.label.setText(_translate("MainWindow", "Scroll speed"))
-        self.label_3.setText(_translate("MainWindow", "Prediction File:"))
+        self.label_2.setText(_translate("MainWindow", "Scroll type"))
         self.label_4.setText(_translate("MainWindow", "h5 Folder:"))
+        self.label_3.setText(_translate("MainWindow", "Prediction File:"))
+        self.label.setText(_translate("MainWindow", "Scroll speed"))
+        self.blink_box.setText(_translate("MainWindow", "Blinking"))
+        self.label_5.setText(_translate("MainWindow", "Xrange (sec)"))
         self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'.SF NS Text\'; font-size:13pt; font-weight:400; font-style:normal;\">\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt; font-weight:600;\">Keyboard Shortcuts</span></p>\n"
-"<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt; font-weight:600;\"><br /></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Up: Zoom in / speed up</span></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Down: Zoom out/ slow down</span></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Right arrow: Step right/ go forwards</span></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Left arrow: Step left/ go backwards</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt; font-weight:600;\">Mouse Functionality</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don\'t want that.</span></p>\n"
+"<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt; font-weight:600;\">Keyboard Shortcuts</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Up:        Zoom in   / speed up</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Down:        Zoom out / slow down</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Right arrow:    Step right / scroll forwards</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Left arrow:        Step left   / scroll backwards</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">SPACE:        Start scrolling (or blinking)</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">B key:        Toggle blink vs scroll</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Number key:   Set plot time interval </span></p>\n"
 "<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">SPACE: Start scrolling (or blinking)</span></p>\n"
-"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">B key: Toggle blink vs scroll</span></p></body></html>"))
+"<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p></body></html>"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.menuAnalyse.setTitle(_translate("MainWindow", "Analyse"))
         self.actionSave_annotations.setText(_translate("MainWindow", "Save annotations"))

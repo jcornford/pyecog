@@ -42,6 +42,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
+        self.xrange_spinBox.valueChanged.connect(self.xrange_change)
 
         self.fs = None # change !
         self.data_obj = None
@@ -54,9 +55,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         else:
             self.home = os.getcwd()
 
-
-        #self.select_folder_btn.clicked.connect(self.set_h5_folder)
-        #self.load_preds_btn.clicked.connect(self.load_pred_file)
 
         # Hook up the file bar stuff here
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
@@ -308,7 +306,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def tree_selection_file_dir(self):
         # this method does too much
         "grab tree detail and use to plot"
-        print('tree_selection_file dir called')
+
         current_item = self.treeWidget.currentItem()
         fields = current_item
 
@@ -619,24 +617,43 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             x = int(mousePoint.x())
             y = int(mousePoint.y())
 
-            xlims = self.plot_1.getViewBox().viewRange()[0]
-            xrange = xlims[1]-xlims[0]
+            xrange, _ = self.get_main_plot_xrange_and_mid()
             try:
                 assert xrange > 0
             except:
                 print('Your view range is messed up')
-            #xmid = xlims[0]+xrange/2.0
 
             self.plot_1.getViewBox().setXRange(min = x - xrange/2.0,
                                                max = x + xrange/2.0, padding=0)
 
+    def get_main_plot_xrange_and_mid(self):
+        xlims  = self.plot_1.getViewBox().viewRange()[0]
+        xrange = xlims[1]-xlims[0]
+        xmid   = xlims[0]+xrange/2.0
+        return xrange, xmid
+
+    def xrange_change(self):
+        xrange = self.xrange_spinBox.value()
+        print(xrange)
+        if xrange>0:
+            _, xmid = self.get_main_plot_xrange_and_mid()
+            self.plot_1.getViewBox().setXRange(min = xmid - xrange/2.0,
+                                               max = xmid + xrange/2.0, padding=0)
+        else:
+            pass
+
 
     def keyPressEvent(self, eventQKeyEvent):
 
-        key = eventQKeyEvent.key()
+        key_id = eventQKeyEvent.key()
+        key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
+        if key_id in list(key_id_to_numbers.keys()):
+            key_val = key_id_to_numbers[key_id]
+            self.xrange_spinBox.setValue(key_val)
+            self.xrange_change()
 
         x,y = self.plot_1.getViewBox().viewRange()
-        if key == Qt.Key_Up:
+        if key_id == Qt.Key_Up:
             if self.scroll_flag==True:
                 scroll_rate = self.scroll_speed_box.value()
                 new_rate = scroll_rate * 2
@@ -645,7 +662,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             else:
                 self.plot_1.getViewBox().setYRange(min = y[0]*0.9, max = y[1]*0.9, padding = 0)
 
-        if key == Qt.Key_Down:
+        if key_id == Qt.Key_Down:
             if self.scroll_flag==True:
                 scroll_rate = self.scroll_speed_box.value()
                 if scroll_rate > 1:
@@ -655,26 +672,26 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             else: # just zoom
                 self.plot_1.getViewBox().setYRange(min = y[0]*1.1, max = y[1]*1.1,padding = 0)
 
-        if key == Qt.Key_Right:
+        if key_id == Qt.Key_Right:
             if self.scroll_flag==True:
                 self.scroll_sign = 1
             else:
                 scroll_i = (x[1]-x[0])*0.001
                 self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
 
-        if key == Qt.Key_Left:
+        if key_id == Qt.Key_Left:
             if self.scroll_flag==True:
                 self.scroll_sign = -1
             else:
                 scroll_i = (x[1]-x[0])*0.001
                 self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
 
-        if key == Qt.Key_Backspace or key == Qt.Key_Delete:
+        if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
             current_item = self.treeWidget.currentItem()
             root = self.treeWidget.invisibleRootItem()
             root.removeChild(current_item)
 
-        if key == Qt.Key_B:
+        if key_id == Qt.Key_B:
             if self.scroll_flag==True:
                 self.blink *= -1
                 if self.blink == True:
@@ -683,7 +700,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                     self.blink_box.setChecked(False)
                 self.reset_timer()
 
-        if key == Qt.Key_Space:
+        if key_id == Qt.Key_Space:
             self.scroll_sign = 1
             self.scroll_flag *= -1
             self.reset_timer()
