@@ -53,6 +53,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_df = None
         self.h5directory = None
         self.tree_items = []
+        self.valid_h5_tids = None
 
         if os.path.exists('/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'):
             self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
@@ -331,15 +332,18 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.tid_spinBox_handling()
 
     def tid_spinBox_handling(self):
-        # tid_spinbox.valueChanged connects to here
-        new_val = self.tid_spinBox.value()
-        if new_val < min(self.valid_h5_tids):
-            new_tid = self.valid_h5_tids[-1]
-        else:
-            i = bisect.bisect_left(self.valid_h5_tids,new_val)
-            new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
-        self.tid_spinBox.setValue(new_tid)
-        self.load_filedir_h5_file(new_tid)
+        try:
+            # tid_spinbox.valueChanged connects to here
+            new_val = self.tid_spinBox.value()
+            if new_val < min(self.valid_h5_tids):
+                new_tid = self.valid_h5_tids[-1]
+            else:
+                i = bisect.bisect_left(self.valid_h5_tids,new_val)
+                new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
+            self.tid_spinBox.setValue(new_tid)
+            self.load_filedir_h5_file(new_tid)
+        except:
+            print('Error caught at: pyecog_main_gui.tid_spinBox_handling()')
 
     def tree_selection_library(self):
         seizure_buffer = 5 # seconds either side of seizure to plot
