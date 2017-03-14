@@ -354,11 +354,17 @@ class NdfFile:
                                                  data=self.tid_data_time_dict[tid]['data'],
                                                  compression = "gzip", dtype='f4',
                                                  chunks = self.tid_data_time_dict[tid]['data'].shape)
-                # todo WHY ARE YOU SAVING TIME?!!!! Just generate it when you load up h5
-                transmitter_group.create_dataset('time',
+                if self._resampled:
+                    transmitter_group.attrs["time_arr_info_dict"] = str({'max_t':max(self.tid_data_time_dict[tid]['time']),
+                                                                     'min_t':min(self.tid_data_time_dict[tid]['time']),
+                                                                     'fs':   self.tid_to_fs_dict[tid]})
+                else:
+                    print('saving time array') # this shouldnt normally be run
+                    transmitter_group.create_dataset('time',
                                                  data=self.tid_data_time_dict[tid]['time'],
                                                  compression = "gzip", dtype='f4',
                                                  chunks = self.tid_data_time_dict[tid]['time'].shape)
+
                 transmitter_group.attrs["resampled"] = self._resampled
 
             f.close()
@@ -381,8 +387,11 @@ class NdfFile:
              auto_filter = True,
              scale_to_mode_std = False):
         '''
-        N.B. Should run glitch removal before high pass filtering and auto resampling... If unhappy with glitches,
-        turn off filtering and the resampling and then run their methods etc.
+        Notes:
+            1. This assumes your file is 3600 seconds long. If it is not, it will append 0's to the end of your data.
+            2. You should run glitch removal before high pass filtering and the auto resampling.
+               If unhappy with glitches, you should turn off filtering and the resampling before
+               running the glitch methods individually.
 
         Args:
             read_ids: ids to load, can be integer of list of integers
@@ -463,7 +472,8 @@ class NdfFile:
 
     def standardise_to_mode_stddev(self, stdtw = 5, std_sigfigs = 2):
         '''
-        Calculates mode std dev and divides by it.
+        Calculates mode std dev and divides by it. This is not normally ran - only when dong the feature detection
+        in feature extractor
 
         Args:
             stdtw: time period over which to calculate std deviation
