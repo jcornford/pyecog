@@ -1,7 +1,10 @@
 import sys
 import os
+import bisect
+
 import numpy as np
 import pandas as pd
+
 from PyQt5 import QtGui#,# uic
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
@@ -43,6 +46,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.blink_box.stateChanged.connect(self.blink_box_change)
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
+        self.tid_spinBox.valueChanged.connect(self.tid_spinBox_handling)
 
         self.fs = None # change !
         self.data_obj = None
@@ -84,28 +88,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         # Below resizes to better geometries - should really use this to save etc!
         # doesnt quite work correctly!
-        '''
-        self.widget_dict = {'top_container':self.horizontalLayout, 'plot':self.GraphicsLayoutWidget,
-                       'button_box' :self.buttons_layout, 'tree':self.treeWidget}
-        resized = {'top_container' : QRect(12, 12, 1049, 304),
-                   'plot':QRect(368,0,681,304),
-                   'tree':QRect(0, 0,361,304),
-                   'button_box':QRect(12, 330,1049,36)}
-        for key in list(self.widget_dict.keys()):
-            self.widget_dict[key].setGeometry(resized[key])
-
-         # not part of the method, was silly stuff to reset  the gui when reloading
-        if self.print_widget_coords:
-            for key in list(self.widget_dict.keys()):
-                print(key)
-                obj = self.widget_dict[key]
-                print(obj.geometry().x(),obj.geometry().y())
-                #print(object.frameGeometry())
-                print(obj.geometry().width())
-                print(obj.geometry().height())
-                print('******')
-        #self.plot_traces()
-        '''
+        
         self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
 
     def not_done_yet(self):
@@ -156,7 +139,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.clear_QTreeWidget()
         for i,fname in enumerate(os.listdir(self.h5directory_to_load)):
             #fpath = os.path.join(self.h5directory_to_load,fname)
-            tids = [int(fname.split(']')[0].split('[')[1])]
+            tids = eval('['+fname.split(']')[0].split('[')[1]+']')
             self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
 
         self.treeWidget.addTopLevelItems(self.tree_items)
@@ -167,11 +150,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
         self.treeWidget.setColumnCount(3)
-        self.treeWidget.setHeaderLabels(['index', 'tid', 'fname'])
+        self.treeWidget.setHeaderLabels(['index', 'tids', 'fname'])
 
         fname_entry = [str(fpath)] # us this pointless!?
         details_entry = [str(index),
-                         str(tids[0]), # bad, should make only tid having one explicit
+                         str(tids), # bad, should make only tid having one explicit
                          str(fpath)]
 
         item = QtGui.QTreeWidgetItem(details_entry)
@@ -307,28 +290,46 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         # this method does too much
         "grab tree detail and use to plot"
 
-        current_item = self.treeWidget.currentItem()
-        fields = current_item
+        tids = self.treeWidget.currentItem().text(1)
+        self.valid_h5_tids = eval(tids)
+        tid = self.get_tid_for_file_dir_plotting()
+        self.load_filedir_h5_file(tid)
 
-        tid = float(fields.text(1))
+    def load_filedir_h5_file(self,tid):
+        '''
+        Splitting tree_selection_file_dir up so changing the tid spinBox can reload easily
+        '''
+        fields = self.treeWidget.currentItem()
+
         path = fields.text(2)
         index = float(fields.text(0))
-        # duration is fields.text(3)
         fpath = os.path.join(self.h5directory_to_load, path)
 
         h5 = H5File(fpath)
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
-
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
-
-        # todo add all lines per file in one go - more than one seizure
-
-
-        self.plot_1.setXRange(0, 5)
+        xrange = self.xrange_spinBox.value()
+        self.plot_1.setXRange(0, xrange)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
+
+    def get_tid_for_file_dir_plotting(self):
+        # this is called when clicking on the tree structure
+        current_spinbox_id = self.tid_spinBox.value()
+        if current_spinbox_id not in self.valid_h5_tids:
+            self.tid_spinBox.setValue(self.valid_h5_tids[0])
+            print('warning - file id changed')
+        return self.tid_spinBox.value()
+
+    def tid_spinBox_handling(self):
+        # tid spinbox connect.valuechanged connects to here
+        new_val = self.tid_spinBox.value()
+        i = bisect.bisect_left(self.valid_h5_tids,new_val)
+        new_tid = [self.valid_h5_tids[i%len(self.valid_h5_tids)]]
+        self.tid_spinBox.setValue(new_tid)
+        self.load_filedir_h5_file(new_tid)
 
 
     def tree_selection_library(self):

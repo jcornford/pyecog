@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1052, 728)
+        MainWindow.resize(1046, 728)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -90,7 +90,7 @@ class Ui_MainWindow(object):
         self.h5_folder_display.setObjectName("h5_folder_display")
         self.gridLayout_3.addWidget(self.h5_folder_display, 1, 1, 1, 1)
         self.scroll_speed_box = QtWidgets.QSpinBox(self.layoutWidget)
-        self.scroll_speed_box.setMaximumSize(QtCore.QSize(100, 16777215))
+        self.scroll_speed_box.setMaximumSize(QtCore.QSize(80, 16777215))
         self.scroll_speed_box.setMinimum(1)
         self.scroll_speed_box.setObjectName("scroll_speed_box")
         self.gridLayout_3.addWidget(self.scroll_speed_box, 0, 3, 1, 1)
@@ -112,15 +112,25 @@ class Ui_MainWindow(object):
         self.label_5.setObjectName("label_5")
         self.gridLayout_3.addWidget(self.label_5, 2, 2, 1, 1)
         self.xrange_spinBox = QtWidgets.QSpinBox(self.layoutWidget)
+        self.xrange_spinBox.setMaximumSize(QtCore.QSize(80, 16777215))
+        self.xrange_spinBox.setMinimum(1)
+        self.xrange_spinBox.setProperty("value", 5)
         self.xrange_spinBox.setObjectName("xrange_spinBox")
         self.gridLayout_3.addWidget(self.xrange_spinBox, 2, 3, 1, 1)
+        self.tid_spinBox = QtWidgets.QSpinBox(self.layoutWidget)
+        self.tid_spinBox.setMaximumSize(QtCore.QSize(80, 16777215))
+        self.tid_spinBox.setObjectName("tid_spinBox")
+        self.gridLayout_3.addWidget(self.tid_spinBox, 2, 1, 1, 1)
+        self.label_6 = QtWidgets.QLabel(self.layoutWidget)
+        self.label_6.setObjectName("label_6")
+        self.gridLayout_3.addWidget(self.label_6, 2, 0, 1, 1)
         self.textBrowser = QtWidgets.QTextBrowser(self.bottom_splitter)
         self.textBrowser.setMaximumSize(QtCore.QSize(400, 16777215))
         self.textBrowser.setObjectName("textBrowser")
         self.verticalLayout_2.addWidget(self.full_splitter)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1052, 22))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1046, 22))
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
@@ -185,6 +195,7 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "Scroll speed"))
         self.blink_box.setText(_translate("MainWindow", "Blinking"))
         self.label_5.setText(_translate("MainWindow", "Xrange (sec)"))
+        self.label_6.setText(_translate("MainWindow", "Tid for h5 folder "))
         self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
@@ -193,14 +204,17 @@ class Ui_MainWindow(object):
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don\'t want that.</span></p>\n"
 "<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt; font-weight:600;\">Keyboard Shortcuts</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Up:        Zoom in   / speed up</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Down:        Zoom out / slow down</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Right arrow:    Step right / scroll forwards</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Left arrow:        Step left   / scroll backwards</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">SPACE:        Start scrolling (or blinking)</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">B key:        Toggle blink vs scroll</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Number key:   Set plot time interval </span></p>\n"
-"<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">B key:              Toggle blink vs scroll</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">SPACE:           Start scrolling (or blinking)</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Up:        Zoom in   / speed up              </span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Down:        Zoom out / slow down              </span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Right arrow:    Step right / scroll forwards      </span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\">Left arrow:        Step left   / scroll backwards</span></p>\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p>\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p>\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p>\n"
+"<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
 "<p align=\"center\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'.Helvetica Neue DeskInterface\'; font-size:14pt;\"><br /></p></body></html>"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.menuAnalyse.setTitle(_translate("MainWindow", "Analyse"))
