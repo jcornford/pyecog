@@ -3,7 +3,7 @@
 This module is for detecting epileptiform activity from *single* channel intracranial EEG (or ECoG) recordings.
 Currently under heavy construction!
 
-Use python 3.6, untested and likely (even more) buggy with 2. 
+Use python 3.5, untested and likely (even more) buggy with 2. 
 
 
 
