@@ -10,6 +10,24 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import inspect
 import h5py
+try: # for speed checking
+    from line_profiler import LineProfiler
+
+    def lprofile():
+        def inner(func):
+            def profiled_func(*args, **kwargs):
+                try:
+                    profiler = LineProfiler()
+                    profiler.add_function(func)
+
+                    profiler.enable_by_count()
+                    return func(*args, **kwargs)
+                finally:
+                    profiler.print_stats()
+            return profiled_func
+        return inner
+except:
+    pass
 
 # todo test if these work without being called from main_gui at pyecog level
 if __name__ != '__main__':
@@ -22,10 +40,6 @@ else:
     import subwindows
     from context import H5File
 
-#from ndf.datahandler import DataHandler
-#from pyecog.visualisation.pyqtgraph_playing import HDF5Plot
-
-#TODO - you are currently loading the entire h5 file into memory..
 class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
         pg.setConfigOption('background', 'w')
@@ -432,6 +446,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
+    #@lprofile()
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
@@ -450,7 +465,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
         hdf5_plotoverview.setHDF5(data, time, self.fs)
         self.plot_overview.addItem(hdf5_plotoverview)
-        self.plot_overview.setXRange(min(time),max(time), padding=0)
+        self.plot_overview.setXRange(time[0],time[-1], padding=0)
         self.plot_overview.setLabel('left', 'Voltage (uV)')
         self.plot_overview.setLabel('bottom','Time (s)')
         # mousePressEvent,mouseDoubleClickEvent ,sigMouseClicked,sigMouseMoved,wheelEvent
@@ -850,6 +865,7 @@ class HDF5Plot(pg.PlotCurveItem):
         start = max(0,int(xrange[0])-1)
         stop = min(len(self.hdf5), int(xrange[1]+2))
         if stop-start < 1:
+            print('didnt update')
             return 0
         # Decide by how much we should downsample
         ds = int((stop-start) / self.limit) + 1
