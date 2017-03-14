@@ -137,10 +137,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             return 0
 
         self.clear_QTreeWidget()
-        for i,fname in enumerate(os.listdir(self.h5directory_to_load)):
+        fnames = [f for f in os.listdir(self.h5directory_to_load) if f.endswith('.h5') if not f.startswith('.') ]
+        print(fnames)
+        for i,fname in enumerate(fnames):
             #fpath = os.path.join(self.h5directory_to_load,fname)
-            tids = eval('['+fname.split(']')[0].split('[')[1]+']')
-            self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
+            try:
+                tids = eval('['+fname.split(']')[0].split('[')[1]+']')
+                self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
+            except:
+                print('Failed to add: '+ str(fname))
 
         self.treeWidget.addTopLevelItems(self.tree_items)
 
