@@ -305,11 +305,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         path = fields.text(2)
         index = float(fields.text(0))
         fpath = os.path.join(self.h5directory_to_load, path)
-        print('1: ', time.time() - start)
         h5 = H5File(fpath)
-        print('2: ', time.time() - start)
         data_dict = h5[tid]
-        print('3: ', time.time() - start)
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
         xrange = self.xrange_spinBox.value()
@@ -331,8 +328,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def tid_spinBox_handling(self):
         # tid_spinbox.valueChanged connects to here
         new_val = self.tid_spinBox.value()
-        i = bisect.bisect_left(self.valid_h5_tids,new_val)
-        new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
+        if new_val < min(self.valid_h5_tids):
+            new_tid = self.valid_h5_tids[-1]
+        else:
+            i = bisect.bisect_left(self.valid_h5_tids,new_val)
+            new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
         self.tid_spinBox.setValue(new_tid)
         self.load_filedir_h5_file(new_tid)
 
@@ -639,7 +639,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def xrange_change(self):
         xrange = self.xrange_spinBox.value()
-        print(xrange)
         if xrange>0:
             _, xmid = self.get_main_plot_xrange_and_mid()
             self.plot_1.getViewBox().setXRange(min = xmid - xrange/2.0,
@@ -655,7 +654,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         if key_id in list(key_id_to_numbers.keys()):
             key_val = key_id_to_numbers[key_id]
             self.xrange_spinBox.setValue(key_val)
-            self.xrange_change()
+            #self.xrange_change() # automatically gets called when spin box is hooked up
 
         x,y = self.plot_1.getViewBox().viewRange()
         if key_id == Qt.Key_Up:
@@ -813,7 +812,8 @@ class HDF5Plot(pg.PlotCurveItem):
         if event.key() == QtCore.Qt.Key_Escape:
             self.close()
         else:
-            print(event.key())
+            pass
+            #print(event.key())
 
     def setHDF5(self, data, time, fs):
         self.hdf5 = data
