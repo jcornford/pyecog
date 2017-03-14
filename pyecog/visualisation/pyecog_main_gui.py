@@ -88,7 +88,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         # Below resizes to better geometries - should really use this to save etc!
         # doesnt quite work correctly!
-        
+
         self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
 
     def not_done_yet(self):
@@ -292,20 +292,22 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         tids = self.treeWidget.currentItem().text(1)
         self.valid_h5_tids = eval(tids)
-        tid = self.get_tid_for_file_dir_plotting()
-        self.load_filedir_h5_file(tid)
+        self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+
 
     def load_filedir_h5_file(self,tid):
         '''
         Splitting tree_selection_file_dir up so changing the tid spinBox can reload easily
         '''
+        import time
+        start = time.time()
         fields = self.treeWidget.currentItem()
-
         path = fields.text(2)
         index = float(fields.text(0))
         fpath = os.path.join(self.h5directory_to_load, path)
-
+        print('1: ', time.time() - start)
         h5 = H5File(fpath)
+        print('1: ', time.time() - start)
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
@@ -315,22 +317,23 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
-    def get_tid_for_file_dir_plotting(self):
+
+    def handle_tid_for_file_dir_plotting(self):
         # this is called when clicking on the tree structure
         current_spinbox_id = self.tid_spinBox.value()
         if current_spinbox_id not in self.valid_h5_tids:
             self.tid_spinBox.setValue(self.valid_h5_tids[0])
             print('warning - file id changed')
-        return self.tid_spinBox.value()
+        else:
+            self.tid_spinBox_handling()
 
     def tid_spinBox_handling(self):
-        # tid spinbox connect.valuechanged connects to here
+        # tid_spinbox.valueChanged connects to here
         new_val = self.tid_spinBox.value()
         i = bisect.bisect_left(self.valid_h5_tids,new_val)
-        new_tid = [self.valid_h5_tids[i%len(self.valid_h5_tids)]]
+        new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
         self.tid_spinBox.setValue(new_tid)
         self.load_filedir_h5_file(new_tid)
-
 
     def tree_selection_library(self):
         seizure_buffer = 5 # seconds either side of seizure to plot
