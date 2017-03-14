@@ -321,7 +321,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
-
     def handle_tid_for_file_dir_plotting(self):
         # this is called when clicking on the tree structure
         current_spinbox_id = self.tid_spinBox.value()
@@ -655,7 +654,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         else:
             pass
 
-
     def keyPressEvent(self, eventQKeyEvent):
 
         key_id = eventQKeyEvent.key()
@@ -663,7 +661,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         if key_id in list(key_id_to_numbers.keys()):
             key_val = key_id_to_numbers[key_id]
             self.xrange_spinBox.setValue(key_val)
-            #self.xrange_change() # automatically gets called when spin box is hooked up
 
         x,y = self.plot_1.getViewBox().viewRange()
         if key_id == Qt.Key_Up:
@@ -689,14 +686,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             if self.scroll_flag==True:
                 self.scroll_sign = 1
             else:
-                scroll_i = (x[1]-x[0])*0.001
+                scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
                 self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
 
         if key_id == Qt.Key_Left:
             if self.scroll_flag==True:
                 self.scroll_sign = -1
             else:
-                scroll_i = (x[1]-x[0])*0.001
+                scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
                 self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
 
         if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
