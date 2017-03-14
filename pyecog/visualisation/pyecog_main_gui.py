@@ -307,8 +307,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         fpath = os.path.join(self.h5directory_to_load, path)
         print('1: ', time.time() - start)
         h5 = H5File(fpath)
-        print('1: ', time.time() - start)
+        print('2: ', time.time() - start)
         data_dict = h5[tid]
+        print('3: ', time.time() - start)
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
         xrange = self.xrange_spinBox.value()
