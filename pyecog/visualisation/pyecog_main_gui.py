@@ -450,6 +450,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
         hdf5_plotoverview.setHDF5(data, time, self.fs)
         self.plot_overview.addItem(hdf5_plotoverview)
+        self.plot_overview.setXRange(min(time),max(time), padding=0)
         self.plot_overview.setLabel('left', 'Voltage (uV)')
         self.plot_overview.setLabel('bottom','Time (s)')
         # mousePressEvent,mouseDoubleClickEvent ,sigMouseClicked,sigMouseMoved,wheelEvent
@@ -687,6 +688,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 self.scroll_sign = 1
             else:
                 scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
+                if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
                 self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
 
         if key_id == Qt.Key_Left:
@@ -694,6 +696,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 self.scroll_sign = -1
             else:
                 scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
+                if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
                 self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
 
         if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
@@ -737,21 +740,23 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def simple_scroll(self):
         x,y = self.plot_1.getViewBox().viewRange()
         scroll_rate = self.scroll_speed_box.value()
-        # the error is
+        xlims = self.plot_overview.getViewBox().viewRange()[0]
+        xmax = xlims[1]
         if self.blink_box.isChecked() != True:
             scroll_i = (x[1]-x[0])*(0.001*scroll_rate)*self.scroll_sign
             new_min =  x[0]+scroll_i
             new_max =  x[1]+scroll_i
-            if new_min > 3600: #todo this is hardcoded for the hour long ndfs! We are checking for running over the edge
-                self.get_next_tree_item()
-            self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+            if new_max < xmax-1:
+                #self.get_next_tree_item()
+                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+
         elif self.blink_box.isChecked():
             scroll_i = (x[1]-x[0])*self.scroll_sign
             new_min =  x[0]+scroll_i
             new_max =  x[1]+scroll_i
-            if new_min > 3600: #todo this is hardcoded for the hour long ndfs! We are checking for running over the edge
-                self.get_next_tree_item()
-            self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+            if new_max < xmax:
+                #self.get_next_tree_item()
+                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
     def load_h5_file(self,fname):
 
@@ -834,7 +839,7 @@ class HDF5Plot(pg.PlotCurveItem):
     def updateHDF5Plot(self):
         if self.hdf5 is None:
             self.setData([])
-            return
+            return 0
 
         #vb = self.getViewBox()
         #if vb is None:
@@ -844,7 +849,8 @@ class HDF5Plot(pg.PlotCurveItem):
         xrange = [i*self.fs for i in self.vb.viewRange()[0]]
         start = max(0,int(xrange[0])-1)
         stop = min(len(self.hdf5), int(xrange[1]+2))
-
+        if stop-start < 1:
+            return 0
         # Decide by how much we should downsample
         ds = int((stop-start) / self.limit) + 1
         if ds == 1:
