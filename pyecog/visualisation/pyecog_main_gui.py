@@ -71,11 +71,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         if os.path.exists('/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'):
             self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
+            self.home = '/Volumes/LACIE SHARE/MSperling_eeg'
         else:
             self.home = os.getcwd()
 
 
         # Hook up the file bar stuff here
+        self.substates_timewindow_secs = 6
+        self.actionSubstates_Window.triggered.connect(self.load_h5_for_substate_assignments)
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
         self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
         self.actionLoad_Library.triggered.connect(self.load_seizure_library)
@@ -98,6 +101,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = False
+        self.substates_up = False
+        self.substate_child_selected = False
 
         #self.debug_load_pred_files()
 
@@ -144,18 +149,58 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def set_home(self):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
 
-
-    def load_h5_folder(self):
+    def get_h5_folder_fnames(self):
         self.h5directory_to_load = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
         if self.h5directory_to_load == '':
             print('No folder selected')
             return 0
-
         self.clear_QTreeWidget()
         fnames = [f for f in os.listdir(self.h5directory_to_load) if f.endswith('.h5') if not f.startswith('.') ]
-        print(fnames)
+        return fnames
+
+    def load_h5_for_substate_assignments(self):
+        fnames = self.get_h5_folder_fnames()
+        if fnames == 0:
+            return 0
         for i,fname in enumerate(fnames):
-            #fpath = os.path.join(self.h5directory_to_load,fname)
+            try:
+                tids = eval('['+fname.split(']')[0].split('[')[1]+']')
+                self.populate_tree_for_substates(i,fname, tids)    # this just populates self.tree_items
+            except:
+                print('Failed to add: '+ str(fname))
+
+        self.treeWidget.addTopLevelItems(self.tree_items)
+
+        self.predictions_up = False
+        self.library_up = False
+        self.file_dir_up = False
+        self.substates_up = True
+
+
+    def populate_tree_for_substates(self,index,fpath,tids):
+
+        self.treeWidget.setColumnCount(3)
+        #self.treeWidget.setHeaderLabels(['index', 'tids', 'fname'])
+
+        fname_entry = [str(fpath)] # us this pointless!?
+        details_entry = [str(index),
+                         str(tids), # bad, should make only tid having one explicit
+                         str(fpath)]
+
+        item = QtGui.QTreeWidgetItem(details_entry)
+        item.setFirstColumnSpanned(True)
+        for i in range(int(3600/self.substates_timewindow_secs)):
+            item.addChild(QtGui.QTreeWidgetItem([str(i),
+                                               str(i*self.substates_timewindow_secs)+ '-' +str((i+1)*self.substates_timewindow_secs),
+                                               str('category to go here')]))
+
+        self.tree_items.append(item)
+
+    def load_h5_folder(self):
+        fnames = self.get_h5_folder_fnames()
+        if fnames == 0:
+            return 0
+        for i,fname in enumerate(fnames):
             try:
                 tids = eval('['+fname.split(']')[0].split('[')[1]+']')
                 self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
@@ -302,9 +347,34 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 self.tree_selection_library()
             elif self.file_dir_up:
                 self.tree_selection_file_dir()
+            elif self.substates_up:
+                self.tree_selection_substates()
 
     def get_next_tree_item(self):
         print('try to grab next treewidget item!')
+
+    def tree_selection_substates(self):
+        item = self.treeWidget.currentItem()
+        if item.text(2).startswith('M'):
+            print('Filerow')
+            self.treeWidget.substate_child_selected = False
+            tids = item.text(1)
+            self.valid_h5_tids = eval(tids)
+            self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+        else:
+            print('child')
+            self.treeWidget.substate_child_selected = True
+            i = item.text(0)
+            chunk = item.text(1)
+            t_window = chunk.split('-')
+            xmin = int(t_window[0])
+            xmax = int(t_window[1])
+            self.plot_1.getViewBox().setXRange(min = xmin,
+                                               max = xmax, padding=0)
+            category = item.text(2)
+            print(i,chunk,category)
+
+
 
     def tree_selection_file_dir(self):
         # this method does too much
@@ -676,7 +746,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
         if key_id in list(key_id_to_numbers.keys()):
             key_val = key_id_to_numbers[key_id]
-            #print(key_val)
             self.xrange_spinBox.setValue(key_val)
 
         x,y = self.plot_1.getViewBox().viewRange()

@@ -8,10 +8,41 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from PyQt5.QtCore import Qt
+class PecogQTreeWidget(QtWidgets.QTreeWidget):
+    def __init__(self,*args, **kwargs):
+        super(PecogQTreeWidget, self).__init__(*args, **kwargs)
+        self.substate_child_selected = False
+
+    def pyecog_save(self):
+        print('!s')
+        pass
+
+    def keyPressEvent(self, QKeyEvent):
+        key_id = QKeyEvent.key()
+
+        key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(0,10)}
+        if key_id in list(key_id_to_numbers.keys()):
+
+            if self.substate_child_selected:
+                key_val = key_id_to_numbers[key_id]
+                self.currentItem().setText(2, str(key_val))
+                # make down press command
+                fake_down_press =QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Down, QtCore.Qt.NoModifier)
+                super(PecogQTreeWidget,self).keyPressEvent(fake_down_press)
+
+        elif key_id == Qt.Key_S:
+            self.pyecog_save()
+
+        else:
+            super(PecogQTreeWidget,self).keyPressEvent(QKeyEvent)
+
+
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1046, 728)
+        MainWindow.resize(1005, 649)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -22,7 +53,8 @@ class Ui_MainWindow(object):
         self.top_splitter = QtWidgets.QSplitter(self.full_splitter)
         self.top_splitter.setOrientation(QtCore.Qt.Horizontal)
         self.top_splitter.setObjectName("top_splitter")
-        self.treeWidget = QtWidgets.QTreeWidget(self.top_splitter)
+        #self.treeWidget = QtWidgets.QTreeWidget(self.top_splitter)
+        self.treeWidget = PecogQTreeWidget(self.top_splitter)
         self.treeWidget.setEnabled(True)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -130,7 +162,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.addWidget(self.full_splitter)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1046, 22))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1005, 22))
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
@@ -167,12 +199,18 @@ class Ui_MainWindow(object):
         self.actionSet_default_folder.setObjectName("actionSet_default_folder")
         self.actionAdd_features_to_h5_folder = QtWidgets.QAction(MainWindow)
         self.actionAdd_features_to_h5_folder.setObjectName("actionAdd_features_to_h5_folder")
+        self.actionFolder_for_substates = QtWidgets.QAction(MainWindow)
+        self.actionFolder_for_substates.setObjectName("actionFolder_for_substates")
+        self.actionSubstates_Window = QtWidgets.QAction(MainWindow)
+        self.actionSubstates_Window.setObjectName("actionSubstates_Window")
         self.menuFile.addAction(self.actionLoad_Library)
         self.menuFile.addAction(self.actionLoad_Predictions)
         self.menuFile.addAction(self.actionLoad_h5_folder)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave_annotations)
         self.menuFile.addAction(self.actionSet_default_folder)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionSubstates_Window)
         self.menuAnalyse.addAction(self.actionConvert_ndf_to_h5)
         self.menuAnalyse.addSeparator()
         self.menuAnalyse.addAction(self.actionAdd_features_to_h5_folder)
@@ -233,5 +271,7 @@ class Ui_MainWindow(object):
         self.actionRun_classifer_on_ndf_dir.setText(_translate("MainWindow", "Run classifer on ndf dir"))
         self.actionSet_default_folder.setText(_translate("MainWindow", "Set default folder"))
         self.actionAdd_features_to_h5_folder.setText(_translate("MainWindow", "Add features to h5 folder"))
+        self.actionFolder_for_substates.setText(_translate("MainWindow", "Folder for substates"))
+        self.actionSubstates_Window.setText(_translate("MainWindow", "Substates Window"))
 
 from pyqtgraph import GraphicsLayoutWidget
