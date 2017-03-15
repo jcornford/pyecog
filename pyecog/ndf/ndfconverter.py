@@ -10,26 +10,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
 from scipy import signal, stats
-#from line_profiler import LineProfiler
 
 if sys.version_info < (3,):
     range = xrange
-'''
-# decorator needed when profiling
-def lprofile():
-    def inner(func):
-        def profiled_func(*args, **kwargs):
-            try:
-                profiler = LineProfiler()
-                profiler.add_function(func)
+try:
+    from line_profiler import LineProfiler
+    # decorator needed when profiling
+    def lprofile():
+        def inner(func):
+            def profiled_func(*args, **kwargs):
+                try:
+                    profiler = LineProfiler()
+                    profiler.add_function(func)
 
-                profiler.enable_by_count()
-                return func(*args, **kwargs)
-            finally:
-                profiler.print_stats()
-        return profiled_func
-    return inner
-'''
+                    profiler.enable_by_count()
+                    return func(*args, **kwargs)
+                finally:
+                    profiler.print_stats()
+            return profiled_func
+        return inner
+except:
+    pass
+
 class NdfFile:
     """
     TODO:

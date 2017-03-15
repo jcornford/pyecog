@@ -476,15 +476,15 @@ apply_async_with_callback()
         ''' returns full filepath,  excludes hidden files, starting with .'''
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = -1, fs = 'auto'):
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = 4, fs = 'auto'):
         """
 
         Args:
             ndf_dir: Directory to convert
-            tids: transmitter ids to convert. Default is 'all'
-            save_dir: optional save directory, will default to appending convertered_h5s after current ndf
-            n_cores: number of cores to use
-            fs :  'auto' or frequency in hz
+            tids: Transmitter ids to convert. Default is 'all'. Pass integer or list of integers.
+            save_dir: optional save directory, will default to appending converted_h5s after current ndf
+            n_cores: number of cores to use, -1 is all
+            fs :  'auto' or frequency in hz. Recommended to specify
 
         ndfs conversion seem to be pretty buggy...
 
@@ -492,10 +492,11 @@ apply_async_with_callback()
 
         self.fs_for_parallel_conversion = fs
         files = [f for f in self.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
+        if type(tids)=='tid': tids = tids.strip(' ')
 
-        # check ids
-        ndf = NdfFile(files[0])
         if not tids == 'all':
+            if type(tids) == str:
+                tids = eval(tids)
             if not hasattr(tids, '__iter__'):
                 tids = [tids]
 
@@ -521,6 +522,13 @@ apply_async_with_callback()
         pool.close()
         pool.join()
 
+        self.reset_date_modified_time(files)
+
+    def reset_date_modified_time(self, fullpath_list):
+        ''' sets to the order given in the passed list'''
+        for fpath in fullpath_list:
+            os.utime(fpath,time.time())
+
     def convert_ndf(self, filename):
 
         savedir = self.savedir_for_parallel_conversion
@@ -540,7 +548,7 @@ apply_async_with_callback()
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
             else:
-                logging.warning('Not all read tids:'+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
+                logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
 
         except Exception:
             print('Something unexpected went wrong loading '+str(tids)+' from '+mname+' :')
