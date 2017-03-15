@@ -676,6 +676,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
         if key_id in list(key_id_to_numbers.keys()):
             key_val = key_id_to_numbers[key_id]
+            #print(key_val)
             self.xrange_spinBox.setValue(key_val)
 
         x,y = self.plot_1.getViewBox().viewRange()
@@ -702,17 +703,29 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             if self.scroll_flag==True:
                 self.scroll_sign = 1
             else:
-                scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
-                if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
-                self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+                #scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
+                #if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
+                #self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
+
+                scroll_i = (x[1]-x[0])*1
+                new_min =  x[0]+scroll_i
+                new_max =  x[1]+scroll_i
+                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         if key_id == Qt.Key_Left:
             if self.scroll_flag==True:
                 self.scroll_sign = -1
             else:
-                scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
-                if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
-                self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
+                #scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
+                #if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
+                #self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
+
+                scroll_i = (x[1]-x[0])*-1
+                new_min =  x[0]+scroll_i
+                new_max =  x[1]+scroll_i
+                #if new_max < xmax:
+                #self.get_next_tree_item()
+                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
             current_item = self.treeWidget.currentItem()
