@@ -249,7 +249,7 @@ apply_async_with_callback()
         pool.join()
         self.parrallel_flag_pred = False
         self.reset_date_modified_time(files_to_add_features)
-        
+
     def get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
         This function matches the entries in a dataframe with files in a directory
