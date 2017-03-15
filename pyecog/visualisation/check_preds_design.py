@@ -8,35 +8,10 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from PyQt5.QtCore import Qt
-class PecogQTreeWidget(QtWidgets.QTreeWidget):
-    def __init__(self,*args, **kwargs):
-        super(PecogQTreeWidget, self).__init__(*args, **kwargs)
-        self.substate_child_selected = False
-
-    def pyecog_save(self):
-        print('!s')
-        pass
-
-    def keyPressEvent(self, QKeyEvent):
-        key_id = QKeyEvent.key()
-
-        key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(0,10)}
-        if key_id in list(key_id_to_numbers.keys()):
-
-            if self.substate_child_selected:
-                key_val = key_id_to_numbers[key_id]
-                self.currentItem().setText(2, str(key_val))
-                # make down press command
-                fake_down_press =QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Down, QtCore.Qt.NoModifier)
-                super(PecogQTreeWidget,self).keyPressEvent(fake_down_press)
-
-        elif key_id == Qt.Key_S:
-            self.pyecog_save()
-
-        else:
-            super(PecogQTreeWidget,self).keyPressEvent(QKeyEvent)
-
+try:
+    from overriden_classes import PecogQTreeWidget
+except:
+    from .overriden_classes import PecogQTreeWidget
 
 
 class Ui_MainWindow(object):

@@ -178,7 +178,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def populate_tree_for_substates(self,index,fpath,tids):
-
+        self.treeWidget.h5folder = self.h5directory_to_load
         self.treeWidget.setColumnCount(3)
         #self.treeWidget.setHeaderLabels(['index', 'tids', 'fname'])
 
@@ -356,13 +356,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def tree_selection_substates(self):
         item = self.treeWidget.currentItem()
         if item.text(2).startswith('M'):
-            print('Filerow')
+            #print('Filerow')
             self.treeWidget.substate_child_selected = False
             tids = item.text(1)
             self.valid_h5_tids = eval(tids)
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
-            print('child')
+            #print('child')
             self.treeWidget.substate_child_selected = True
             i = item.text(0)
             chunk = item.text(1)
@@ -372,7 +372,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.getViewBox().setXRange(min = xmin,
                                                max = xmax, padding=0)
             category = item.text(2)
-            print(i,chunk,category)
+            #print(i,chunk,category)
 
 
 
