@@ -5,7 +5,7 @@ import bisect
 import numpy as np
 import pandas as pd
 
-from PyQt5 import QtGui#,# uic
+from PyQt5 import QtGui, QtWidgets#,# uic
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import inspect
@@ -214,11 +214,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.file_dir_up = True
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
-        self.treeWidget.setColumnCount(3)
-        self.treeWidget.setHeaderLabels(['index', 'tids', 'fname'])
+        self.treeWidget.setColumnCount(6)
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
 
         fname_entry = [str(fpath)] # us this pointless!?
         details_entry = [str(index),
+                         '',
+                         '',
+                         '',
                          str(tids), # bad, should make only tid having one explicit
                          str(fpath)]
 
@@ -285,7 +288,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.file_tree_export_csv()
 
     def file_tree_export_csv(self):
-        pass
+        self.predictions_tree_export_csv()
 
     def library_tree_export_csv(self):
         if self.h5directory:
@@ -351,7 +354,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 self.tree_selection_substates()
 
     def get_next_tree_item(self):
-        print('try to grab next treewidget item!')
+        print('not implememented: try to grab next treewidget item!')
 
     def tree_selection_substates(self):
         item = self.treeWidget.currentItem()
@@ -372,17 +375,30 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.getViewBox().setXRange(min = xmin,
                                                max = xmax, padding=0)
             category = item.text(2)
-            #print(i,chunk,category)
-
-
 
     def tree_selection_file_dir(self):
         # this method does too much
         "grab tree detail and use to plot"
+        self.h5directory = self.h5directory_to_load # shitty but you had diff variabels?!
+        current_item = self.treeWidget.currentItem()
+        if current_item.text(1) != '':
+            try:
+                self.tree_selection_predictions()
+            except:
+                if current_item.text(2) == '':
+                    msgBox = QtWidgets.QMessageBox()
+                    msgBox.setText('Make an end and start line at the same time for best functionality')
+                    msgBox.exec_()
 
-        tids = self.treeWidget.currentItem().text(1)
-        self.valid_h5_tids = eval(tids)
-        self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+                # do something else here
+                #self.tree_selection_predictions()
+                tids = current_item.text(4)
+                self.valid_h5_tids = eval(tids)
+                self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+        else:
+            tids = current_item.text(4)
+            self.valid_h5_tids = eval(tids)
+            self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
 
 
     def load_filedir_h5_file(self,tid):
@@ -392,7 +408,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         import time
         start = time.time()
         fields = self.treeWidget.currentItem()
-        path = fields.text(2)
+        path = fields.text(5)
         index = float(fields.text(0))
         fpath = os.path.join(self.h5directory_to_load, path)
         h5 = H5File(fpath)
@@ -427,13 +443,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.load_filedir_h5_file(new_tid)
         except:
             print('Error caught at: pyecog_main_gui.tid_spinBox_handling()')
-            if new_val < min(self.valid_h5_tids):
-                new_tid = self.valid_h5_tids[-1]
-            else:
-                i = bisect.bisect_left(self.valid_h5_tids,new_val)
-                new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
-            self.tid_spinBox.setValue(new_tid)
-            self.load_filedir_h5_file(new_tid)
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText('Error caught at tid_spinBox_handling()')
+            msgBox.exec_()
+
+
 
     def tree_selection_library(self):
         seizure_buffer = 5 # seconds either side of seizure to plot
@@ -494,13 +508,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         current_item = self.treeWidget.currentItem()
 
         fields = current_item
-        tid = int(float(fields.text(4)))
+        try:
+            tid = int(fields.text(4))
+        except:
+            # tid is probably a '[x]'
+            tid = eval(fields.text(4))
+            if hasattr(tid, '__iter__'):
+                tid = tid[0]
         start = float(fields.text(1))
         end = float(fields.text(2))
         index = float(fields.text(0))
         # duration is fields.text(3)
-        fpath = os.path.join(self.h5directory, fields.text(5))
 
+        fpath = os.path.join(self.h5directory, fields.text(5))
+        print(fpath, tid)
         h5 = H5File(fpath)
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
@@ -546,6 +567,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.setLabel('left', 'Voltage (uV)')
         self.plot_overview.setLabel('bottom','Time (s)')
         # mousePressEvent,mouseDoubleClickEvent ,sigMouseClicked,sigMouseMoved,wheelEvent
+        # should you just be overwriting class methods for this stuff?
+        self.proxy2 = pg.SignalProxy(self.plot_1.scene().sigMouseClicked,rateLimit=30,slot=self.mouse_click_on_main)
         self.proxy = pg.SignalProxy(self.plot_overview.scene().sigMouseClicked,rateLimit=30,slot=self.mouse_click_in_overview)
         #print(dir(self.plot_overview.scene()))
 
@@ -712,6 +735,88 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items.append(item)
 
         #self.treeWidget.addTopLevelItems(self.tree_items) # now beeing called once all items are there.
+
+    def make_new_tree_entry_from_current(self,item,xpos):
+        ''' for adding seizures with start '''
+        current_tid = [self.tid_spinBox.value()]
+        details_entry = [str(item.text(0)),
+                         str(''),
+                         str(''),
+                         str(''),
+                         str(current_tid), # bad, should make only tid having one explicit
+                         str(item.text(5))]
+
+        new_item = QtGui.QTreeWidgetItem(details_entry)
+        return new_item
+
+    def add_new_entry_to_tree_widget(self,xpos):
+        ''' this is for when file dir is up'''
+
+        current_item = self.treeWidget.currentItem()
+        root =  self.treeWidget.invisibleRootItem()
+        index= root.indexOfChild(current_item)
+
+        test_item = self.make_new_tree_entry_from_current(current_item,xpos)
+
+        self.tree_items.insert(index+1, test_item)
+        self.treeWidget.insertTopLevelItem(index+1, test_item)
+
+        xlims  = self.plot_1.getViewBox().viewRange()[0]
+        self.treeWidget.setCurrentItem(test_item)
+        self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
+
+
+    def add_start_line_to_h5_file(self,xpos):
+        # do something to make new x line
+        self.add_new_entry_to_tree_widget(xpos) # this makes new slects it, and sets xrange to the same.
+
+        # now make lines and wipe end line
+        start_pen = pg.mkPen((85, 168, 104), width=3, style= Qt.DashLine)
+        self.start_line = pg.InfiniteLine(pos=xpos, pen =start_pen, movable=True,label='{value:0.2f}',
+                       labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
+        self.plot_1.addItem(self.start_line)
+
+        self.treeWidget.currentItem().setText(1,'{:.2f}'.format(self.start_line.x()))
+        self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
+
+        self.end_line = None
+
+    def set_end_and_calc_duration(self):
+        current_item = self.treeWidget.currentItem()
+        current_item.setText(2,'{:.2f}'.format(self.end_line.x()))
+        self.update_tree_element_duration()
+
+
+    def add_end_line_to_h5(self, xpos):
+        # do something to move existing end line self.check_end_line_exists()
+        if self.end_line is None:
+            end_pen = pg.mkPen((210,88,88), width=3, style= Qt.DashLine)
+            self.end_line = pg.InfiniteLine(pos=xpos, pen = end_pen, movable=True,label='{value:0.2f}',
+                           labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
+            self.plot_1.addItem(self.end_line)
+            self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
+        else:
+            self.end_line.setValue(xpos)
+        self.set_end_and_calc_duration()
+
+
+
+    def mouse_click_on_main(self,evt):
+        pos = evt[0].scenePos()
+        if self.plot_1.sceneBoundingRect().contains(pos):
+            mousePoint = self.bx1.mapSceneToView(pos) # self.plot_1.getViewBox()
+            #print(mousePoint)
+        modifier = evt[0].modifiers()
+
+        if modifier == Qt.ShiftModifier:
+            print('shift')
+            self.add_start_line_to_h5_file(mousePoint.x())
+        elif modifier == Qt.AltModifier:
+            print('alt')
+            self.add_end_line_to_h5(mousePoint.x())
+
+
+
 
     def mouse_click_in_overview(self,evt):
         # signal for this is coming from self.data,
