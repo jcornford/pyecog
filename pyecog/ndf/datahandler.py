@@ -529,7 +529,7 @@ apply_async_with_callback()
     def reset_date_modified_time(self, fullpath_list):
         ''' sets to the order given in the passed list'''
         for fpath in fullpath_list:
-            os.utime(fpath,time.time())
+            os.utime(fpath,(time.time(),time.time()))
 
     def convert_ndf(self, filename):
 
