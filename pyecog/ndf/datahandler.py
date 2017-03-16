@@ -530,6 +530,7 @@ apply_async_with_callback()
         ''' sets to the order given in the passed list'''
         for fpath in fullpath_list:
             os.utime(fpath,(time.time(),time.time()))
+        logging.info('Datahandler - reset date modified time called')
 
     def convert_ndf(self, filename):
 
