@@ -557,7 +557,7 @@ apply_async_with_callback()
             #print('Valid ids are:'+str(ndf.tid_set))
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value,exc_traceback))
-        return 0 # don't think i actually this
+        return 0 # don't think i actually use this
     # Print iterations progress
 
     def printProgress (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):

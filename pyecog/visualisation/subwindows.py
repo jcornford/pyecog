@@ -458,6 +458,8 @@ class ExtractPredictionFeaturesThread(QThread):
         pool.join()
 
         self.update_progress_label.emit('Progress: Done')
+        self.set_progress_bar.emit(str(0))
+        self.handler.reset_date_modified_time(self.files_to_add_features)
         self.handler.parrallel_flag_pred = False # really not sure this is needed- just a hangover from the datahandler code?
 
 
@@ -797,12 +799,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.home = '' # default folder to be inherited
         self.progressBar.setValue(0)
         self.cores_to_use.setText(str(1))
-        self.transmitter_ids.setText(str(8))
-        #self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/test_h5'
-        #self.ndf_folder  = '/Volumes/G-DRIVE with Thunderbolt/test_ndfs'
-        #self.h5_display.setText(str(self.h5directory))
-        #self.ndf_display.setText(str(self.ndf_folder))
-
+        self.transmitter_ids.setText('all')
 
     def get_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
@@ -813,7 +810,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.ndf_display.setText(str(self.ndf_folder))
 
     def convert_folder(self):
-        tids = self.transmitter_ids.text()
+        tids = self.transmitter_ids.text().strip("'")
         fs   = int(self.fs_box.text())
         ncores = self.cores_to_use.text()
         if ncores == 'all':
@@ -902,26 +899,23 @@ class ConvertNdfThread(QThread):
             save_dir = ndf_dir+'_converted_h5s'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
+
         self.handler.savedir_for_parallel_conversion = save_dir
 
-
-        l = len(self.files)
-        #self.emit(pyqtSignal("update_hidden_label(QString)"), str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
-        #self.emit(pyqtSignal("setMaximum_progressbar(QString)"),str(len(self.files)))
         self.set_max_progress.emit(str(len(self.files)))
         self.update_hidden_label.emit(str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
+
     def run(self):
         pool = multiprocessing.Pool(self.n_cores)
 
         for i, _ in enumerate(pool.imap(self.handler.convert_ndf, self.files), 1):
             self.set_progress_bar.emit(str(i))
             self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files)))
-            #self.emit(pyqtSignal("SetProgressBar(QString)"),str(i))
-            #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress: ' +str(i)+ ' / '+ str(len(self.files)))
         pool.close()
         pool.join()
-        #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress: Done')
         self.update_progress_label.emit('Progress: Done')
+        self.set_progress_bar.emit(str(0))
+        self.handler.reset_date_modified_time(self.files)
 
 class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
     ''' this is for checking out predictions on main gui, csv and h5 folder needed '''
