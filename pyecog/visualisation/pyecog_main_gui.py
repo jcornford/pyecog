@@ -1,6 +1,7 @@
 import sys
 import os
 import bisect
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -442,9 +443,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.tid_spinBox.setValue(new_tid)
             self.load_filedir_h5_file(new_tid)
         except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
             print('Error caught at: pyecog_main_gui.tid_spinBox_handling()')
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setText('Error caught at tid_spinBox_handling()')
+            msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()))
             msgBox.exec_()
 
 
