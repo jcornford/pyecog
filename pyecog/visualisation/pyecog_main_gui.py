@@ -873,8 +873,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         key_id = eventQKeyEvent.key()
         key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
         if key_id in list(key_id_to_numbers.keys()):
+            self.plot_change = False # disable this as key now entered
             key_val = key_id_to_numbers[key_id]
-            self.xrange_spinBox.setValue(key_val)
+            if key_val == self.xrange_spinBox.value():
+                self.xrange_change() # just call again
+            else:
+                self.xrange_spinBox.setValue(key_val)
+                # connected trigger will call xrange change
 
         x,y = self.plot_1.getViewBox().viewRange()
         if key_id == Qt.Key_Up:
