@@ -580,7 +580,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_overview.addItem(self.lr)
         # is this good practice?
         self.lr.sigRegionChanged.connect(self.updatePlot)
-        self.plot_1.sigXRangeChanged.connect(self.updateRegion)
+        self.plot_1.sigXRangeChanged.connect(self.updateRegion) # xlims?
+        self.plot_1.sigXRangeChanged.connect(self.xrange_changed_on_plot)
         self.updatePlot()
 
 
@@ -847,13 +848,25 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         return xrange, xmid
 
     def xrange_change(self):
+        #self.xrange_spinBox.valueChanged.connect(self.xrange_change)
         xrange = self.xrange_spinBox.value()
         if xrange>0:
-            _, xmid = self.get_main_plot_xrange_and_mid()
-            self.plot_1.getViewBox().setXRange(min = xmid - xrange/2.0,
-                                               max = xmid + xrange/2.0, padding=0)
+            if self.plot_change == False:
+                _, xmid = self.get_main_plot_xrange_and_mid()
+                self.plot_1.getViewBox().setXRange(min = xmid - xrange/2.0,
+                                                   max = xmid + xrange/2.0, padding=0)
+            elif self.plot_change == True:
+                # changing because plot has already changed - not key or spinbox alteration
+                self.plot_change = False
         else:
             pass
+
+    def xrange_changed_on_plot(self):
+        xrange, xmid = self.get_main_plot_xrange_and_mid()
+        self.plot_change = True
+        print(xrange)
+        self.xrange_spinBox.setValue(int(xrange))
+
 
     def keyPressEvent(self, eventQKeyEvent):
 
