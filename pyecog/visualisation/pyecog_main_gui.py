@@ -864,7 +864,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def xrange_changed_on_plot(self):
         xrange, xmid = self.get_main_plot_xrange_and_mid()
         self.plot_change = True
-        print(xrange)
+        #print(xrange)
         self.xrange_spinBox.setValue(int(xrange))
 
 
