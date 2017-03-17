@@ -60,6 +60,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
+        self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
         self.tid_spinBox.valueChanged.connect(self.tid_spinBox_handling)
 
@@ -864,8 +865,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def xrange_changed_on_plot(self):
         xrange, xmid = self.get_main_plot_xrange_and_mid()
         self.plot_change = True
-        #print(xrange)
-        self.xrange_spinBox.setValue(int(xrange))
+        self.xrange_spinBox.setValue(xrange)
 
 
     def keyPressEvent(self, eventQKeyEvent):
@@ -945,9 +945,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         if key_id == Qt.Key_Space:
             self.scroll_sign = 1
-            self.scroll_flag *= -1
-            self.reset_timer()
+            self.checkBox_scrolling.setChecked([1,0][self.checkBox_scrolling.isChecked()])
+            #self.scroll_flag *= -1
 
+    def scroll_checkbox_statechange(self):
+        self.scroll_sign = 1
+        self.scroll_flag = [-1,1][self.checkBox_scrolling.isChecked()]
+        self.reset_timer()
     def blink_box_change(self):
         self.reset_timer()
         #print('someone changed the blink box')

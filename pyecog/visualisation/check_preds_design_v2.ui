@@ -156,17 +156,70 @@
        </property>
        <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout_3">
-         <item row="1" column="2">
-          <widget class="QLabel" name="label_2">
-           <property name="text">
-            <string>Scroll type</string>
+         <item row="0" column="5">
+          <widget class="QSpinBox" name="scroll_speed_box">
+           <property name="maximumSize">
+            <size>
+             <width>80</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="minimum">
+            <number>1</number>
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_4">
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="predictions_file_display">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="4">
+          <widget class="QLabel" name="label_5">
            <property name="text">
-            <string>h5 Folder:</string>
+            <string>Xrange (sec)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Tid for h5 folder </string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="tid_spinBox">
+           <property name="maximumSize">
+            <size>
+             <width>80</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="5">
+          <widget class="QCheckBox" name="blink_box">
+           <property name="text">
+            <string>Blinking</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="4">
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Scroll speed</string>
            </property>
           </widget>
          </item>
@@ -195,16 +248,10 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="3">
-          <widget class="QSpinBox" name="scroll_speed_box">
-           <property name="maximumSize">
-            <size>
-             <width>80</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="minimum">
-            <number>1</number>
+         <item row="1" column="4">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Scroll type</string>
            </property>
           </widget>
          </item>
@@ -215,73 +262,24 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="1">
-          <widget class="QLineEdit" name="predictions_file_display">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="2">
-          <widget class="QLabel" name="label">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_4">
            <property name="text">
-            <string>Scroll speed</string>
+            <string>h5 Folder:</string>
            </property>
           </widget>
          </item>
-         <item row="1" column="3">
-          <widget class="QCheckBox" name="blink_box">
+         <item row="0" column="3">
+          <widget class="QCheckBox" name="checkBox_scrolling">
            <property name="text">
-            <string>Blinking</string>
+            <string>Scrolling  </string>
            </property>
           </widget>
          </item>
-         <item row="2" column="2">
-          <widget class="QLabel" name="label_5">
-           <property name="text">
-            <string>Xrange (sec)</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="3">
-          <widget class="QSpinBox" name="xrange_spinBox">
-           <property name="maximumSize">
-            <size>
-             <width>80</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="minimum">
-            <number>1</number>
-           </property>
-           <property name="value">
-            <number>5</number>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QSpinBox" name="tid_spinBox">
-           <property name="maximumSize">
-            <size>
-             <width>80</width>
-             <height>16777215</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="label_6">
-           <property name="text">
-            <string>Tid for h5 folder </string>
+         <item row="2" column="5">
+          <widget class="QDoubleSpinBox" name="xrange_spinBox">
+           <property name="maximum">
+            <double>3600.000000000000000</double>
            </property>
           </widget>
          </item>
