@@ -71,6 +71,7 @@ apply_async_with_callback()
         logging.info('Adding labels to '+ library_path)
         # todo check timewindows go into n seconds precisely
         with h5py.File(library_path, 'r+') as f:
+            # todo:you should use the h5 class?
             seizure_datasets = [f[group] for group in list(f.keys())]
 
             for i, group in enumerate(seizure_datasets):
@@ -141,10 +142,12 @@ apply_async_with_callback()
                 logging.debug('Loading group: '+ str(group))
 
                 # First check if there are features already there. If overwrite, go to except block
+                # this is convoluted
                 try:
                     if not overwrite:
                         features = group['features']
                         logging.info(str(group)+' already has features, skipping')
+                        self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
                     if overwrite:
                         raise
                 except:
@@ -162,6 +165,7 @@ apply_async_with_callback()
                             pass
                         group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
                         group.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
+                        group.attrs['mode_std'] = extractor.mode_std
                         # here add feature titles to the dataset attrs?
                         logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
                         self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
@@ -216,6 +220,7 @@ apply_async_with_callback()
                         pass
                     tid.create_dataset('features', data = features, compression = 'gzip')
                     tid.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
+                    tid.attrs['mode_std'] = extractor.mode_std
 
                     logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
 
@@ -285,10 +290,10 @@ apply_async_with_callback()
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
         return annotation_dicts
 
-    def make_seizure_library(self, df, file_dir,
+    def make_seizure_library(self, df, file_dir,fs ,
                              timewindow = 5,
                              seizure_library_name = 'seizure_library',
-                             fs = 'auto',
+
                              verbose = False,
                              overwrite = False,
                              scale_and_filter = False):
@@ -321,7 +326,7 @@ apply_async_with_callback()
         try:
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
-            print("Error getting annotations from your file. Please ensure columns are named: 'filename', 'transmitter','start','end'")
+            print("Error getting annotations from your file, probably column names. Please ensure columns are named: 'filename', 'transmitter','start','end'")
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
@@ -357,9 +362,9 @@ apply_async_with_callback()
                                            scale_and_filter = scale_and_filter)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
-    def append_to_seizure_library(self, df, file_dir, seizure_library_path,
+    def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
                                   timewindow = 5,
-                                  fs = 'auto',
+
                                   verbose = False,
                                   overwrite = False,
                                   scale_and_filter = False):
@@ -408,56 +413,50 @@ apply_async_with_callback()
                                   verbose = False,
                                   scale_and_filter = False):
 
-
         logging.debug('Adding '+str(annotation['fname']))
         if annotation['fname'].endswith('.ndf'):
-            file_obj = NdfFile(annotation['fname'],fs = fs)
-            file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
+            h5file_obj = NdfFile(annotation['fname'],fs = fs)
+            h5file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
-            file_obj = H5File(annotation['fname'])
+            h5file_obj = H5File(annotation['fname'])
         else:
             print('ERROR: Unrecognised file-type')
 
-        # add in filtering and scaling here
-        #data_array = self._make_array_from_data(file_obj[annotation['tid']]['data'], fs, timewindow)
-        data_array = file_obj[annotation['tid']]['data'] # just 1D at the moment!
-
-        # use the start and end times to make labels
-        #labels = np.zeros(shape = (data_array.shape[0]))
-        #start_i = int(np.floor(annotation['start']/timewindow))
-        #end_i   = int(np.ceil(annotation['end']/timewindow))
-
-        #print('  ')
-        #print(annotation['start'], ': ', start_i*timewindow)
-        #print(annotation['end'], ':', end_i*timewindow)
+        data_array = h5file_obj[annotation['tid']]['data'] # just 1D at the moment!
+        tid = annotation['tid']
+        try:
+            features_array = h5file_obj[tid]['features']
+            # this is is a none if no key? - suprising, thought would return key error
+        except:
+            features_array = None
 
         with h5py.File(seizure_library_path, 'r+') as f:
             if annotation['dataset_name'] in f.keys():
+                # we have already added this h5 file to the library
                 logging.info(str(annotation['dataset_name'])+' has more than one seizure!')
-                #labels =  f[annotation['dataset_name']+'/labels']
+
                 # todo wrap this in try, not possible to have end earlier than start of the seizure, will throw reverse selection error
-                #labels[start_i:end_i] = 1
-                #print('more than one seizure')
 
-                #f[annotation['dataset_name']].attrs['chunked_annotation'] = np.vstack(
-                #    [f[annotation['dataset_name']].attrs['chunked_annotation'], np.array([(120,160)]) ])
-
-                #print(f[annotation['dataset_name']].attrs['chunked_annotation'])
                 f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack(
                     [f[annotation['dataset_name']].attrs['precise_annotation'], np.array([(annotation['start'],annotation['end'])])])
-                #print((f[annotation['dataset_name']].attrs['precise_annotation']))
-                #print(dict(f[annotation['dataset_name']].attrs))
+
 
             else:
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
-                group.attrs['fs']  = fs
+                group.attrs['fs']  = float(fs)
                 group.attrs['scaled_and_filtered'] = scale_and_filter
-                #group.attrs['chunked_annotation'] = np.array([(100,160)])
                 group.attrs['precise_annotation'] = np.array([(annotation['start'],annotation['end'])])
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
-                #labels[start_i:end_i] = 1 # indexing is fine, dont need to convert to array
-                #group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
+                if features_array is not None:
+                    group.create_dataset('features', data = features_array, compression = 'gzip')
+                    #print(': Features added!', features_array.shape)
+                    group.attrs['feature_col_names'] = h5file_obj[tid]['feature_col_names']
+                    group.attrs['feature_chunk_len_from_pred_h5'] = (3600/features_array.shape[0])
+                    group.attrs['mode_std'] =  h5file_obj[tid]['mode_std']
+                    # here add feature titles to the dataset attrs?
+                    logging.info('Features added to' + str(group) + ', shape:' + str(features_array.shape) + str( ' as already found in h5 file'))
+
             f.close()
 
     @staticmethod

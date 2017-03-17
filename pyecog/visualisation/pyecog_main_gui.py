@@ -181,11 +181,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def populate_tree_for_substates(self,index,fpath,tids):
         self.treeWidget.h5folder = self.h5directory_to_load
-        self.treeWidget.setColumnCount(3)
-        #self.treeWidget.setHeaderLabels(['index', 'tids', 'fname'])
+        self.treeWidget.setColumnCount(6)
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
 
         fname_entry = [str(fpath)] # us this pointless!?
         details_entry = [str(index),
+                         '',
+                         '',
+                         '',
                          str(tids), # bad, should make only tid having one explicit
                          str(fpath)]
 
@@ -214,6 +217,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = True
+        self.substates_up = False
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
         self.treeWidget.setColumnCount(6)
@@ -233,35 +237,41 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items.append(item)
 
     def load_seizure_library(self):
+        try:
+            self.library = QtGui.QFileDialog.getOpenFileName(self, "Pick a h5 library file", self.home)[0]
+            if self.library is '':
+                print('nothing selected')
+                return 0
+            print(self.library)
+            print(type(self.library))
+            self.clear_QTreeWidget()
 
-        self.library = QtGui.QFileDialog.getOpenFileName(self, "Pick a h5 library file", self.home)[0]
-        if self.library is '':
-            print('nothing selected')
-            return 0
-        print(self.library)
-        print(type(self.library))
-        self.clear_QTreeWidget()
-        # todo here check if got chunked thing from lirbary.. if not, throw messagebox error and return 0
-        with h5py.File(self.library) as f:
-            group_names = list(f.keys())
-            groups = [f[key] for key in group_names]
+            with h5py.File(self.library) as f:
+                group_names = list(f.keys())
+                groups = [f[key] for key in group_names]
 
-            for i, group in enumerate(groups):
-                for seizure_i in range(group.attrs['precise_annotation'].shape[0]):
-                    row = {'name' : group_names[i],
-                           'start': group.attrs['precise_annotation'][seizure_i, 0],
-                           'end'  : group.attrs['precise_annotation'][seizure_i, 1],
-                           'tid'  : group.attrs['tid'],
-                           'index': i, # not sure if this is gonna work/ not consistent with the predictions
-                           'chunk_start': group.attrs['chunked_annotation'][seizure_i, 0],
-                           'chunk_end': group.attrs['chunked_annotation'][seizure_i, 1],
-                           }
-                    self.populate_tree_items_from_library(row)
-            self.treeWidget.addTopLevelItems(self.tree_items)
+                for i, group in enumerate(groups):
+                    for seizure_i in range(group.attrs['precise_annotation'].shape[0]):
+                        row = {'name' : group_names[i],
+                               'start': group.attrs['precise_annotation'][seizure_i, 0],
+                               'end'  : group.attrs['precise_annotation'][seizure_i, 1],
+                               'tid'  : group.attrs['tid'],
+                               'index': i, # not sure if this is gonna work/ not consistent with the predictions
+                               'chunk_start': group.attrs['chunked_annotation'][seizure_i, 0],
+                               'chunk_end': group.attrs['chunked_annotation'][seizure_i, 1],
+                               }
+                        self.populate_tree_items_from_library(row)
+                self.treeWidget.addTopLevelItems(self.tree_items)
 
-        self.predictions_up = False
-        self.library_up = True
-        self.file_dir_up = False
+            self.predictions_up = False
+            self.library_up = True
+            self.file_dir_up = False
+            self.substates_up = True
+        except:
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText('Error caught at load_seizure_library() \n'+str(traceback.format_exc(1)))
+            msgBox.exec_()
+
 
     def populate_tree_items_from_library(self, row):
 
@@ -336,7 +346,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             index.append(item.text(0))
             start.append(item.text(1))
             end.append(item.text(2))
-            tid.append(item.text(4))
+            try:
+                tid_str = int(item.text(4))
+            except:
+                # tid is probably a '[x]'
+                tid_str = eval(item.text(4))
+                if hasattr(tid_str, '__iter__'):
+                    tid_str = tid_str[0]
+            tid.append(tid_str)
             fname.append(item.text(5))
             duration.append(item.text(3))
         exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','transmitter'] )
@@ -692,6 +709,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.predictions_up = True
         self.library_up = False
         self.file_dir_up = False
+        self.substates_up = False
 
     def debug_load_pred_files(self): # stripped down version of the above for debugging gui code
         self.clear_QTreeWidget()
@@ -713,6 +731,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.predictions_up = True
             self.library_up = False
             self.file_dir_up = False
+            self.substates_up = False
         except:
             print('Error, with debug loading')
 

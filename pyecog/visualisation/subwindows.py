@@ -1,9 +1,10 @@
 import sys
 import os
 import multiprocessing
+import traceback
 import numpy as np
 import pandas as pd
-from PyQt5 import QtGui#,# uic
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
 import pyqtgraph as pg
 import h5py
@@ -206,29 +207,36 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
                 return 0
         except:
             pass
+        try:
 
-        if self.h5directory  == None:
-            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a h5 folder!")
-            self.get_h5_folder()
-        if self.clf == None:
-            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a trained, pickled classifier!")
-            self.load_classifier_method()
+            if self.h5directory  == None:
+                QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a h5 folder!")
+                self.get_h5_folder()
+            if self.clf == None:
+                QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Please choose a trained, pickled classifier!")
+                self.load_classifier_method()
 
 
 
-        self.worker = PredictSeizuresThread() # assume the previous finished thread is garbage collected...!
-        self.worker.update_progress_label.connect(self.update_progress_label)
-        self.worker.SetProgressBar.connect(self.update_progress)
-        self.worker.setMaximum_progressbar.connect(self.set_max_bar)
-        self.worker.update_label_below.connect( self.update_label_below)
-        self.worker.update_label_above2.connect( self.update_label_above2)
-        self.worker.finished.connect(self.end_prediction)
+            self.worker = PredictSeizuresThread() # assume the previous finished thread is garbage collected...!
+            self.worker.update_progress_label.connect(self.update_progress_label)
+            self.worker.SetProgressBar.connect(self.update_progress)
+            self.worker.setMaximum_progressbar.connect(self.set_max_bar)
+            self.worker.update_label_below.connect( self.update_label_below)
+            self.worker.update_label_above2.connect( self.update_label_above2)
+            self.worker.finished.connect(self.end_prediction)
 
-        h5_folder = self.h5_folder_display.text()
-        excel_sheet = QtGui.QFileDialog.getSaveFileName(self,  "make output csv file", self.home)[0]
+            h5_folder = self.h5_folder_display.text()
+            excel_sheet = QtGui.QFileDialog.getSaveFileName(self,  "make output csv file", self.home)[0]
 
-        self.worker.set_params(self.clf, h5_folder, excel_sheet)
-        self.worker.start()
+            self.worker.set_params(self.clf, h5_folder, excel_sheet)
+            self.worker.start()
+
+        except:
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText('Error!   \n'+ str(traceback.format_exc(1)) )
+            msgBox.exec_()
+
 
 class PredictSeizuresThread(QThread):
     finished = pyqtSignal()
@@ -609,6 +617,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.wait()
 
             print('Worker finished')
+            self.emit_finished_message()
         else:
             print('else got called')
             self.worker.set_library_attributes(self.library_path,
@@ -621,7 +630,13 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.new_library_mode()
             self.worker.start()
             self.worker.wait()
+            self.emit_finished_message()
 
+    def emit_finished_message(self):
+        # as you currently have the prgoressbar frozen
+        msgBox = QtWidgets.QMessageBox()
+        msgBox.setText('Process finished: Progress bar is frozen until coded up...')
+        msgBox.exec_()
     def append_to_library(self):
         if self.library_path:
             self.select_library(default_lib=self.library_path)
@@ -648,6 +663,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.start()
             #self.worker.wait()
             print('Worker finished')
+            self.emit_finished_message()
         else: # why do you have this - for running first time off??
             print('else got called in append to library')
             self.worker.set_library_attributes(self.library_path,
@@ -660,6 +676,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.append_to_library_mode()
             self.worker.start()
             #self.worker.wait()
+            self.emit_finished_message()
 
     def calculate_features_for_library(self):
         if self.library_path is None:
@@ -674,11 +691,13 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
             print('Worker finished')
+            self.emit_finished_message()
         else:
             print('else got called in labels to library')
             self.worker.add_features_mode()
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
+            self.emit_finished_message()
 
 
     def calculate_labels_for_library(self):
@@ -694,12 +713,14 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
             print('Worker finished')
+            self.emit_finished_message()
 
         else:
             print('else got called in labels to library')
             self.worker.add_labels_mode()
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
+            self.emit_finished_message()
 
 class LibraryWorkerThread(QThread):
 

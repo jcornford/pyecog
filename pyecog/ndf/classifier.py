@@ -68,7 +68,7 @@ class Classifier():
             self.fname_array = np.vstack([np.vstack([fname for i in range(f[fname+'/features'].shape[0])]) for fname in self.keys])
             self.features = np.vstack( f[name+'/features'] for name in self.keys)
             self.labels   = np.hstack( f[name+'/labels'] for name in self.keys)
-            self.feature_names = f[self.keys[0]].attrs['col_names'].astype(str)
+            self.feature_names = f[self.keys[0]].attrs['feature_col_names'].astype(str)
 
         self.cleaner = FeaturePreProcesser()
         self.cleaner.fit(self.features)
@@ -100,20 +100,20 @@ class Classifier():
                                                       sizes = target_resample)
 
         logging.info('Training Random Forest on resampled data')
-        self.clf =  RandomForestClassifier(n_jobs=n_cores, n_estimators= ntrees, oob_score=True, bootstrap=True)
-        self.clf.fit(res_x, np.ravel(res_y))
+        self.rf =  RandomForestClassifier(n_jobs=n_cores, n_estimators= ntrees, oob_score=True, bootstrap=True)
+        self.rf.fit(res_x, np.ravel(res_y))
 
         logging.info('Getting HMM params')
         self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
 
         print ('********* oob results on resampled data *******')
-        self.oob_preds = np.round(self.clf.oob_decision_function_[:,1])
-        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(res_y), self.clf.oob_decision_function_[:,1])))
+        self.oob_preds = np.round(self.rf.oob_decision_function_[:,1])
+        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(res_y), self.rf.oob_decision_function_[:,1])))
         print('Recall: '+str(metrics.recall_score(np.ravel(res_y), self.oob_preds)))
         print('F1: '+str(metrics.f1_score(np.ravel(res_y), self.oob_preds)))
         print(metrics.classification_report(np.ravel(res_y),self.oob_preds))
 
-        self.feature_weightings = sorted(zip(self.clf.feature_importances_, self.feature_names),reverse = True)
+        self.feature_weightings = sorted(zip(self.rf.feature_importances_, self.feature_names),reverse = True)
 
     def make_hmm_model(self, n_emission_prob_folds = 3):
         # how to get these bad boys...
@@ -373,7 +373,7 @@ class Classifier():
 
                 logging.info(str(fname) + ' now predicting!: ')
                 pred_features = self.cleaner.transform(pred_features)
-                pred_y_emitts = self.clf.predict(pred_features)
+                pred_y_emitts = self.rf.predict(pred_features)
                 logp, path = self.hm_model.viterbi(pred_y_emitts)
                 vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
 

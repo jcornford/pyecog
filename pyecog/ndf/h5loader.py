@@ -7,6 +7,7 @@ import sys
 class H5Dataset():
     """
     This is initially to just load up the h5 file converted by the ndf loader
+    # todo everything should be simplified into one dictionary...
     """
 
     def __init__(self,fpath, mcode_id_str):
@@ -16,7 +17,9 @@ class H5Dataset():
         self.data = None
         self.time = None
         self.features = None
-        self.col_labels = None
+        self.fs = None
+        self.mode_std = None
+        self.feature_col_labels = None
         self._load_data()
 
     def _load_data(self):
@@ -30,6 +33,14 @@ class H5Dataset():
                     self.time = np.array(tid_dataset['time'])
                 if str(member) == 'features':
                     self.features = np.array(tid_dataset['features'])
+            for att_key in tid_dataset.attrs.keys():
+                #['fs', 'tid', 'time_arr_info_dict', 'resampled', 'col_names', ;mode_std]
+                if str(att_key) == 'col_names':
+                    self.feature_col_labels = list(tid_dataset.attrs['col_names'])
+                if str(att_key) == 'fs':
+                    self.fs = tid_dataset.attrs['fs']
+                if str(att_key) == 'mode_std':
+                    self.mode_std = tid_dataset.attrs['mode_std']
 
             if self.time is None:
                 time_arr_info_dict =  eval(tid_dataset.attrs['time_arr_info_dict'])
@@ -60,12 +71,15 @@ class H5File():
     def __getitem__(self, tid):
         assert tid in self.attributes['t_ids'], 'ERROR: Invalid tid for file'
         tid_dataset = H5Dataset(self.filepath, self.attributes['Mcode']+'/'+str(tid))
+        # again, retarded coding going on here - just have one master dict
+
         group_contents = {}
         group_contents['data'] = tid_dataset.data
         group_contents['time'] = tid_dataset.time
+
         group_contents['features'] = tid_dataset.features
-        try:
-            group_contents['col_names'] = f[self.attributes['Mcode']+'/'+str(tid)].attrs['col_names'].astype(str)
-        except:
-            pass
+        group_contents['feature_col_names'] = tid_dataset.feature_col_labels
+        group_contents['mode_std'] = tid_dataset.mode_std
+        group_contents['fs'] = tid_dataset.fs
+
         return group_contents
