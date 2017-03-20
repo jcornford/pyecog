@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import sys
+import pandas as pd
 
 class H5Dataset():
     """
@@ -16,6 +17,7 @@ class H5Dataset():
         self.h5dataset = None
         self.data = None
         self.time = None
+        self.features_df = None
         self.features = None
         self.fs = None
         self.mode_std = None
@@ -47,12 +49,29 @@ class H5Dataset():
                 self.time = np.linspace(time_arr_info_dict['min_t'],
                                         time_arr_info_dict['max_t'],
                                         num= time_arr_info_dict['max_t'] * time_arr_info_dict['fs'])
+            if self.features is not None:
+                self.features_df = pd.DataFrame(self.features, columns = [b.decode("utf-8")  for b in self.feature_col_labels])
 
     def plot(self):
         print ('Placeholder: Plot method to implement!')
         # have indexing argument...
 
 class H5File():
+    '''
+    Class for reading h5 files:
+
+    Use transmitter id to index which transmitter you want to access:
+    h5obj = H5File(path_to_h5_file)here)
+    h5obj[2] # for transmitter 2
+
+    Attributes available are:
+    -  h5obj[2].time
+    -  h5obj[2].data
+
+    # to do - first test that other modules dont treat as dictionary before finalising this.
+
+
+    '''
     def __init__(self, filepath):
         self.filepath = filepath
         with h5py.File(self.filepath, 'r+') as f:
@@ -81,5 +100,6 @@ class H5File():
         group_contents['feature_col_names'] = tid_dataset.feature_col_labels
         group_contents['mode_std'] = tid_dataset.mode_std
         group_contents['fs'] = tid_dataset.fs
+        group_contents['features_df'] = tid_dataset.features_df
 
         return group_contents

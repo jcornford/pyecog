@@ -363,38 +363,40 @@ class Classifier():
         files_to_predict = os.listdir(prediction_dir)
         print('Looking through '+ str(len(files_to_predict)) + ' file for seizures:')
         for fname in files_to_predict:
-            fpath = os.path.join(prediction_dir,fname)
-
+            full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
             try:
                 with h5py.File(fpath, 'r+') as f:
                     group = f[list(f.keys())[0]]
-                    tid = group[list(group.keys())[0]]
-                    pred_features = tid['features'][:]
+                    for tid_no in list(group.keys()):
+                        tid_no = str(tid_no)
+                        tid = group[tid_no]
+                        pred_features = tid['features'][:]
 
-                logging.info(str(fname) + ' now predicting!: ')
-                pred_features = self.cleaner.transform(pred_features)
-                pred_y_emitts = self.rf.predict(pred_features)
-                logp, path = self.hm_model.viterbi(pred_y_emitts)
-                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
+                        logging.info(full_fname + ' now predicting tid '+tid_no)
+                        self.update_progress_label.emit(full_fname+ ': tid-' + tid_no+', '+ str(i)+'/'+str(n_files))
+                        self.SetProgressBar.emit(str(i))
 
-                if sum(vit_decoded_y):
-                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
-                    #print (name_array.shape)
-                    pred_sheet = self.make_excel_spreadsheet([name_array,vit_decoded_y])
-                    #print(pred_sheet.head())
-                    if not os.path.exists(excel_sheet):
-                        pred_sheet.to_csv(excel_sheet,index = False)
-                    else:
-                        with open(excel_sheet, 'a') as f:
-                            pred_sheet.to_csv(f, header=False, index = False)
+                        pred_features = self.clf.cleaner.transform(pred_features)
+                        pred_y_emitts = self.clf.rf.predict(pred_features)
+                        logp, path = self.clf.hm_model.viterbi(pred_y_emitts)
+                        vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
 
+                        if sum(vit_decoded_y):
+                            fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
+                            name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
+                            pred_sheet = self.clf.make_excel_spreadsheet([name_array,vit_decoded_y])
+                            if not os.path.exists(self.excel_output):
+                                pred_sheet.to_csv(self.excel_output,index = False)
+                            else:
+                                with open(self.excel_output, 'a') as f:
+                                    pred_sheet.to_csv(f, header=False, index = False)
+                        else:
+                            pass
+                            #print ('no seizures')
 
             except KeyError:
-                logging.error(str(fname) + ' did not contain any features! Skipping')
-
-            else:
-                pass
-                #print ('no seizures')
+                logging.error(str(full_fname) + ' did not contain any features! Skipping')
+                self.update_label_below('ERROR: '+ full_fname + ' did not contain any features! Skipping')
 
         print('Re - ordering spreadsheet by date')
         self.reorder_prediction_csv(excel_sheet)

@@ -258,46 +258,46 @@ class PredictSeizuresThread(QThread):
     def run(self):
         self.update_label_below.emit('Saving predictions: '+ self.excel_output)
         self.update_progress_label.emit('We are now rolling!')
-        files_to_predict = [os.path.join(self.prediction_dir,f) for f in os.listdir(self.prediction_dir) if not f.startswith('.')]
+        files_to_predict = [os.path.join(self.prediction_dir,f) for f in os.listdir(self.prediction_dir) if not f.startswith('.') if f.endswith('.h5')]
         n_files = len(files_to_predict)
         self.setMaximum_progressbar.emit(str(n_files))
         self.update_label_above2.emit('Looking through '+ str(n_files) + ' files for seizures: ')
         for i,fpath in enumerate(files_to_predict):
-            fname = str(os.path.split(fpath)[1])
+            full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
             try:
                 with h5py.File(fpath, 'r+') as f:
                     group = f[list(f.keys())[0]]
-                    tid = group[list(group.keys())[0]]
-                    pred_features = tid['features'][:]
+                    for tid_no in list(group.keys()):
+                        tid_no = str(tid_no)
+                        tid = group[tid_no]
+                        pred_features = tid['features'][:]
 
-                logging.info(fname + ' now predicting!: ')
-                self.update_progress_label.emit(fname+ ': '+ str(i)+'/'+str(n_files))
-                self.SetProgressBar.emit(str(i))
+                        logging.info(full_fname + ' now predicting tid '+tid_no)
+                        self.update_progress_label.emit(full_fname+ ': tid-' + tid_no+', '+ str(i)+'/'+str(n_files))
+                        self.SetProgressBar.emit(str(i))
 
-                pred_features = self.clf.cleaner.transform(pred_features)
-                pred_y_emitts = self.clf.rf.predict(pred_features)
-                logp, path = self.clf.hm_model.viterbi(pred_y_emitts)
-                vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
+                        pred_features = self.clf.cleaner.transform(pred_features)
+                        pred_y_emitts = self.clf.rf.predict(pred_features)
+                        logp, path = self.clf.hm_model.viterbi(pred_y_emitts)
+                        vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
 
-                if sum(vit_decoded_y):
-                    name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
-                    #print (name_array.shape)
-                    pred_sheet = self.clf.make_excel_spreadsheet([name_array,vit_decoded_y])
-                    #print(pred_sheet.head())
-                    if not os.path.exists(self.excel_output):
-                        pred_sheet.to_csv(self.excel_output,index = False)
-                    else:
-                        with open(self.excel_output, 'a') as f:
-                            pred_sheet.to_csv(f, header=False, index = False)
-
+                        if sum(vit_decoded_y):
+                            fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
+                            name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
+                            pred_sheet = self.clf.make_excel_spreadsheet([name_array,vit_decoded_y])
+                            if not os.path.exists(self.excel_output):
+                                pred_sheet.to_csv(self.excel_output,index = False)
+                            else:
+                                with open(self.excel_output, 'a') as f:
+                                    pred_sheet.to_csv(f, header=False, index = False)
+                        else:
+                            pass
+                            #print ('no seizures')
 
             except KeyError:
-                logging.error(str(fname) + ' did not contain any features! Skipping')
-                self.update_label_below('ERROR: '+ fname + ' did not contain any features! Skipping')
+                logging.error(str(full_fname) + ' did not contain any features! Skipping')
+                self.update_label_below('ERROR: '+ full_fname + ' did not contain any features! Skipping')
 
-            else:
-                pass
-                #print ('no seizures')
 
         self.update_progress_label.emit('Re - ordering spreadsheet by date')
         self.clf.reorder_prediction_csv(self.excel_output)

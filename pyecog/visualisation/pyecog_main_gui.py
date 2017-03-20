@@ -71,9 +71,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
         self.valid_h5_tids = None
 
-        if os.path.exists('/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'):
-            self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
-            self.home = '/Volumes/LACIE SHARE/MSperling_eeg'
+        if os.path.exists('/Volumes/LaCie/Pyecog_demo_stuff'):
+            #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
+            self.home = '/Volumes/LaCie/Pyecog_demo_stuff'
         else:
             self.home = os.getcwd()
 
@@ -522,6 +522,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
             self.updatePlot()
 
+
+    def build_startswith_to_filename(self):
+        self.startname_to_full = {}
+        for f in os.listdir(self.h5directory):
+            self.startname_to_full[f.split('[')[0]] = f
+
     def tree_selection_predictions(self):
         # this method does too much
         "grab tree detail and use to plot"
@@ -541,8 +547,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         index = float(fields.text(0))
         # duration is fields.text(3)
 
-        fpath = os.path.join(self.h5directory, fields.text(5))
-        print(fpath, tid)
+        correct_file = self.startname_to_full[fields.text(5).split('[')[0]]
+        fpath = os.path.join(self.h5directory, correct_file)
+
         h5 = H5File(fpath)
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
@@ -661,7 +668,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         print('loading new window!')
         child = subwindows.LoadingSubwindow()
         child.show()
-        child.home = self.home # will this inherit? :p
+        child.home = self.home # this doesnt overwrite when called when on those windows...
         if child.exec_():
             print(child.predictions_fname)
             self.h5directory = child.h5directory
@@ -670,6 +677,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.update_h5_folder_display()
             self.update_predictionfile_display()
             self.load_pred_file()
+            self.build_startswith_to_filename()
 
     def update_h5_folder_display(self):
         self.h5_folder_display.setText(str(self.h5directory))
