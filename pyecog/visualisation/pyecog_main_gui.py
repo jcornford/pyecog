@@ -30,7 +30,6 @@ try: # for speed checking
 except:
     pass
 
-# todo test if these work without being called from main_gui at pyecog level
 if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
     from . import subwindows
@@ -50,7 +49,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.scroll_flag = -1
         self.top_splitter.setSizes([200,600])
         self.bottom_splitter.setSizes([500,300])
-        self.full_splitter.setSizes([300,200,200])
+        self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
             self.blink      = 1
         else:
@@ -106,15 +105,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
         self.substate_child_selected = False
 
-        #self.debug_load_pred_files()
-
-        # Below resizes to better geometries - should really use this to save etc!
-        # doesnt quite work correctly!
-
-        self.print_widget_coords = False # use this to print out coords when clicking the plot stuff
-
     def not_done_yet(self):
-        QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Not implemented yet! Jonny has been lazy!")
+        QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
 
     def load_clf_subwindow(self):
         child = subwindows.ClfWindow()
@@ -152,12 +144,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
 
     def get_h5_folder_fnames(self):
-        self.h5directory_to_load = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        if self.h5directory_to_load == '':
+        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        if self.h5directory == '':
             print('No folder selected')
             return 0
         self.clear_QTreeWidget()
-        fnames = [f for f in os.listdir(self.h5directory_to_load) if f.endswith('.h5') if not f.startswith('.') ]
+        self.build_startswith_to_filename()
+        fnames = [f for f in os.listdir(self.h5directory) if f.endswith('.h5') if not f.startswith('.') ]
         return fnames
 
     def load_h5_for_substate_assignments(self):
@@ -177,10 +170,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.library_up = False
         self.file_dir_up = False
         self.substates_up = True
-
-
     def populate_tree_for_substates(self,index,fpath,tids):
-        self.treeWidget.h5folder = self.h5directory_to_load
+        self.treeWidget.h5folder = self.h5directory
         self.treeWidget.setColumnCount(6)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
 
@@ -223,12 +214,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.treeWidget.setColumnCount(6)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
 
-        fname_entry = [str(fpath)] # us this pointless!?
         details_entry = [str(index),
                          '',
                          '',
                          '',
-                         str(tids), # bad, should make only tid having one explicit
+                         str(tids),
                          str(fpath)]
 
         item = QtGui.QTreeWidgetItem(details_entry)
@@ -256,7 +246,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                                'start': group.attrs['precise_annotation'][seizure_i, 0],
                                'end'  : group.attrs['precise_annotation'][seizure_i, 1],
                                'tid'  : group.attrs['tid'],
-                               'index': i, # not sure if this is gonna work/ not consistent with the predictions
+                               'index': i,
                                'chunk_start': group.attrs['chunked_annotation'][seizure_i, 0],
                                'chunk_end': group.attrs['chunked_annotation'][seizure_i, 1],
                                }
@@ -274,7 +264,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def populate_tree_items_from_library(self, row):
-
         self.treeWidget.setColumnCount(7)
         self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name'])
         details_entry = [str(row['index']),
@@ -300,6 +289,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.file_tree_export_csv()
 
     def file_tree_export_csv(self):
+        # we just call predicitions tree export as should be same idea
         self.predictions_tree_export_csv()
 
     def library_tree_export_csv(self):
@@ -318,6 +308,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         for i in range(child_count):
             item = root.child(i)
             index.append(item.text(0))
+
             start.append(item.text(1))
             end.append(item.text(2))
             tid.append(item.text(6))
@@ -398,7 +389,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def tree_selection_file_dir(self):
         # this method does too much
         "grab tree detail and use to plot"
-        self.h5directory = self.h5directory_to_load # shitty but you had diff variabels?!
+        self.h5directory = self.h5directory # shitty but you had diff variabels?!
         current_item = self.treeWidget.currentItem()
         if current_item.text(1) != '':
             try:
@@ -410,7 +401,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                     msgBox.exec_()
 
                 # do something else here
-                #self.tree_selection_predictions()
+                self.tree_selection_predictions()
                 tids = current_item.text(4)
                 self.valid_h5_tids = eval(tids)
                 self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
@@ -429,7 +420,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         fields = self.treeWidget.currentItem()
         path = fields.text(5)
         index = float(fields.text(0))
-        fpath = os.path.join(self.h5directory_to_load, path)
+        fpath = os.path.join(self.h5directory, path)
         h5 = H5File(fpath)
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
@@ -445,7 +436,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         current_spinbox_id = self.tid_spinBox.value()
         if current_spinbox_id not in self.valid_h5_tids:
             self.tid_spinBox.setValue(self.valid_h5_tids[0])
-            print('warning - file id changed')
+            print('File Tid changed')
         else:
             self.tid_spinBox_handling()
 
@@ -622,9 +613,24 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.update_tree_element_duration()
 
     def update_tree_element_end_time(self):
+        self.check_for_blank()
         tree_row = self.treeWidget.currentItem()
         tree_row.setText(2,'{:.2f}'.format(self.end_line.x()))
         self.update_tree_element_duration()
+
+    def check_for_blank(self):
+        try:
+            if int(self.end_line.x()) ==0 and int(self.start_line.x()) ==0:
+                if self.start_line.x() != 0:
+                    self.start_line.setValue(0)
+                if self.end_line.x() != 0:
+                    self.end_line.setValue(0)
+                    print('Blank entered, setting to 0')
+
+        except:
+            print('Error when checking for blank')
+            traceback.print_exception(1)
+
 
     def update_tree_element_duration(self):
         tree_row = self.treeWidget.currentItem()
@@ -719,30 +725,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.file_dir_up = False
         self.substates_up = False
 
-    def debug_load_pred_files(self): # stripped down version of the above for debugging gui code
-        self.clear_QTreeWidget()
-        try:
-            self.h5directory = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/M6'
-            self.update_h5_folder_display()
-            self.predictions_fname = '/Volumes/G-DRIVE with Thunderbolt/GL_Steffan/2016_10/clf_predictions_m6_201610_no_pks.csv'
-            self.update_predictionfile_display()
-            self.predictions_df = pd.read_csv(self.predictions_fname)
-            self.predictions_df['Index'] = self.predictions_df.index
-            print('loading up files for debug')
-            for i,row in list(self.predictions_df.iterrows()):
-                fpath = os.path.join(self.h5directory,row['Filename'])
-                tids = [int(fpath.split(']')[0].split('[')[1])]
-                s,e = row['Start'], row['End']
-                self.populate_tree_items_list_from_predictions(row, tids)
-            self.treeWidget.addTopLevelItems(self.tree_items)
-
-            self.predictions_up = True
-            self.library_up = False
-            self.file_dir_up = False
-            self.substates_up = False
-        except:
-            print('Error, with debug loading')
-
     def populate_tree_items_list_from_predictions(self, row, tids):
         # todo refactor this name
 
@@ -759,14 +741,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(start),
                          str(end),
                          str(duration),
-                         str(tids[0]), # bad, should make only tid having one explicit
+                         str(tids[0]), # bad, should make only tid having one explicit - predictions should only have one!
                          str(filename)]
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
-
-        #self.treeWidget.addTopLevelItems(self.tree_items) # now beeing called once all items are there.
 
     def make_new_tree_entry_from_current(self,item,xpos):
         ''' for adding seizures with start '''
@@ -787,19 +767,16 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         current_item = self.treeWidget.currentItem()
         root =  self.treeWidget.invisibleRootItem()
         index= root.indexOfChild(current_item)
-
         test_item = self.make_new_tree_entry_from_current(current_item,xpos)
-
         self.tree_items.insert(index+1, test_item)
         self.treeWidget.insertTopLevelItem(index+1, test_item)
-
         xlims  = self.plot_1.getViewBox().viewRange()[0]
         self.treeWidget.setCurrentItem(test_item)
         self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
 
 
     def add_start_line_to_h5_file(self,xpos):
-        # do something to make new x line
+
         self.add_new_entry_to_tree_widget(xpos) # this makes new slects it, and sets xrange to the same.
 
         # now make lines and wipe end line
@@ -810,7 +787,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.treeWidget.currentItem().setText(1,'{:.2f}'.format(self.start_line.x()))
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
-
         self.end_line = None
 
     def set_end_and_calc_duration(self):
@@ -831,24 +807,18 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.end_line.setValue(xpos)
         self.set_end_and_calc_duration()
 
-
-
     def mouse_click_on_main(self,evt):
         pos = evt[0].scenePos()
         if self.plot_1.sceneBoundingRect().contains(pos):
-            mousePoint = self.bx1.mapSceneToView(pos) # self.plot_1.getViewBox()
-            #print(mousePoint)
+            mousePoint = self.bx1.mapSceneToView(pos) # bx1 is just self.plot_1.getViewBox()
+
         modifier = evt[0].modifiers()
 
         if modifier == Qt.ShiftModifier:
-            print('shift')
             self.add_start_line_to_h5_file(mousePoint.x())
+
         elif modifier == Qt.AltModifier:
-            print('alt')
             self.add_end_line_to_h5(mousePoint.x())
-
-
-
 
     def mouse_click_in_overview(self,evt):
         # signal for this is coming from self.data,

@@ -164,8 +164,9 @@ apply_async_with_callback()
                         except:
                             pass
                         group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
-                        group.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
+                        group.attrs['feature_col_names'] = np.array(extractor.col_labels).astype('|S9')
                         group.attrs['mode_std'] = extractor.mode_std
+
                         # here add feature titles to the dataset attrs?
                         logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
                         self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)

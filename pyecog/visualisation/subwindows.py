@@ -94,7 +94,9 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
                 QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
                 self.get_label_counts()
             except:
-                QtGui.QMessageBox.information(self, "Not?", "ERROR: Something went wrong making the classifier - is the library ready?")
+                msgBox = QtWidgets.QMessageBox()
+                msgBox.setText('Error!   \n'+ str(traceback.format_exc(1)) )
+                msgBox.exec_()
                 return 0
         else:
             QtGui.QMessageBox.information(self, "Not?", "Please choose a valid library path")
@@ -296,11 +298,15 @@ class PredictSeizuresThread(QThread):
 
             except KeyError:
                 logging.error(str(full_fname) + ' did not contain any features! Skipping')
-                self.update_label_below('ERROR: '+ full_fname + ' did not contain any features! Skipping')
+                self.update_label_below.emit('ERROR: '+ full_fname + ' did not contain any features! Skipping')
 
+        try:
+            self.clf.reorder_prediction_csv(self.excel_output)
+        except:
+            print('Error reordering excel output by date')
+            print(traceback.format_exc(1))
 
         self.update_progress_label.emit('Re - ordering spreadsheet by date')
-        self.clf.reorder_prediction_csv(self.excel_output)
         self.update_progress_label.emit('Done')
         self.finished.emit()
         self.exit()
@@ -457,6 +463,9 @@ class ExtractPredictionFeaturesThread(QThread):
 
     def run(self):
         pool = multiprocessing.Pool(self.n_cores)
+
+        self.set_progress_bar.emit(str(0))
+        self.update_progress_label.emit('Progress: ' +str(0)+ ' / '+ str(len(self.files_to_add_features)))
 
         for i, _ in enumerate(pool.imap(self.handler.add_predicition_features_to_h5_file, self.files_to_add_features), 1):
             self.set_progress_bar.emit(str(i))
@@ -650,7 +659,6 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-        #todo catch not having the annotations and h5 files
         elif self.worker.isFinished():
             self.worker.set_library_attributes(self.library_path,
                                      self.annotation_df,
