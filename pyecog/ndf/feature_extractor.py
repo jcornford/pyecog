@@ -92,8 +92,12 @@ class FeatureExtractor():
             self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120)]
             self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
 
-        elif self.fs >= 512 :
+        elif self.fs == 512 :
             self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70),(70,120), (120,160)]
+            self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
+
+        elif self.fs == 1024 :
+            self.powerbands = [(1,4),(4,8),(8,12),(12,30),(30,50),(50,70), (70,110), (110,150), (150,200), (200,250), (250,320)]
             self.powerband_titles = [str(i)+'-'+str(ii)+' Hz' for i,ii in self.powerbands]
 
         if extract:

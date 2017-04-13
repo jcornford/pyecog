@@ -339,7 +339,9 @@ class TrainClassifierThread(QThread):
                                                       sizes = target_resample)
 
     def run(self):
-        #emit the correct signals
+
+        '''
+        # think you should just be using clf train method here
         self.update_progress_label.emit('Training Random Forest...')
         self.clf.rf =  RandomForestClassifier(n_jobs=self.n_cores, n_estimators= self.ntrees, oob_score=True, bootstrap=True)
         self.clf.rf.fit(self.res_x, np.ravel(self.res_y))
@@ -355,7 +357,9 @@ class TrainClassifierThread(QThread):
 
         # would be very nice to emit this back
         #self.feature_weightings = sorted(zip(self.clf.rf.feature_importances_, self.clf.feature_names),reverse = True)
-
+        '''
+        self.update_progress_label.emit('Training Random Forest...')
+        self.clf.train(self.downsample_bl_factor,self.upsample_seizure_factor,self.ntrees,self.n_cores,n_emission_prob_cvfolds = 3)
         self.finished.emit()
         self.exit()
 
