@@ -22,11 +22,11 @@ class HmmVanilla():
     @staticmethod
     def forward(x,k,N,A,phi,stationary_dist):
         alpha  = np.zeros((k,N)) # init alpha vect to store alpha vals for each z_k (rows)
-        alpha[:,0] = np.log(phi[:,y[0]] * stationary_dist)
+        alpha[:,0] = np.log(phi[:,x[0]] * stationary_dist)
         for t in np.arange(1,N):
             max_alpha_t = max(alpha[:,t-1]) # b
             exp_alpha_t = np.exp(alpha[:,t-1]-max_alpha_t) # exp sum over alphas - b
-            alpha_t     = np.log(phi[:,y[t]]*exp_alpha_t.dot(A)) # write this dot out...
+            alpha_t     = np.log(phi[:,x[t]]*exp_alpha_t.dot(A)) # write this dot out...
             alpha[:,t]  = alpha_t + max_alpha_t
         return alpha
 
@@ -42,7 +42,7 @@ class HmmVanilla():
             #print(t,end=',')
             max_beta_t   = max(beta[:,t+1])
             exp_beta_t   = np.exp(beta[:,t+1]-max_beta_t)
-            beta_t       = np.log((phi[:,y[t+1]]*exp_beta_t).dot(A)) # is this correct?
+            beta_t       = np.log((phi[:,x[t+1]]*exp_beta_t).dot(A)) # is this correct?
             # phi inside the dot product as dependnds on the
             beta[:,t]    = beta_t
             posterior[:,t] = np.exp(alpha[:,t]+beta[:,t])

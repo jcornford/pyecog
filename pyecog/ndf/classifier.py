@@ -25,6 +25,7 @@ except:
     print('Problem import hmm module - presumably do not have pomegranate insalled?')
 
 from .h5loader import H5File
+from . import hmm_pyecog
 
 def load_classifier(filepath):
     f = open(filepath, 'rb')
@@ -89,8 +90,9 @@ class Classifier():
     def train(self, downsample_bl_by_x = 3,
                     upsample_seizure_by_x = 1,
                     ntrees=800, n_cores = -1,
-                    n_emission_prob_cvfolds = 3):
-        print('updated 4')
+                    n_emission_prob_cvfolds = 3,
+                    pyecog_hmm = False):
+        print('updated 5 - with new hmm module')
         self.ntrees = ntrees
         self.downsample_bl_factor    = downsample_bl_by_x
         self.upsample_seizure_factor = upsample_seizure_by_x
@@ -125,13 +127,27 @@ class Classifier():
         for imp_name_tup in self.feature_weightings:
             print(str(imp_name_tup[1])+' : '+str(np.round(imp_name_tup[0],4)))
 
+        if pyecog_hmm:
+            logging.info(' Now getting HMM parameters using pyecog hmm class')
+            print('Now getting HMM parameters using pyecog hmm class')
+            self.make_pyecog_hmm_model(n_emission_prob_cvfolds) # initially keep for the non prob version of self rolled f/b stuff
 
-        logging.info(' Now getting HMM parameters:')
-        print('Now getting HMM parameters')
-        self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
+        else:
+            logging.info(' Now getting HMM parameters:')
+            print('Now getting HMM parameters')
+            self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
 
-
-
+    def make_pyecog_hmm_model(self, n_emission_prob_folds = 3):
+        # how to get these bad boys...
+        self.emission_probs = self.get_cross_validation_emission_probs(self.features,
+                                                                       self.labels,
+                                                                       nfolds = n_emission_prob_folds)
+        print('Emission probs')
+        print (self.emission_probs)
+        self.transition_probs = hmm_pyecog.get_state_transition_probs(self.labels)
+        print ('Transition probs')
+        print (self.transition_probs)
+        self.hm_model =  hmm_pyecog.HmmVanilla(self.transition_probs, self.emission_probs)
 
     def make_hmm_model(self, n_emission_prob_folds = 3):
         # how to get these bad boys...
@@ -342,15 +358,22 @@ class Classifier():
         # also depth, leaves and n features?
 
     def run_clf_and_hmm_on_features(self, pred_features):
+        """ this method relies on clf being used with pomegranate: eventually to be replaced"""
         pred_features = self.cleaner.transform(pred_features)
         pred_y_emitts = self.rf.predict(pred_features)
         logp, path = self.hm_model.viterbi(pred_y_emitts)
         decoded_y = np.array([int(state.name) for idx, state in path[1:]])
         return decoded_y
 
+    def run_clf_and_hmm_on_features_pyecog(self, pred_features):
+        """ this method relies on rolled own version..."""
+        pred_features = self.cleaner.transform(pred_features)
+        pred_y_emitts = self.rf.predict(pred_features)
+        posterior = self.hm_model.forward_backward(pred_y_emitts)
+        decoded_y = np.round(posterior[1,:]).astype(int)
+        return decoded_y
 
-
-    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv', overwrite_previous_predicitions = True):
+    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv', overwrite_previous_predicitions = True, pyecog_hmm = True):
         files_to_predict = [os.path.join(prediction_dir,f) for f in os.listdir(prediction_dir) if not f.startswith('.') if f.endswith('.h5') ]
         l = len(files_to_predict)-1
         print('Looking through '+ str(len(files_to_predict)) + ' file for seizures:')
@@ -373,8 +396,12 @@ class Classifier():
                         pred_features = tid['features'][:]
 
                         logging.info(full_fname + ' now predicting tid '+tid_no)
+                        if pyecog_hmm:
+                            # run probabolisitic eventially, initally just the non pomegranate stuff
+                            vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features)
+                        else:
+                            vit_decoded_y = self.run_clf_and_hmm_on_features(pred_features)
 
-                        vit_decoded_y = self.run_clf_and_hmm_on_features(pred_features)
                         # we are going to change this towards the probabilities using forward backward...
 
                         if sum(vit_decoded_y):
@@ -407,7 +434,7 @@ class Classifier():
             x = ymd+h+m
             datetimes.append(pd.to_datetime(x, format = '%Y-%m-%d%H%M'))
         df['datetime'] = pd.Series(datetimes)
-        reordered_df = df.sort_values(by=['datetime', 'Start']).drop('datetime', axis = 1)
+        reordered_df = df.sort_values(by=['datetime', 'start']).drop('datetime', axis = 1)
         reordered_df.to_csv(csv_path)
 
     def make_excel_spreadsheet(self,tid_no, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
