@@ -10,26 +10,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
 from scipy import signal, stats
-#from line_profiler import LineProfiler
 
 if sys.version_info < (3,):
     range = xrange
-'''
-# decorator needed when profiling
-def lprofile():
-    def inner(func):
-        def profiled_func(*args, **kwargs):
-            try:
-                profiler = LineProfiler()
-                profiler.add_function(func)
+try:
+    from line_profiler import LineProfiler
+    # decorator needed when profiling
+    def lprofile():
+        def inner(func):
+            def profiled_func(*args, **kwargs):
+                try:
+                    profiler = LineProfiler()
+                    profiler.add_function(func)
 
-                profiler.enable_by_count()
-                return func(*args, **kwargs)
-            finally:
-                profiler.print_stats()
-        return profiled_func
-    return inner
-'''
+                    profiler.enable_by_count()
+                    return func(*args, **kwargs)
+                finally:
+                    profiler.print_stats()
+            return profiled_func
+        return inner
+except:
+    pass
+
 class NdfFile:
     """
     TODO:
@@ -169,6 +171,7 @@ class NdfFile:
         for tid in self.read_ids:
             # create binding between tid data and the data to deglitch
             self.data_to_deglitch = self.tid_data_time_dict[tid]['data']
+            self.std_data_to_deglitch = np.std(self.data_to_deglitch)
             self.time_to_deglitch = self.tid_data_time_dict[tid]['time']
             #print (self.data_to_deglitch is self.tid_data_time_dict[tid]['data'])
             self._n_possible_glitches = 0
@@ -255,34 +258,48 @@ class NdfFile:
 
 
     def _stddev_based_outlier(self, x_std_threshold=10):
-        std_dev = np.std(self.data_to_deglitch)
+
         mean_point = np.mean(self.data_to_deglitch)
-        threshold = std_dev * x_std_threshold + mean_point
+        threshold = self.std_data_to_deglitch * x_std_threshold + mean_point
         crossing_locations = np.where(self.data_to_deglitch > threshold)[0]
         return crossing_locations
 
+    #@lprofile()
     def _check_glitch_candidates(self,crossing_locations, diff_threshold=10,):
+        '''
+        Checks local difference is much bigger than the mean difference between points
+        Args:
+            crossing_locations: indexes of glitch
+            diff_threshold: default is 10, µV?
 
+        Returns:
+        '''
         self._n_possible_glitches += len(crossing_locations)
-        # check local difference is much bigger than the mean difference between points
         glitch_count = 0
-        std_dev = np.std(self.data_to_deglitch)
-        for location in crossing_locations:
-            i = location - 1
-            ii = location + 1
+
+        for i1 in crossing_locations:
+
             try:
-                if abs(self.data_to_deglitch[location] - self.data_to_deglitch[ii]) > diff_threshold * std_dev:
+                # first check if the next datapoint has a large gap
+                if abs(self.data_to_deglitch[i1] - self.data_to_deglitch[i1+1]) > diff_threshold * self.std_data_to_deglitch:
+                    i = i1 - 1
+                    ii = i1 + 1
+
                     # plot glitches to be removed if plotting option is on
                     if self._plot_each_glitch:
                         plt.figure(figsize = (15, 4))
-                        plt.plot(self.time_to_deglitch[location - 512:location + 512],
-                                 self.data_to_deglitch[location - 512:location + 512], 'k')
+                        plt.plot(self.time_to_deglitch[i1 - 512:i1 + 512],
+                                 self.data_to_deglitch[i1 - 512:i1 + 512], 'k')
                         plt.ylabel('Time (s)'); plt.title('Glitch '+str(glitch_count+1))
                         plt.show()
-                    try: # todo work out what this does?
-                        value = self.data_to_deglitch[i] + (self.time_to_deglitch[location] - self.time_to_deglitch[i]) * (
-                        self.data_to_deglitch[ii] - self.data_to_deglitch[i]) / (self.data_to_deglitch[ii] - self.data_to_deglitch[i])
-                        self.data_to_deglitch[location] = value
+
+                    try:
+                        previous_dpoint_val = self.data_to_deglitch[i]
+                        #tdiff_of_glitch_from_previous = self.time_to_deglitch[i1] - self.time_to_deglitch[i]
+                        val_diff_windowing_points = self.data_to_deglitch[ii] - self.data_to_deglitch[i]
+                        value = previous_dpoint_val + val_diff_windowing_points/2.0
+                        self.data_to_deglitch[i1] = value
+
                     except IndexError:
                         pass
                     glitch_count += 1
@@ -369,18 +386,19 @@ class NdfFile:
 
             f.close()
 
-            #print f.attrs['fs_dict']
         if self.verbose:
             print('Saved data as:'+str(hdf5_filename)+ ' Resampled = ' + str(self._resampled))
 
+    #@lprofile()
     def _merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
         t_clock_data = np.zeros(self.voltage_messages.shape)
         t_clock_data[self.transmitter_id_bytes == 0] = 1 # this is big ticks
-        corse_time_vector = np.cumsum(t_clock_data) * self.clock_tick_cycle
-        fine_time_vector = self.t_stamps_256 * self.clock_division
-        self.time_array = fine_time_vector + corse_time_vector
+        corse_time_vector = np.multiply(np.cumsum(t_clock_data), self.clock_tick_cycle)
+        fine_time_vector  = np.multiply(self.t_stamps_256, self.clock_division)
+        self.time_array   =  np.add(fine_time_vector,corse_time_vector)
 
+    #@lprofile()
     def load(self, read_ids = [],
              auto_glitch_removal = True,
              auto_resampling = True,
