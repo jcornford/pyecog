@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1129</width>
+    <width>1050</width>
     <height>833</height>
    </rect>
   </property>
@@ -166,34 +166,51 @@
      </property>
     </widget>
    </item>
-   <item row="11" column="0" colspan="5">
-    <widget class="QCheckBox" name="overwrite_box">
-     <property name="text">
-      <string>Overwrite previously calculated features in library</string>
+   <item row="6" column="0" colspan="5">
+    <widget class="QLineEdit" name="library_path_display">
+     <property name="minimumSize">
+      <size>
+       <width>500</width>
+       <height>0</height>
+      </size>
      </property>
-    </widget>
-   </item>
-   <item row="9" column="2" colspan="3">
-    <widget class="QLabel" name="label_7">
-     <property name="text">
-      <string>Warning, this will be slow! Labels added automatically.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="13" column="0" colspan="5">
-    <widget class="QLabel" name="progressBar_lable_above1">
-     <property name="text">
-      <string>Progress</string>
-     </property>
-    </widget>
-   </item>
-   <item row="14" column="0" colspan="5">
-    <widget class="QProgressBar" name="progressBar">
-     <property name="value">
-      <number>0</number>
-     </property>
-     <property name="textVisible">
+     <property name="readOnly">
       <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QPushButton" name="set_library">
+     <property name="text">
+      <string>Set library</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1" colspan="2">
+    <widget class="QPushButton" name="clear_library">
+     <property name="text">
+      <string>Clear library path </string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QPushButton" name="new_library">
+     <property name="text">
+      <string>New library</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="5">
+    <widget class="Line" name="line_2">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1" colspan="2">
+    <widget class="QPushButton" name="add_to_library">
+     <property name="text">
+      <string>Add to library</string>
      </property>
     </widget>
    </item>
@@ -228,6 +245,65 @@
     <widget class="QPushButton" name="add_labels">
      <property name="text">
       <string>Add labels to library</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0" colspan="5">
+    <widget class="QCheckBox" name="use_peaks">
+     <property name="text">
+      <string>Use peaks and valleys features, slower!</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0" colspan="5">
+    <widget class="QLabel" name="progressBar_lable_above1">
+     <property name="text">
+      <string>Progress</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="0" colspan="5">
+    <widget class="Line" name="line_3">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="2" colspan="3">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Quickly add labels for looking at how it chunks up in main gui.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0" colspan="2">
+    <widget class="QPushButton" name="add_features">
+     <property name="text">
+      <string>Add features to library</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="2" colspan="3">
+    <widget class="QLabel" name="label_7">
+     <property name="text">
+      <string>Warning, this will be slow! Labels added automatically.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="0" colspan="5">
+    <widget class="QCheckBox" name="overwrite_box">
+     <property name="text">
+      <string>Overwrite previously calculated features in library</string>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0" colspan="5">
+    <widget class="QProgressBar" name="progressBar">
+     <property name="value">
+      <number>0</number>
+     </property>
+     <property name="textVisible">
+      <bool>true</bool>
      </property>
     </widget>
    </item>
@@ -324,82 +400,6 @@
       </widget>
      </item>
     </layout>
-   </item>
-   <item row="2" column="0">
-    <widget class="QPushButton" name="new_library">
-     <property name="text">
-      <string>New library</string>
-     </property>
-    </widget>
-   </item>
-   <item row="12" column="0" colspan="5">
-    <widget class="Line" name="line_3">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="0" colspan="2">
-    <widget class="QPushButton" name="add_features">
-     <property name="text">
-      <string>Add features to library</string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="1" colspan="2">
-    <widget class="QPushButton" name="clear_library">
-     <property name="text">
-      <string>Clear library path </string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="0" colspan="5">
-    <widget class="QLineEdit" name="library_path_display">
-     <property name="minimumSize">
-      <size>
-       <width>500</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0" colspan="5">
-    <widget class="Line" name="line_2">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="0">
-    <widget class="QPushButton" name="set_library">
-     <property name="text">
-      <string>Set library</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1" colspan="2">
-    <widget class="QPushButton" name="add_to_library">
-     <property name="text">
-      <string>Add to library</string>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="0" colspan="5">
-    <widget class="QCheckBox" name="use_peaks">
-     <property name="text">
-      <string>Use peaks and valleys features, slower!</string>
-     </property>
-    </widget>
-   </item>
-   <item row="8" column="2" colspan="3">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string>Quickly add labels for looking at how it chunks up in main gui.</string>
-     </property>
-    </widget>
    </item>
   </layout>
   <widget class="QLabel" name="progressBar_label_above2">
