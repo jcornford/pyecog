@@ -41,14 +41,13 @@ Use python 3.5, untested and likely (even more) buggy with 2.
 4. Finally, you are ready to run 
     ```{bash}
     pip install pyecog
-    python
-    >>> import pyecog
-    >>> pyecog
-    <module 'pyecog' from '//anaconda/envs/pyecog_env/lib/python3.5/site-packages/pyecog/__init__.py'>
-    ```
+    pyecog
+      ```
     You are free to import pyecog into whichever scripts or jupyter notebooks you wish. The main gui can also be run with:
     
     ```
+    python
+    >>> import pyecog
     >>> pyecog.pyecog_main_gui.main()
     ```
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>755</width>
-    <height>562</height>
+    <width>790</width>
+    <height>460</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,10 +16,10 @@
   <widget class="QWidget" name="formLayoutWidget">
    <property name="geometry">
     <rect>
-     <x>70</x>
-     <y>70</y>
-     <width>531</width>
-     <height>161</height>
+     <x>20</x>
+     <y>20</y>
+     <width>731</width>
+     <height>241</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="formLayout_2">
@@ -51,12 +51,6 @@
         <height>0</height>
        </size>
       </property>
-      <property name="maximumSize">
-       <size>
-        <width>170</width>
-        <height>16777215</height>
-       </size>
-      </property>
       <property name="text">
        <string>Choose ndf folder</string>
       </property>
@@ -68,12 +62,6 @@
        <size>
         <width>200</width>
         <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>200</width>
-        <height>32</height>
        </size>
       </property>
       <property name="text">
@@ -128,23 +116,23 @@
   <widget class="QProgressBar" name="progressBar">
    <property name="geometry">
     <rect>
-     <x>60</x>
-     <y>342</y>
-     <width>541</width>
+     <x>20</x>
+     <y>380</y>
+     <width>750</width>
      <height>31</height>
     </rect>
    </property>
    <property name="value">
-    <number>24</number>
+    <number>0</number>
    </property>
   </widget>
   <widget class="QLabel" name="progress_bar_label">
    <property name="geometry">
     <rect>
-     <x>60</x>
+     <x>20</x>
      <y>330</y>
-     <width>461</width>
-     <height>16</height>
+     <width>750</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -154,10 +142,10 @@
   <widget class="QPushButton" name="convert_button">
    <property name="geometry">
     <rect>
-     <x>280</x>
-     <y>250</y>
-     <width>110</width>
-     <height>32</height>
+     <x>250</x>
+     <y>270</y>
+     <width>200</width>
+     <height>46</height>
     </rect>
    </property>
    <property name="text">
@@ -167,10 +155,10 @@
   <widget class="QLabel" name="logpath_dsplay">
    <property name="geometry">
     <rect>
-     <x>60</x>
-     <y>380</y>
-     <width>600</width>
-     <height>16</height>
+     <x>20</x>
+     <y>420</y>
+     <width>750</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="minimumSize">
@@ -186,10 +174,10 @@
   <widget class="QLabel" name="hidden_label">
    <property name="geometry">
     <rect>
-     <x>60</x>
-     <y>300</y>
-     <width>600</width>
-     <height>16</height>
+     <x>20</x>
+     <y>320</y>
+     <width>750</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="minimumSize">
