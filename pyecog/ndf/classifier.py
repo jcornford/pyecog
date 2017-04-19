@@ -19,6 +19,7 @@ from sklearn.preprocessing import Imputer, StandardScaler, normalize
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation as cv
 from sklearn import metrics
+from sklearn.calibration import CalibratedClassifierCV
 try:
     from . import hmm
 except:
@@ -91,7 +92,10 @@ class Classifier():
                     upsample_seizure_by_x = 1,
                     ntrees=800, n_cores = -1,
                     n_emission_prob_cvfolds = 3,
-                    pyecog_hmm = False):
+                    pyecog_hmm = False,
+                    calc_emissions = True,
+                    rf_weights = None,
+                    calibrate = False):
         print('updated 5 - with new hmm module')
         self.ntrees = ntrees
         self.downsample_bl_factor    = downsample_bl_by_x
@@ -112,9 +116,16 @@ class Classifier():
         print("Training Random Forest on all data:")
         print('Resampling '+str(counts)+ ' to '+str(target_resample)+ ' with upsample seizures factor: ' +\
               str(self.upsample_seizure_factor) + ', and downsample bl factor: '+ str(self.downsample_bl_factor))
-        self.rf =  RandomForestClassifier(n_jobs=n_cores, n_estimators= ntrees, oob_score=True, bootstrap=True)
-        self.rf.fit(res_x, np.ravel(res_y))
+        print(rf_weights)
+        self.rf =  RandomForestClassifier(n_jobs=n_cores, n_estimators= ntrees, oob_score=True, bootstrap=True, class_weight=rf_weights)
+        if calibrate:
+            print('running calibration')
+            self.platt_rf = CalibratedClassifierCV(self.rf, method = 'sigmoid', cv=3)
+            self.rf = self.platt_rf.fit(res_x,np.ravel(res_y)) # sample_weight : array-like, shape = [n_samples] or None
+        else:
+            self.rf.fit(res_x, np.ravel(res_y))
 
+        '''
         print ('********* Out-of-bag results on resampled data *******')
         self.oob_preds = np.round(self.rf.oob_decision_function_[:,1])
         print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(res_y), self.rf.oob_decision_function_[:,1])))
@@ -126,28 +137,29 @@ class Classifier():
         self.feature_weightings = sorted(zip(self.rf.feature_importances_, self.feature_names),reverse = True)
         for imp_name_tup in self.feature_weightings:
             print(str(imp_name_tup[1])+' : '+str(np.round(imp_name_tup[0],4)))
-
+        '''
         if pyecog_hmm:
             logging.info(' Now getting HMM parameters using pyecog hmm class')
             print('Now getting HMM parameters using pyecog hmm class')
-            self.make_pyecog_hmm_model(n_emission_prob_cvfolds) # initially keep for the non prob version of self rolled f/b stuff
+            self.make_pyecog_hmm_model(n_emission_prob_cvfolds, calc_emissions = calc_emissions) # initially keep for the non prob version of self rolled f/b stuff
 
         else:
             logging.info(' Now getting HMM parameters:')
             print('Now getting HMM parameters')
             self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
 
-    def make_pyecog_hmm_model(self, n_emission_prob_folds = 3):
+    def make_pyecog_hmm_model(self, n_emission_prob_folds = 3, calc_emissions = True):
         # how to get these bad boys...
-        self.emission_probs = self.get_cross_validation_emission_probs(self.features,
-                                                                       self.labels,
-                                                                       nfolds = n_emission_prob_folds)
-        print('Emission probs')
-        print (self.emission_probs)
+        if calc_emissions:
+            self.emission_probs = self.get_cross_validation_emission_probs(self.features,
+                                                                           self.labels,
+                                                                           nfolds = n_emission_prob_folds)
+            print('Emission probs')
+            print (self.emission_probs)
         self.transition_probs = hmm_pyecog.get_state_transition_probs(self.labels)
         print ('Transition probs')
         print (self.transition_probs)
-        self.hm_model =  hmm_pyecog.HmmVanilla(self.transition_probs, self.emission_probs)
+        self.hm_model =  hmm_pyecog.HMM(self.transition_probs)
 
     def make_hmm_model(self, n_emission_prob_folds = 3):
         # how to get these bad boys...
@@ -159,7 +171,7 @@ class Classifier():
         self.transition_probs = hmm.get_state_transition_probs(self.labels)
         print ('Transition probs')
         print (self.transition_probs)
-        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.transition_probs)
+        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.emission_probs)
         
     def get_cross_validation_emission_probs(self, X, y, nfolds = 3):
         '''
@@ -365,23 +377,33 @@ class Classifier():
         decoded_y = np.array([int(state.name) for idx, state in path[1:]])
         return decoded_y
 
-    def run_clf_and_hmm_on_features_pyecog(self, pred_features):
+    def run_clf_and_hmm_on_features_pyecog(self, pred_features, use_probs = False):
         """ this method relies on rolled own version..."""
         pred_features = self.cleaner.transform(pred_features)
-        pred_y_emitts = self.rf.predict(pred_features)
-        posterior = self.hm_model.forward_backward(pred_y_emitts)
-        decoded_y = np.round(posterior[1,:]).astype(int)
+
+        if use_probs:
+            pred_y_probs = self.rf.predict_proba(pred_features).T # expecting cols to be timepoints
+            posterior = self.hm_model.forward_backward(pred_y_probs, phi_mat=None)
+        else:
+            pred_y_emitts = self.rf.predict(pred_features)
+            posterior = self.hm_model.forward_backward(pred_y_emitts,phi_mat = self.transition_probs)
+        decoded_y = posterior[1,:]>self.posterior_thresh
         return decoded_y
 
-    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv', overwrite_previous_predicitions = True, pyecog_hmm = True):
+    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv',
+                    overwrite_previous_predicitions = True, pyecog_hmm = True, use_probs = False, posterior_thresh = 0.5):
+        self.posterior_thresh = posterior_thresh
         files_to_predict = [os.path.join(prediction_dir,f) for f in os.listdir(prediction_dir) if not f.startswith('.') if f.endswith('.h5') ]
         l = len(files_to_predict)-1
         print('Looking through '+ str(len(files_to_predict)) + ' file for seizures:')
 
+        '''
         if overwrite_previous_predicitions:
             if os.path.exists(excel_sheet):
-                with open(excel_sheet, 'a') as f:
+                with open(excel_sheet, 'w') as f:
                     pass
+        '''
+
 
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i,fpath in enumerate(files_to_predict):
@@ -398,7 +420,10 @@ class Classifier():
                         logging.info(full_fname + ' now predicting tid '+tid_no)
                         if pyecog_hmm:
                             # run probabolisitic eventially, initally just the non pomegranate stuff
-                            vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features)
+                            if use_probs:
+                                vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features, use_probs = True)
+                            else:
+                                vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features)
                         else:
                             vit_decoded_y = self.run_clf_and_hmm_on_features(pred_features)
 
