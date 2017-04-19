@@ -329,12 +329,12 @@
     <rect>
      <x>220</x>
      <y>780</y>
-     <width>200</width>
+     <width>250</width>
      <height>46</height>
     </rect>
    </property>
    <property name="text">
-    <string>Run clf on folder</string>
+    <string>Run classifier on folder</string>
    </property>
   </widget>
   <widget class="Line" name="line_4">
