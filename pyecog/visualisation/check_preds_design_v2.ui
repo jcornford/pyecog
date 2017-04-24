@@ -142,7 +142,7 @@
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
-       <widget class="QWidget" name="">
+       <widget class="QWidget" name="layoutWidget">
         <layout class="QGridLayout" name="gridLayout_1">
          <item row="0" column="0">
           <layout class="QGridLayout" name="gridLayout_3">
@@ -411,7 +411,7 @@
           </layout>
          </item>
          <item row="1" column="0">
-          <widget class="QGroupBox" name="">
+          <widget class="QGroupBox" name="groupBox">
            <layout class="QGridLayout" name="gridLayout_6">
             <item row="0" column="0">
              <widget class="QLabel" name="label_15">
@@ -529,7 +529,7 @@ SPACE: Start scrolling (or blinking)</string>
      <x>0</x>
      <y>0</y>
      <width>1280</width>
-     <height>38</height>
+     <height>31</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -556,6 +556,9 @@ SPACE: Start scrolling (or blinking)</string>
     <addaction name="actionLibrary_logistics"/>
     <addaction name="separator"/>
     <addaction name="actionClassifier_components"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen_in_Jupyter_notebook"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuAnalyse"/>
@@ -643,6 +646,11 @@ SPACE: Start scrolling (or blinking)</string>
   <action name="actionSubstates_Window">
    <property name="text">
     <string>Substates Window</string>
+   </property>
+  </action>
+  <action name="actionOpen_in_Jupyter_notebook">
+   <property name="text">
+    <string>Open in Jupyter notebook</string>
    </property>
   </action>
  </widget>
