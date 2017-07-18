@@ -853,6 +853,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
 
         if tids != 'all':
             tids = eval('['+tids+']')
+            tids = sorted(tids)
 
         self.converting_thread = ConvertNdfThread()
         self.converting_thread.set_progress_bar.connect(self.update_progress)

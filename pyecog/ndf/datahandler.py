@@ -546,6 +546,7 @@ apply_async_with_callback()
         start = time.time()
         try:
             ndf = NdfFile(filename, fs = fs)
+            tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids)
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(ndf.read_ids))
