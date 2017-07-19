@@ -5,9 +5,11 @@ import traceback
 
 import numpy as np
 import pandas as pd
+import pickle as p
 
 from PyQt5 import QtGui, QtWidgets#,# uic
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
+from scipy import signal, stats
 import pyqtgraph as pg
 import inspect
 import h5py
@@ -58,6 +60,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
+        self.checkbox_filter_toggle.stateChanged.connect(self.set_plot1_display_filter_settings)
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
@@ -70,9 +73,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
         self.valid_h5_tids = None
 
-        if os.path.exists('/Volumes/LaCie/Pyecog_demo_stuff'):
-            #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
-            self.home = '/Volumes/LaCie/Pyecog_demo_stuff'
+        if os.path.exists('pyecog_temp_file.pickle'):
+            with open('pyecog_temp_file.pickle', "rb") as temp_file:
+                self.home = p.load(temp_file)
         else:
             self.home = os.getcwd()
 
@@ -104,6 +107,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.file_dir_up = False
         self.substates_up = False
         self.substate_child_selected = False
+
+    def set_plot1_display_filter_settings(self):
+        # set filter settings on trace
+        toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+        self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
+        self.hdf5_plot.updateHDF5Plot()
+
+    def get_plot1_display_filter_settings_from_maingui(self):
+        ''' Returns the state, high pass and low pass values from main gui'''
+        hp = self.hp_filter_freq.value()
+        lp = self.lp_filter_freq.value()
+        if hp <= 0:
+            self.hp_filter_freq.setValue(1.0)
+        toggle = self.checkbox_filter_toggle.isChecked()
+        return toggle, hp, lp
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
@@ -142,6 +160,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def set_home(self):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
+        with open("pyecog_temp_file.pickle", "wb") as f:
+            p.dump(self.home, f)
 
     def get_h5_folder_fnames(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
@@ -578,9 +598,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
-        hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
-        hdf5_plot.setHDF5(data, time, self.fs)
-        self.plot_1.addItem(hdf5_plot)
+        self.hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
+        if self.checkbox_filter_toggle.isChecked():
+            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp)
+        self.hdf5_plot.setHDF5(data, time, self.fs)
+        self.plot_1.addItem(self.hdf5_plot)
         self.plot_1.setLabel('left', 'Voltage (uV)')
         self.plot_1.setLabel('bottom','Time (s)')
 
@@ -1070,6 +1093,9 @@ class HDF5Plot(pg.PlotCurveItem):
         self.fs = None
         self.vb = viewbox
         self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
+        self.display_filter = None
+        self.hp_cutoff = None
+        self.lp_cutoff = None
         pg.PlotCurveItem.__init__(self, *args, **kwds)
         if pg.CONFIG_OPTIONS['background'] == 'w':
             self.pen = (0,0,0)
@@ -1092,6 +1118,29 @@ class HDF5Plot(pg.PlotCurveItem):
         #print ( self.hdf5.shape, self.time.shape)
         self.updateHDF5Plot()
 
+    def set_display_filter_settings(self, display_filter, hp_cutoff, lp_cutoff):
+        self.display_filter = display_filter
+        self.hp_cutoff = hp_cutoff
+        self.lp_cutoff = lp_cutoff
+
+
+    def highpass_filter(self, data):
+        '''
+        Implements high pass digital butterworth filter, order 2.
+
+        Args:
+            cutoff_hz: default is 1hz
+        '''
+
+        nyq = 0.5 * self.fs
+        cutoff_decimal = self.hp_cutoff/nyq
+        b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
+
+        filtered_data = signal.filtfilt(b, a, data)
+        print('filtered')
+        return filtered_data
+
+
     def viewRangeChanged(self):
         self.updateHDF5Plot()
 
@@ -1100,6 +1149,10 @@ class HDF5Plot(pg.PlotCurveItem):
             self.setData([])
             return 0
 
+        if self.display_filter:
+            hdf5data = self.highpass_filter(self.hdf5)
+        else:
+            hdf5data = self.hdf5
         #vb = self.getViewBox()
         #if vb is None:
         #    return  # no ViewBox yet
@@ -1107,7 +1160,7 @@ class HDF5Plot(pg.PlotCurveItem):
         # Determine what data range must be read from HDF5
         xrange = [i*self.fs for i in self.vb.viewRange()[0]]
         start = max(0,int(xrange[0])-1)
-        stop = min(len(self.hdf5), int(xrange[1]+2))
+        stop = min(len(hdf5data), int(xrange[1]+2))
         if stop-start < 1:
             print('didnt update')
             return 0
@@ -1115,14 +1168,14 @@ class HDF5Plot(pg.PlotCurveItem):
         ds = int((stop-start) / self.limit) + 1
         if ds == 1:
             # Small enough to display with no intervention.
-            visible_y = self.hdf5[start:stop]
+            visible_y = hdf5data[start:stop]
             visible_x = self.time[start:stop]
             scale = 1
         else:
             # Here convert data into a down-sampled array suitable for visualizing.
             # Must do this piecewise to limit memory usage.
             samples = 1 + ((stop-start) // ds)
-            visible_y = np.zeros(samples*2, dtype=self.hdf5.dtype)
+            visible_y = np.zeros(samples*2, dtype=hdf5data.dtype)
             visible_x = np.zeros(samples*2, dtype=self.time.dtype)
             sourcePtr = start
             targetPtr = 0
@@ -1131,7 +1184,7 @@ class HDF5Plot(pg.PlotCurveItem):
             chunkSize = (1000000//ds) * ds
             while sourcePtr < stop-1:
 
-                chunk = self.hdf5[sourcePtr:min(stop,sourcePtr+chunkSize)]
+                chunk = hdf5data[sourcePtr:min(stop,sourcePtr+chunkSize)]
                 chunk_x = self.time[sourcePtr:min(stop,sourcePtr+chunkSize)]
                 sourcePtr += len(chunk)
                 #print(chunk.shape, chunk_x.shape)
@@ -1168,6 +1221,9 @@ class HDF5Plot(pg.PlotCurveItem):
             scale = ds * 0.5
 
         # TODO: setPos, scale, resetTransform methods... scale?
+
+
+
 
 
         self.setData(visible_x, visible_y, pen=self.pen) # update the plot
