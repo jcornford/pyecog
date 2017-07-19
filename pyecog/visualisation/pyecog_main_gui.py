@@ -5,6 +5,7 @@ import traceback
 
 import numpy as np
 import pandas as pd
+import pickle as p
 
 from PyQt5 import QtGui, QtWidgets#,# uic
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
@@ -59,7 +60,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
-        self.checkbox_filter_toggle.stateChanged.connect(self.filter_trace_main_plot)
+        self.checkbox_filter_toggle.stateChanged.connect(self.set_plot1_display_filter_settings)
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
@@ -72,9 +73,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tree_items = []
         self.valid_h5_tids = None
 
-        if os.path.exists('/Volumes/LaCie/Pyecog_demo_stuff'):
-            #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
-            self.home = '/Volumes/LaCie/Pyecog_demo_stuff'
+        if os.path.exists('pyecog_temp_file.pickle'):
+            with open('pyecog_temp_file.pickle', "rb") as temp_file:
+                self.home = p.load(temp_file)
         else:
             self.home = os.getcwd()
 
@@ -107,19 +108,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
         self.substate_child_selected = False
 
-    def filter_trace_main_plot(self):
+    def set_plot1_display_filter_settings(self):
+        # set filter settings on trace
+        toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+        self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
+        self.hdf5_plot.updateHDF5Plot()
+
+    def get_plot1_display_filter_settings_from_maingui(self):
+        ''' Returns the state, high pass and low pass values from main gui'''
         hp = self.hp_filter_freq.value()
         lp = self.lp_filter_freq.value()
-        print(self.checkbox_filter_toggle.isChecked())
-        try:
-            self.hdf5_plot.set_filter_settings(self.checkbox_filter_toggle.isChecked(),hp,lp)
-        except:
-            print('fail')
-            self.hdf5_plot.set_filter_settings(self.checkbox_filter_toggle.isChecked(),hp,lp)
-        print('filter freqs were', hp, lp )
-        self.updatePlot()
-
-
+        if hp <= 0:
+            self.hp_filter_freq.setValue(1.0)
+        toggle = self.checkbox_filter_toggle.isChecked()
+        return toggle, hp, lp
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
@@ -158,6 +160,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def set_home(self):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
+        with open("pyecog_temp_file.pickle", "wb") as f:
+            p.dump(self.home, f)
 
     def get_h5_folder_fnames(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
@@ -595,6 +599,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
         self.hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
+        if self.checkbox_filter_toggle.isChecked():
+            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp)
         self.hdf5_plot.setHDF5(data, time, self.fs)
         self.plot_1.addItem(self.hdf5_plot)
         self.plot_1.setLabel('left', 'Voltage (uV)')
@@ -1111,7 +1118,7 @@ class HDF5Plot(pg.PlotCurveItem):
         #print ( self.hdf5.shape, self.time.shape)
         self.updateHDF5Plot()
 
-    def set_filter_settings(self, display_filter,hp_cutoff,lp_cutoff):
+    def set_display_filter_settings(self, display_filter, hp_cutoff, lp_cutoff):
         self.display_filter = display_filter
         self.hp_cutoff = hp_cutoff
         self.lp_cutoff = lp_cutoff
