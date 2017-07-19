@@ -343,7 +343,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 # tid is probably a '[x]'
                 tid_str = eval(item.text(4))
                 if hasattr(tid_str, '__iter__'):
-                    tid_str = tid_str[0]
+                    tid_str = str(tid_str)
             tid.append(tid_str)
             fname.append(item.text(5))
             duration.append(item.text(3))
@@ -355,7 +355,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def master_tree_selection(self):
         if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
             if self.predictions_up:
-                self.tree_selection_predictions()
+                #todo Jonny hacking awway again, this actuall loops back to tree_selections_preductions
+                self.tree_selection_file_dir()
+                #self.tree_selection_predictions()
             elif self.library_up:
                 self.tree_selection_library()
             elif self.file_dir_up:
@@ -402,9 +404,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
                 # do something else here
                 self.tree_selection_predictions()
-                tids = current_item.text(4)
-                self.valid_h5_tids = eval(tids)
-                self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+            tids = current_item.text(4)
+            self.valid_h5_tids = eval(tids)
+            self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             tids = current_item.text(4)
             self.valid_h5_tids = eval(tids)
@@ -426,7 +428,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
         xrange = self.xrange_spinBox.value()
-        self.plot_1.setXRange(0, xrange)
+        self.plot_1.setXRange(0, xrange, padding=0)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
@@ -450,7 +452,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 i = bisect.bisect_left(self.valid_h5_tids,new_val)
                 new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
             self.tid_spinBox.setValue(new_tid)
-            self.load_filedir_h5_file(new_tid)
+            current_item = self.treeWidget.currentItem()
+            if current_item.text(1) != '':
+                pass
+            else:
+                self.load_filedir_h5_file(new_tid)
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
@@ -508,7 +514,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.addItem(self.end_coarse)
             self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
             self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
-            self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer)
+            self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer, padding=0)
             self.plot_1.setTitle(str(index)+' - '+ key+ '\n' + str(start)+' - ' +str(end))
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
             self.updatePlot()
@@ -534,7 +540,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             if hasattr(tid, '__iter__'):
                 tid = tid[0]
         start = float(fields.text(1))
-        end = float(fields.text(2))
+        try:
+            end = float(fields.text(2))
+        except:
+            end = start + 1
+            print(' caught you not clicking an end, line 541, need to code this better')
         index = float(fields.text(0))
         # duration is fields.text(3)
 
@@ -543,6 +553,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         h5 = H5File(fpath)
         data_dict = h5[tid]
+        print('Plotting transmitter: '+str(tid))
         self.fs = eval(h5.attributes['fs_dict'])[tid]
 
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
@@ -558,7 +569,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
         self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
 
-        self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer)
+        self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer, padding=0)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n' + str(start)+' - ' +str(end))
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
@@ -576,7 +587,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         # hit up the linked view here
         self.plot_overview.clear()
         self.plot_overview.enableAutoRange(False,False)
-        self.plot_overview.setXRange(0,3600) # hardcoding in the hour here...
+        self.plot_overview.setXRange(0,3600, padding=0) # hardcoding in the hour here...
         self.plot_overview.setMouseEnabled(x = False, y= True)
         self.bx_overview = self.plot_overview.getViewBox()
         hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
@@ -633,9 +644,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def update_tree_element_duration(self):
-        tree_row = self.treeWidget.currentItem()
-        duration = float(tree_row.text(2))-float(tree_row.text(1))
-        tree_row.setText(3, '{:.2f}'.format(duration))
+        try:
+            tree_row = self.treeWidget.currentItem()
+            duration = float(tree_row.text(2))-float(tree_row.text(1))
+            tree_row.setText(3, '{:.2f}'.format(duration))
+        except:
+            print('caught error at 639')
 
     def plot_traces(self, data_dict):
 
@@ -648,7 +662,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.addItem(hdf5_plot)
 
         #self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
-        self.plot_1.setXRange(row['Start'], row['End'])
+        self.plot_1.setXRange(row['Start'], row['End'], padding=0)
         #self.plot_1.ti
 
     def clear_QTreeWidget(self):
@@ -702,11 +716,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             return 0
         self.update_predictionfile_display()
         self.predictions_df['Index'] = self.predictions_df.index
+        self.predictions_df.columns = [colname.lower() for colname in self.predictions_df.columns]
+        self.predictions_df.fillna(value = '', inplace=True)
         if self.h5directory is None:
             self.set_h5_folder()
-
+        #print(self.predictions_df)
         for i,row in list(self.predictions_df.iterrows()):
-            fpath = os.path.join(self.h5directory,row['Filename'])
+            #todo correct this
+
+            fpath = os.path.join(self.h5directory, row['filename'])
             #TODO : decide what to do with tids, this is not thought out at the moment
             #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
             # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
@@ -715,8 +733,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
             #h5 = H5File(fpath)
             #tids = h5.attributes['t_ids']
-            tids = [int(fpath.split(']')[0].split('[')[1])]
-            s,e = row['Start'], row['End']
+            try:
+                tids = row['transmitter']
+            except:
+                # this is legacy from when there was only one
+                print('WARNING: DO NOT RELY ON ONE TID PER FILE - TELL JONNY')
+                tids = [int(fpath.split(']')[0].split('[')[1])]
+
+            s, e = row['start'], row['end']
+
             self.populate_tree_items_list_from_predictions(row, tids)    # this just populates self.tree_items
         self.treeWidget.addTopLevelItems(self.tree_items)
 
@@ -730,18 +755,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.treeWidget.setColumnCount(5)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname'])
-        filename = row['Filename']
-        index =  row['Index']
-        start =  row['Start']
-        end = row['End']
-        duration = row['End']-row['Start']
+        filename = row['filename']
+        index =  row['index']
+        start =  row['start']
+        end = row['end']
+        try:
+            duration = row['end']-row['start']
+        except:
+            duration = ''
 
         fname_entry = [str(filename)]
         details_entry = [str(index),
                          str(start),
                          str(end),
                          str(duration),
-                         str(tids[0]), # bad, should make only tid having one explicit - predictions should only have one!
+                         str(tids), # bad, should make only tid having one explicit - predictions should only have one!
                          str(filename)]
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
