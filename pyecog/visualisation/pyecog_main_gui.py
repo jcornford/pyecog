@@ -49,9 +49,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         super(MainGui, self).__init__(parent)
         self.setupUi(self)
         self.scroll_flag = -1
-        self.top_splitter.setSizes([200,600])
-        self.bottom_splitter.setSizes([500,300])
-        self.full_splitter.setSizes([300,200,150])
+        #self.top_splitter.setSizes([200,600])
+        #self.bottom_splitter.setSizes([500,300])
+        #self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
             self.blink      = 1
         else:
@@ -60,11 +60,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
-        self.checkbox_filter_toggle.stateChanged.connect(self.set_plot1_display_filter_settings)
+
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
         self.tid_spinBox.valueChanged.connect(self.tid_spinBox_handling)
+        self.checkbox_filter_toggle.stateChanged.connect(self.plot1_display_filter_toggled)
+        self.hp_filter_freq.valueChanged.connect(self.hp_filter_settings_changed)
 
         self.fs = None # change !
         self.data_obj = None
@@ -108,7 +110,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
         self.substate_child_selected = False
 
-    def set_plot1_display_filter_settings(self):
+    def hp_filter_settings_changed(self):
+        self.hdf5_plot.wipe_filtered_data()
+        self.plot1_display_filter_toggled()
+
+    def plot1_display_filter_toggled(self):
         # set filter settings on trace
         toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
         self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
@@ -447,8 +453,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
-        xrange = self.xrange_spinBox.value()
-        self.plot_1.setXRange(0, xrange, padding=0)
+        if self.checkbox_hold_trace_position.isChecked():
+            xlims  = self.plot_1.getViewBox().viewRange()[0]
+            x_min = xlims[0]
+            x_max = xlims[1]
+        else:
+            xrange = self.xrange_spinBox.value()
+            x_min = 0
+            x_max = xrange
+        self.plot_1.setXRange(x_min, x_max, padding=0)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
@@ -473,7 +486,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
             self.tid_spinBox.setValue(new_tid)
             current_item = self.treeWidget.currentItem()
-            if current_item.text(1) != '':
+            if current_item.text(1) != '': # this is for a seizure i think?
                 pass
             else:
                 self.load_filedir_h5_file(new_tid)
@@ -1089,6 +1102,7 @@ class HDF5Plot(pg.PlotCurveItem):
     def __init__(self, downsample_limit = 20000,viewbox = None, *args, **kwds):
         " TODO what are the args and kwds for PlotCurveItem class?"
         self.hdf5 = None
+        self.hdf5_filtered_data = None
         self.time = None
         self.fs = None
         self.vb = viewbox
@@ -1137,8 +1151,10 @@ class HDF5Plot(pg.PlotCurveItem):
         b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
 
         filtered_data = signal.filtfilt(b, a, data)
-        print('filtered')
         return filtered_data
+
+    def wipe_filtered_data(self):
+        self.hdf5_filtered_data = None
 
 
     def viewRangeChanged(self):
@@ -1150,7 +1166,11 @@ class HDF5Plot(pg.PlotCurveItem):
             return 0
 
         if self.display_filter:
-            hdf5data = self.highpass_filter(self.hdf5)
+
+            if self.hdf5_filtered_data is None:
+                self.hdf5_filtered_data = hdf5data = self.highpass_filter(self.hdf5)
+            hdf5data = self.hdf5_filtered_data
+
         else:
             hdf5data = self.hdf5
         #vb = self.getViewBox()
