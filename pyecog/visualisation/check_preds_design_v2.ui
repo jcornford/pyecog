@@ -612,25 +612,6 @@ p, li { white-space: pre-wrap; }
             </property>
            </widget>
           </item>
-          <item row="2" column="7">
-           <widget class="QPushButton" name="button_reload_annotation_file">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>200</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Reload Annotations</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="8">
            <spacer name="horizontalSpacer">
             <property name="orientation">
