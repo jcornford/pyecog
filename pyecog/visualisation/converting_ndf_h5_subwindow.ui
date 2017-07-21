@@ -110,8 +110,22 @@
        </property>
       </widget>
      </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>Glitch removal</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="label_5">
+       <property name="text">
+        <string>High pass filter 1 Hz</string>
+       </property>
+      </widget>
+     </item>
      <item row="6" column="1">
-      <widget class="QRadioButton" name="checkbox_ndf_glitch_removal">
+      <widget class="QCheckBox" name="checkbox_ndf_glitch_removal">
        <property name="layoutDirection">
         <enum>Qt::LeftToRight</enum>
        </property>
@@ -124,7 +138,7 @@
       </widget>
      </item>
      <item row="7" column="1">
-      <widget class="QRadioButton" name="checkbox_ndf_hp_filter_1hz">
+      <widget class="QCheckBox" name="checkbox_ndf_hp_filter_1hz">
        <property name="layoutDirection">
         <enum>Qt::LeftToRight</enum>
        </property>
@@ -133,20 +147,6 @@
        </property>
        <property name="checked">
         <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="label_4">
-       <property name="text">
-        <string>Glitch removal</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="label_5">
-       <property name="text">
-        <string>High pass filter 1 Hz</string>
        </property>
       </widget>
      </item>

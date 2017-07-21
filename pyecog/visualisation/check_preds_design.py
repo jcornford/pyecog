@@ -85,7 +85,7 @@ class Ui_MainWindow(object):
         self.textBrowser_4.setSizePolicy(sizePolicy)
         self.textBrowser_4.setBaseSize(QtCore.QSize(300, 0))
         font = QtGui.QFont()
-        font.setPointSize(7)
+        font.setPointSize(8)
         self.textBrowser_4.setFont(font)
         self.textBrowser_4.setObjectName("textBrowser_4")
         self.verticalLayout.addWidget(self.textBrowser_4)
@@ -122,25 +122,26 @@ class Ui_MainWindow(object):
         self.frame_4.setFrameShape(QtWidgets.QFrame.Panel)
         self.frame_4.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_4.setObjectName("frame_4")
-        self.gridLayout_2 = QtWidgets.QGridLayout(self.frame_4)
-        self.gridLayout_2.setContentsMargins(5, 5, 5, 5)
-        self.gridLayout_2.setObjectName("gridLayout_2")
+        self.formLayout_3 = QtWidgets.QFormLayout(self.frame_4)
+        self.formLayout_3.setFormAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
+        self.formLayout_3.setContentsMargins(5, 44, 5, 5)
+        self.formLayout_3.setObjectName("formLayout_3")
         self.label_6 = QtWidgets.QLabel(self.frame_4)
         self.label_6.setMaximumSize(QtCore.QSize(200, 16777215))
         self.label_6.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.label_6.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_6.setObjectName("label_6")
-        self.gridLayout_2.addWidget(self.label_6, 0, 0, 1, 1)
+        self.formLayout_3.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_6)
         self.tid_spinBox = QtWidgets.QSpinBox(self.frame_4)
         self.tid_spinBox.setMaximumSize(QtCore.QSize(51, 16777215))
         self.tid_spinBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
         self.tid_spinBox.setObjectName("tid_spinBox")
-        self.gridLayout_2.addWidget(self.tid_spinBox, 0, 1, 1, 1)
+        self.formLayout_3.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.tid_spinBox)
         self.label_11 = QtWidgets.QLabel(self.frame_4)
         self.label_11.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.label_11.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_11.setObjectName("label_11")
-        self.gridLayout_2.addWidget(self.label_11, 1, 0, 1, 1)
+        self.formLayout_3.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.label_11)
         self.checkbox_hold_trace_position = QtWidgets.QCheckBox(self.frame_4)
         font = QtGui.QFont()
         font.setPointSize(8)
@@ -148,7 +149,7 @@ class Ui_MainWindow(object):
         self.checkbox_hold_trace_position.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.checkbox_hold_trace_position.setText("")
         self.checkbox_hold_trace_position.setObjectName("checkbox_hold_trace_position")
-        self.gridLayout_2.addWidget(self.checkbox_hold_trace_position, 1, 1, 1, 1)
+        self.formLayout_3.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.checkbox_hold_trace_position)
         self.horizontalLayout.addWidget(self.frame_4)
         self.frame = QtWidgets.QFrame(self.frame_5)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
@@ -167,9 +168,6 @@ class Ui_MainWindow(object):
         self.formLayout_2.setHorizontalSpacing(5)
         self.formLayout_2.setObjectName("formLayout_2")
         self.label_8 = QtWidgets.QLabel(self.frame)
-        font = QtGui.QFont()
-        font.setPointSize(7)
-        self.label_8.setFont(font)
         self.label_8.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.label_8.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.label_8.setTextFormat(QtCore.Qt.PlainText)
@@ -193,9 +191,6 @@ class Ui_MainWindow(object):
         self.hp_filter_freq.setObjectName("hp_filter_freq")
         self.formLayout_2.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.hp_filter_freq)
         self.label_9 = QtWidgets.QLabel(self.frame)
-        font = QtGui.QFont()
-        font.setPointSize(7)
-        self.label_9.setFont(font)
         self.label_9.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.label_9.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_9.setObjectName("label_9")
@@ -254,15 +249,7 @@ class Ui_MainWindow(object):
         self.label_7.setAlignment(QtCore.Qt.AlignCenter)
         self.label_7.setObjectName("label_7")
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_7)
-        self.checkBox_scrolling = QtWidgets.QCheckBox(self.frame_2)
-        self.checkBox_scrolling.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.checkBox_scrolling.setText("")
-        self.checkBox_scrolling.setObjectName("checkBox_scrolling")
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.checkBox_scrolling)
         self.label_5 = QtWidgets.QLabel(self.frame_2)
-        font = QtGui.QFont()
-        font.setPointSize(7)
-        self.label_5.setFont(font)
         self.label_5.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_5.setObjectName("label_5")
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.label_5)
@@ -272,9 +259,6 @@ class Ui_MainWindow(object):
         self.xrange_spinBox.setObjectName("xrange_spinBox")
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.xrange_spinBox)
         self.label = QtWidgets.QLabel(self.frame_2)
-        font = QtGui.QFont()
-        font.setPointSize(7)
-        self.label.setFont(font)
         self.label.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label.setObjectName("label")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.label)
@@ -283,13 +267,15 @@ class Ui_MainWindow(object):
         self.scroll_speed_box.setObjectName("scroll_speed_box")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.scroll_speed_box)
         self.label_10 = QtWidgets.QLabel(self.frame_2)
-        font = QtGui.QFont()
-        font.setPointSize(7)
-        self.label_10.setFont(font)
         self.label_10.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.label_10.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_10.setObjectName("label_10")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.label_10)
+        self.checkBox_scrolling = QtWidgets.QCheckBox(self.frame_2)
+        self.checkBox_scrolling.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.checkBox_scrolling.setText("")
+        self.checkBox_scrolling.setObjectName("checkBox_scrolling")
+        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.checkBox_scrolling)
         self.blink_box = QtWidgets.QCheckBox(self.frame_2)
         self.blink_box.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.blink_box.setText("")
@@ -365,6 +351,7 @@ class Ui_MainWindow(object):
         self.label_8.raise_()
         self.frame_4.raise_()
         self.frame_5.raise_()
+        self.splitter_3.raise_()
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
         self.menuBar.setGeometry(QtCore.QRect(0, 0, 1280, 38))
@@ -442,20 +429,20 @@ class Ui_MainWindow(object):
         self.textBrowser_4.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:7pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt; font-weight:600;\">Mouse functionality and keyboard shortcuts</span></p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt; font-weight:600;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Mouse: Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don\'t want that.</span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Up arrow:         Zoom in / speed up </span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Down arrow:     Zoom out / slow down </span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Right arrow:     Step right / scroll forwards </span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Left arrow:     Step left / scroll backwards</span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Numbers:         Set plot time interval </span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">B key:         Toggle blink vs scroll </span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Space bar:        Start scrolling (or blinking)</span></p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;\"><br /></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Left click + Shift:    Mark start of an event in uppper window</span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Left click + Alt:     Mark end of event</span></p></body></html>"))
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Mouse functionality and keyboard shortcuts</span></p>\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-weight:600;\"><br /></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Mouse: Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don\'t want that.</p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Up arrow:         Zoom in / speed up </p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Down arrow:     Zoom out / slow down </p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Right arrow:     Step right / scroll forwards </p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Left arrow:     Step left / scroll backwards</p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Numbers:         Set plot time interval </p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">B key:         Toggle blink vs scroll </p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Space bar:        Start scrolling (or blinking)</p>\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Left click + Shift:    Mark start of an event in uppper window</p>\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Left click + Alt:     Mark end of event</p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabWidgetPage2), _translate("MainWindow", "Help"))
         self.label_6.setText(_translate("MainWindow", " TID: "))
         self.label_11.setText(_translate("MainWindow", "Hold position:"))
