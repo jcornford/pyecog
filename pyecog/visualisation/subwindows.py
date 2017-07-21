@@ -569,7 +569,10 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
 
     def fs_box_changed(self):
-        self.fs = int(self.fs_box.text())
+        try:
+            self.fs = int(self.fs_box.text())
+        except:
+            pass
 
     def use_peaks_changed(self):
         self.use_peaks_bool = self.use_peaks.isChecked()
@@ -915,6 +918,7 @@ class ConvertNdfThread(QThread):
         """
 
         self.handler.fs_for_parallel_conversion = fs
+        print(self.handler.fs_for_parallel_conversion)
         self.files = [f for f in self.handler.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
 
         # tids
