@@ -21,27 +21,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QFormLayout" name="formLayout_2">
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="ndf_display">
-       <property name="minimumSize">
-        <size>
-         <width>300</width>
-         <height>0</height>
-        </size>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="h5_display">
-       <property name="minimumSize">
-        <size>
-         <width>300</width>
-         <height>0</height>
-        </size>
-       </property>
-      </widget>
-     </item>
+    <layout class="QGridLayout" name="gridLayout">
      <item row="0" column="0">
       <widget class="QPushButton" name="select_ndf_folder">
        <property name="minimumSize">
@@ -52,19 +32,6 @@
        </property>
        <property name="text">
         <string>Choose ndf folder</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QPushButton" name="set_h5_folder">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Choose destination h5 folder</string>
        </property>
       </widget>
      </item>
@@ -82,20 +49,6 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Sampling Frequency (Hz)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QLineEdit" name="fs_box">
-       <property name="text">
-        <string>512</string>
-       </property>
-      </widget>
-     </item>
      <item row="4" column="0">
       <widget class="QLabel" name="label_3">
        <property name="text">
@@ -107,6 +60,93 @@
       <widget class="QLineEdit" name="cores_to_use">
        <property name="text">
         <string>all</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="ndf_display">
+       <property name="minimumSize">
+        <size>
+         <width>300</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Sampling Frequency (Hz)</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QPushButton" name="set_h5_folder">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Choose destination h5 folder</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="h5_display">
+       <property name="minimumSize">
+        <size>
+         <width>300</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QLineEdit" name="fs_box">
+       <property name="text">
+        <string>512</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <widget class="QRadioButton" name="checkbox_ndf_glitch_removal">
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QRadioButton" name="checkbox_ndf_hp_filter_1hz">
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>Glitch removal</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="label_5">
+       <property name="text">
+        <string>High pass filter 1 Hz</string>
        </property>
       </widget>
      </item>

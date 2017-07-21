@@ -17,28 +17,10 @@
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
      <widget class="QSplitter" name="splitter_3">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-        <horstretch>10</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
       <widget class="QSplitter" name="splitter_2">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Ignored">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="baseSize">
-        <size>
-         <width>0</width>
-         <height>200</height>
-        </size>
-       </property>
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -135,53 +117,23 @@
         </column>
        </widget>
        <widget class="QSplitter" name="splitter">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
         <property name="orientation">
          <enum>Qt::Vertical</enum>
         </property>
-        <widget class="QWidget" name="layoutWidget">
-         <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_16">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>31</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-              <weight>75</weight>
-              <bold>true</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Mouse functionality and keyboard shortcuts</string>
-            </property>
-            <property name="indent">
-             <number>0</number>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="QTextBrowser" name="textBrowser_4">
-            <property name="font">
-             <font>
-              <pointsize>7</pointsize>
-             </font>
-            </property>
-            <property name="html">
-             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+        <widget class="QTextBrowser" name="textBrowser_4">
+         <property name="font">
+          <font>
+           <pointsize>7</pointsize>
+          </font>
+         </property>
+         <property name="html">
+          <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:7pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Mouse: Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don't want that.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt; font-weight:600;&quot;&gt;Mouse functionality and keyboard shortcuts&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt; font-weight:600;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Mouse: Scroll when hovering over either axis in the main plot to zoom that axis only. Scrolling when in the middle will zoom both axes at the same time - you probably don't want that.&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Up arrow: 		Zoom in / speed up &lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Down arrow: 	Zoom out / slow down &lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Right arrow: 	Step right / scroll forwards &lt;/span&gt;&lt;/p&gt;
@@ -192,540 +144,465 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Left click + Shift:	Mark start of an event in uppper window&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Left click + Alt: 	Mark end of event&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         </property>
         </widget>
-        <widget class="QWidget" name="layoutWidget">
+        <widget class="QWidget" name="widget" native="true">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>250</height>
+          </size>
+         </property>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="5">
-           <widget class="QCheckBox" name="checkBox_scrolling">
-            <property name="maximumSize">
-             <size>
-              <width>100</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label_9">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>168</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Low pass cf (Hz):</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QLabel" name="label_2">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>31</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <weight>75</weight>
-              <bold>true</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Filter:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
-           <widget class="QDoubleSpinBox" name="lp_filter_freq">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>90</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-            <property name="maximum">
-             <double>30000.000000000000000</double>
-            </property>
-            <property name="value">
-             <double>512.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="5">
-           <widget class="QDoubleSpinBox" name="xrange_spinBox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>80</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-            </property>
-            <property name="maximum">
-             <double>3600.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="4">
-           <widget class="QLabel" name="label">
-            <property name="maximumSize">
-             <size>
-              <width>190</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Scroll speed:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="5">
-           <widget class="QSpinBox" name="scroll_speed_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>80</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="minimum">
-             <number>1</number>
-            </property>
-           </widget>
-          </item>
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="spacing">
+           <number>0</number>
+          </property>
           <item row="0" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>31</height>
-             </size>
+           <widget class="QFrame" name="frame_4">
+            <property name="frameShape">
+             <enum>QFrame::Panel</enum>
             </property>
-            <property name="maximumSize">
-             <size>
-              <width>200</width>
-              <height>16777215</height>
-             </size>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
             </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string> TID for h5 folder: </string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4">
-           <widget class="QLabel" name="label_7">
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="text">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Scrolling:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="textFormat">
-             <enum>Qt::RichText</enum>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="3">
-           <widget class="QDoubleSpinBox" name="hp_filter_freq">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>90</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="wrapping">
-             <bool>false</bool>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-            <property name="maximum">
-             <double>512.000000000000000</double>
-            </property>
-            <property name="value">
-             <double>1.000000000000000</double>
-            </property>
+            <layout class="QFormLayout" name="formLayout_3">
+             <property name="formAlignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>5</number>
+             </property>
+             <property name="leftMargin">
+              <number>5</number>
+             </property>
+             <property name="topMargin">
+              <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>5</number>
+             </property>
+             <property name="bottomMargin">
+              <number>13</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_6">
+               <property name="maximumSize">
+                <size>
+                 <width>200</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="text">
+                <string> TID: </string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QSpinBox" name="tid_spinBox">
+               <property name="maximumSize">
+                <size>
+                 <width>51</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_11">
+               <property name="text">
+                <string>Hold position:</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QCheckBox" name="checkbox_hold_trace_position">
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QSpinBox" name="tid_spinBox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+           <widget class="QFrame" name="frame">
+            <property name="layoutDirection">
+             <enum>Qt::LeftToRight</enum>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>31</height>
-             </size>
+            <property name="frameShape">
+             <enum>QFrame::Panel</enum>
             </property>
-            <property name="maximumSize">
-             <size>
-              <width>51</width>
-              <height>16777215</height>
-             </size>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
             </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-            </property>
+            <layout class="QFormLayout" name="formLayout_2">
+             <property name="fieldGrowthPolicy">
+              <enum>QFormLayout::ExpandingFieldsGrow</enum>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>5</number>
+             </property>
+             <property name="leftMargin">
+              <number>5</number>
+             </property>
+             <property name="topMargin">
+              <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>5</number>
+             </property>
+             <property name="bottomMargin">
+              <number>13</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_2">
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string>Filter</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="checkbox_filter_toggle">
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="autoFillBackground">
+                <bool>true</bool>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+               <property name="tristate">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_8">
+               <property name="font">
+                <font>
+                 <pointsize>7</pointsize>
+                </font>
+               </property>
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Sunken</enum>
+               </property>
+               <property name="text">
+                <string>High pass (Hz):</string>
+               </property>
+               <property name="textFormat">
+                <enum>Qt::PlainText</enum>
+               </property>
+               <property name="scaledContents">
+                <bool>false</bool>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QDoubleSpinBox" name="hp_filter_freq">
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                </font>
+               </property>
+               <property name="wrapping">
+                <bool>false</bool>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+               <property name="maximum">
+                <double>512.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>1.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_9">
+               <property name="font">
+                <font>
+                 <pointsize>7</pointsize>
+                </font>
+               </property>
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="text">
+                <string>Low pass (Hz):</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QDoubleSpinBox" name="lp_filter_freq">
+               <property name="font">
+                <font>
+                 <pointsize>8</pointsize>
+                </font>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+               <property name="maximum">
+                <double>30000.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>512.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
-          <item row="1" column="4">
-           <widget class="QLabel" name="label_5">
-            <property name="maximumSize">
-             <size>
-              <width>190</width>
-              <height>16777215</height>
-             </size>
+          <item row="0" column="2">
+           <widget class="QFrame" name="frame_2">
+            <property name="frameShape">
+             <enum>QFrame::Panel</enum>
             </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
             </property>
-            <property name="text">
-             <string>Xrange (s):</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
+            <layout class="QFormLayout" name="formLayout">
+             <property name="fieldGrowthPolicy">
+              <enum>QFormLayout::ExpandingFieldsGrow</enum>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>5</number>
+             </property>
+             <property name="leftMargin">
+              <number>5</number>
+             </property>
+             <property name="topMargin">
+              <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>5</number>
+             </property>
+             <property name="bottomMargin">
+              <number>13</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_7">
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Scrolling</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="checkBox_scrolling">
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_5">
+               <property name="font">
+                <font>
+                 <pointsize>7</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Xrange (s):</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QDoubleSpinBox" name="xrange_spinBox">
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+               </property>
+               <property name="maximum">
+                <double>3600.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label">
+               <property name="font">
+                <font>
+                 <pointsize>7</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Scroll speed:</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QSpinBox" name="scroll_speed_box">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_10">
+               <property name="font">
+                <font>
+                 <pointsize>7</pointsize>
+                </font>
+               </property>
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string>Blinking:</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QCheckBox" name="blink_box">
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
           <item row="0" column="3">
-           <widget class="QCheckBox" name="checkbox_filter_toggle">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="autoFillBackground">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="tristate">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QLabel" name="label_8">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
+           <widget class="QFrame" name="frame_3">
             <property name="frameShape">
-             <enum>QFrame::NoFrame</enum>
+             <enum>QFrame::Panel</enum>
             </property>
             <property name="frameShadow">
-             <enum>QFrame::Sunken</enum>
+             <enum>QFrame::Raised</enum>
             </property>
-            <property name="text">
-             <string>High pass cf (Hz):</string>
-            </property>
-            <property name="scaledContents">
-             <bool>false</bool>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="6">
-           <widget class="QLabel" name="label_3">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>180</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string> Annotation file:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="5">
-           <widget class="QCheckBox" name="blink_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="4">
-           <widget class="QLabel" name="label_10">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>26</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="text">
-             <string>Blinking:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="8">
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>10</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="1" column="6" colspan="3">
-           <widget class="QLineEdit" name="predictions_file_display">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>100</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>180</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="6" colspan="3">
-           <widget class="QLineEdit" name="h5_folder_display">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>100</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>26</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="dragEnabled">
-             <bool>true</bool>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-            <property name="cursorMoveStyle">
-             <enum>Qt::VisualMoveStyle</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="checkbox_hold_trace_position">
-            <property name="maximumSize">
-             <size>
-              <width>200</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_11">
-            <property name="maximumSize">
-             <size>
-              <width>200</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Hold plot position:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="6" colspan="2">
-           <widget class="QLabel" name="label_4">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>8</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string> h5 folder:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
+            <layout class="QFormLayout" name="formLayout_4">
+             <property name="fieldGrowthPolicy">
+              <enum>QFormLayout::ExpandingFieldsGrow</enum>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>5</number>
+             </property>
+             <property name="leftMargin">
+              <number>5</number>
+             </property>
+             <property name="topMargin">
+              <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>5</number>
+             </property>
+             <property name="bottomMargin">
+              <number>13</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string> h5 folder:</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string> Annotation file:</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0" colspan="2">
+              <widget class="QLineEdit" name="predictions_file_display"/>
+             </item>
+             <item row="3" column="0" colspan="2">
+              <widget class="QLineEdit" name="h5_folder_display">
+               <property name="dragEnabled">
+                <bool>true</bool>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+               <property name="cursorMoveStyle">
+                <enum>Qt::VisualMoveStyle</enum>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>
@@ -736,13 +613,13 @@ p, li { white-space: pre-wrap; }
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>250</height>
+         <height>20</height>
         </size>
        </property>
        <property name="baseSize">
         <size>
          <width>0</width>
-         <height>400</height>
+         <height>300</height>
         </size>
        </property>
       </widget>
@@ -759,7 +636,7 @@ p, li { white-space: pre-wrap; }
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>200</height>
+         <height>20</height>
         </size>
        </property>
        <property name="baseSize">
