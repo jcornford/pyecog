@@ -855,7 +855,10 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
             ncores = int(ncores)
 
         if tids != 'all':
-            tids = eval('['+tids+']')
+            if type(eval(tids)) != list:
+                tids = eval('['+tids+']')
+            else:
+                tids = eval(tids)
             tids = sorted(tids)
 
         self.converting_thread = ConvertNdfThread()
