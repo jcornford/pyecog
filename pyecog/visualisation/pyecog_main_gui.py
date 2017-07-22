@@ -2,6 +2,7 @@ import sys
 import os
 import bisect
 import traceback
+import time
 
 import numpy as np
 import pandas as pd
@@ -48,9 +49,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         pg.setConfigOption('foreground', 'k')
         super(MainGui, self).__init__(parent)
         self.setupUi(self)
-        self.scroll_flag = -1
-        #self.top_splitter.setSizes([200,600])
-        #self.bottom_splitter.setSizes([500,300])
+
+
+        #self.scroll_flag = -1
+        self.splitter.setSizes([50,20])
+        self.splitter_2.setSizes([50,20])
+        self.splitter_3.setSizes([50,20])
+        #self.bottom_splitter.setSizes([200,300])
         #self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
             self.blink      = 1
@@ -64,16 +69,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
-        self.tid_spinBox.valueChanged.connect(self.tid_spinBox_handling)
+        self.tid_spinBox.valueChanged.connect(self.tid_spinBox_change)
         self.checkbox_filter_toggle.stateChanged.connect(self.plot1_display_filter_toggled)
         self.hp_filter_freq.valueChanged.connect(self.hp_filter_settings_changed)
 
         self.fs = None # change !
+        self.previously_displayed_tid = None
         self.data_obj = None
         self.predictions_df = None
         self.h5directory = None
         self.tree_items = []
         self.valid_h5_tids = None
+        self.valid_tids_to_indexes = None
+        self.indexes_to_valid_tids = None
+        self.tid_spinbox_just_changed = False
 
         if os.path.exists('pyecog_temp_file.pickle'):
             with open('pyecog_temp_file.pickle', "rb") as temp_file:
@@ -394,13 +403,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def get_next_tree_item(self):
         print('not implememented: try to grab next treewidget item!')
 
+    def set_valid_h5_ids(self, tid_list):
+        self.valid_h5_tids = tid_list
+        self.valid_tids_to_indexes
+        self.valid_tids_to_indexes = {tid:i for i, tid in enumerate(self.valid_h5_tids)}
+        self.indexes_to_valid_tids = {i:tid for i, tid in enumerate(self.valid_h5_tids)}
+        self.previously_displayed_tid = None # you also want to "wipe the list?"
+
     def tree_selection_substates(self):
         item = self.treeWidget.currentItem()
         if item.text(2).startswith('M'):
             #print('Filerow')
             self.treeWidget.substate_child_selected = False
             tids = item.text(1)
-            self.valid_h5_tids = eval(tids)
+            self.set_valid_h5_ids(eval(tids))
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             #print('child')
@@ -431,11 +447,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 # do something else here
                 self.tree_selection_predictions()
             tids = current_item.text(4)
-            self.valid_h5_tids = eval(tids)
+            self.set_valid_h5_ids(eval(tids))
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             tids = current_item.text(4)
-            self.valid_h5_tids = eval(tids)
+            self.set_valid_h5_ids(eval(tids))
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
 
 
@@ -468,34 +484,74 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def handle_tid_for_file_dir_plotting(self):
         # this is called when clicking on the tree structure
+        # therefore first check if can use the same tid or not...
         current_spinbox_id = self.tid_spinBox.value()
         if current_spinbox_id not in self.valid_h5_tids:
-            self.tid_spinBox.setValue(self.valid_h5_tids[0])
-            print('File Tid changed')
+            self.tid_spinBox.setValue(self.valid_h5_tids[0]) # no reason to default to first
+            # here you add something to hold id if needed
+            print('File tid changed as previous tid not valid')
+            # this will now automatically call the tid_spinBox_change method - as you have tid changed it
+        else:
+            # can use the same tid so plot
+            self.load_filedir_h5_file(current_spinbox_id)
+
+        # as id number will now be the last value next time changed
+
+    def tid_spinBox_change(self):
+        ''' called when box data changes '''
+        if self.tid_spinBox.value() == self.previously_displayed_tid:
+            # catching the loop which occurs if setting the spinbox after finding next tid
+            return 0
         else:
             self.tid_spinBox_handling()
 
+    def set_tid_spinbox(self, value):
+        '''
+        This wil
+        '''
+        #print('Tid_spinbox has been set by code' )
+        self.tid_spinBox.setValue(value)
+        self.tid_spinbox_just_changed = True
+
     def tid_spinBox_handling(self):
+        print('tid spin box handling called')
         try:
             # tid_spinbox.valueChanged connects to here
             new_val = self.tid_spinBox.value()
-            if new_val < min(self.valid_h5_tids):
+            print(time.time(), 'New spinbox value is ', new_val)
+            set_tid_box = True
+            if new_val in self.valid_h5_tids:
+                set_tid_box = False # dont need to overwrite box
+                new_tid = new_val
+            elif new_val < min(self.valid_h5_tids): # this is rolling 0
                 new_tid = self.valid_h5_tids[-1]
+
+            elif new_val > max(self.valid_h5_tids): # this is rolling 0
+                new_tid = self.valid_h5_tids[0]
+
             else:
-                i = bisect.bisect_left(self.valid_h5_tids,new_val)
-                new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
-            self.tid_spinBox.setValue(new_tid)
-            current_item = self.treeWidget.currentItem()
-            if current_item.text(1) != '': # this is for a seizure i think?
-                pass
-            else:
-                self.load_filedir_h5_file(new_tid)
+                if self.previously_displayed_tid is not None:
+                    step = new_val - self.previously_displayed_tid
+                    old_index = self.valid_tids_to_indexes[self.previously_displayed_tid]
+                    new_index = old_index+step
+                    new_tid   = self.indexes_to_valid_tids[new_index]
+                else:
+                    i = bisect.bisect_left(self.valid_h5_tids,new_val)
+                    new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
+
+            #print('New is:', new_tid)
+            #print('Last was:', self.previously_displayed_tid)
+            self.previously_displayed_tid = new_tid
+            self.load_filedir_h5_file(new_tid)
+            if set_tid_box:
+                self.set_tid_spinbox(new_tid)
+
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
             print('Error caught at: pyecog_main_gui.tid_spinBox_handling()')
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()))
+            msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()[-1]))
             msgBox.exec_()
 
 
@@ -1254,8 +1310,18 @@ class HDF5Plot(pg.PlotCurveItem):
 
 def main():
     app = QtGui.QApplication(sys.argv)
-    form = MainGui()
-    form.show()
+    maingui = MainGui()
+
+    # cannot get menu bar to show on first launch - need to click of and back
+    #maingui.menuBar.raise_()
+    #maingui.menuBar.show()
+    #maingui.menuBar.activateWindow()
+    #maingui.menuBar.focusWidget(True)
+    maingui.menuBar.setNativeMenuBar(False) # therefore turn of native
+
+    maingui.raise_()
+    maingui.show()
+
     app.exec_()
 
 if __name__ == '__main__':
