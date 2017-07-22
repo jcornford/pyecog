@@ -882,13 +882,8 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
                                                 fs=fs)
             self.converting_thread.start()
         except:
-            QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Error!: /n Stop fucking around?! Currently set to re-run, so check errors in terminal")
-            self.converting_thread.convert_ndf_directory_to_h5(ndf_dir=self.ndf_folder,
-                                                save_dir=self.h5directory,
-                                                tids=tids,
-                                                n_cores=ncores,
-                                                fs=fs)
-            self.converting_thread.start()
+            QtGui.QMessageBox.information(self," ", "Error!")
+
 
     def update_hidden(self, label_string):
         self.hidden_label.setText(label_string)
@@ -948,14 +943,15 @@ class ConvertNdfThread(QThread):
 
     def run(self):
         pool = multiprocessing.Pool(self.n_cores)
-
+        self.set_progress_bar.emit(str(0))
+        self.update_progress_label.emit('Progress: ' +str(0)+ ' / '+ str(len(self.files)))
         for i, _ in enumerate(pool.imap(self.handler.convert_ndf, self.files), 1):
             self.set_progress_bar.emit(str(i))
             self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files)))
         pool.close()
         pool.join()
         self.update_progress_label.emit('Progress: Done')
-        self.set_progress_bar.emit(str(0))
+        #self.set_progress_bar.emit(str())
         self.handler.reset_date_modified_time(self.files)
 
 class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
