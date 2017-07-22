@@ -836,6 +836,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.progressBar.setValue(0)
         self.cores_to_use.setText(str(1))
         self.transmitter_ids.setText('all')
+        self.converting_thread = None
 
     def get_h5_folder(self):
         self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
@@ -846,6 +847,13 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.ndf_display.setText(str(self.ndf_folder))
 
     def convert_folder(self):
+        try:
+            if self.converting_thread.isRunning():
+                QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+                return 0
+        except:
+            pass
+
         tids = self.transmitter_ids.text().strip("'")
         fs   = int(self.fs_box.text())
         ncores = self.cores_to_use.text()
@@ -860,6 +868,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
             else:
                 tids = eval(tids)
             tids = sorted(tids)
+
 
         self.converting_thread = ConvertNdfThread()
         self.converting_thread.set_progress_bar.connect(self.update_progress)
