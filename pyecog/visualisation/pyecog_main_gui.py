@@ -80,6 +80,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.h5directory = None
         self.tree_items = []
         self.valid_h5_tids = None
+
+        self.hdf5_plot = None
         self.valid_tids_to_indexes = None
         self.indexes_to_valid_tids = None
         self.tid_spinbox_just_changed = False
@@ -120,14 +122,16 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substate_child_selected = False
 
     def hp_filter_settings_changed(self):
-        self.hdf5_plot.wipe_filtered_data()
-        self.plot1_display_filter_toggled()
+        if self.hdf5_plot is not None:
+            self.hdf5_plot.wipe_filtered_data()
+            self.plot1_display_filter_toggled()
 
     def plot1_display_filter_toggled(self):
         # set filter settings on trace
-        toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
-        self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
-        self.hdf5_plot.updateHDF5Plot()
+        if self.hdf5_plot is not None:
+            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
+            self.hdf5_plot.updateHDF5Plot()
 
     def get_plot1_display_filter_settings_from_maingui(self):
         ''' Returns the state, high pass and low pass values from main gui'''
