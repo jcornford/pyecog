@@ -179,10 +179,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             p.dump(self.home, f)
 
     def get_h5_folder_fnames(self):
-        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        if self.h5directory == '':
+        new_directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        if new_directory == '':
             print('No folder selected')
             return 0
+        self.h5directory = new_directory
         self.clear_QTreeWidget()
         self.build_startswith_to_filename()
         fnames = [f for f in os.listdir(self.h5directory) if f.endswith('.h5') if not f.startswith('.') ]
@@ -514,11 +515,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.tid_spinbox_just_changed = True
 
     def tid_spinBox_handling(self):
-        print('tid spin box handling called')
+        #print('tid spin box handling called')
         try:
             # tid_spinbox.valueChanged connects to here
             new_val = self.tid_spinBox.value()
-            print(time.time(), 'New spinbox value is ', new_val)
+            #print(time.time(), 'New spinbox value is ', new_val)
             set_tid_box = True
             if new_val in self.valid_h5_tids:
                 set_tid_box = False # dont need to overwrite box
@@ -551,7 +552,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
             print('Error caught at: pyecog_main_gui.tid_spinBox_handling()')
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()[-1]))
+            msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()))
             msgBox.exec_()
 
 
