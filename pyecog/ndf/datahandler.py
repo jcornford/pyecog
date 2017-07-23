@@ -276,7 +276,24 @@ apply_async_with_callback()
         annotation_dicts = []
         for row in df.iterrows():
             # annotation name is bad, but will ultimately be the library h5 dataset name
-            annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(int(row[1]['transmitter']))
+            try:
+                tid = int(row[1]['transmitter'])
+            except:
+                try:
+                    if type(row[1]['transmitter']) == str:
+                        tid_entry = eval(row[1]['transmitter'])
+                    else:
+                        tid_entry = row[1]['transmitter']
+                    assert len(tid_entry) == 1
+                    tid = int(tid_entry[0])
+
+                except:
+                    # insert elegant error handling is transmitter row is not
+                    print('something wrong with your transmitter entry!:')
+                    print(row[1]['transmitter'])
+                    raise
+
+            annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(tid)
             for datafile in data_filenames:
                 if datafile.startswith(annotation_name.split('_')[0]):
                     start = row[1]['start']
@@ -285,7 +302,7 @@ apply_async_with_callback()
                                              'start': start,
                                              'end': end,
                                              'dataset_name': annotation_name,
-                                             'tid':int(row[1]['transmitter'])})
+                                             'tid':tid})
                     reference_count += 1
 
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
