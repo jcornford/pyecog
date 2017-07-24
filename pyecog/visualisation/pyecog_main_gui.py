@@ -51,7 +51,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.setupUi(self)
 
 
-        #self.scroll_flag = -1
+        self.scroll_flag = -1
         self.splitter.setSizes([50,20])
         self.splitter_2.setSizes([50,20])
         self.splitter_3.setSizes([50,20])
@@ -451,9 +451,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
                 # do something else here
                 self.tree_selection_predictions()
-            tids = current_item.text(4)
-            self.set_valid_h5_ids(eval(tids))
-            self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+                #tids = current_item.text(4)
+                #self.set_valid_h5_ids(eval(tids))
+                #self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             tids = current_item.text(4)
             self.set_valid_h5_ids(eval(tids))
@@ -647,7 +647,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         h5 = H5File(fpath)
         data_dict = h5[tid]
-        print('Plotting transmitter: '+str(tid))
         self.fs = eval(h5.attributes['fs_dict'])[tid]
 
         self.add_data_to_plots(data_dict['data'], data_dict['time'])

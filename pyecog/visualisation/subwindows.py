@@ -259,54 +259,12 @@ class PredictSeizuresThread(QThread):
 
     def run(self):
         self.update_label_below.emit('Saving predictions: '+ self.excel_output)
-        self.update_progress_label.emit('We are now rolling!')
-        files_to_predict = [os.path.join(self.prediction_dir,f) for f in os.listdir(self.prediction_dir) if not f.startswith('.') if f.endswith('.h5')]
-        n_files = len(files_to_predict)
-        self.setMaximum_progressbar.emit(str(n_files))
-        self.update_label_above2.emit('Looking through '+ str(n_files) + ' files for seizures: ')
-        for i,fpath in enumerate(files_to_predict):
-            full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
-            try:
-                with h5py.File(fpath, 'r+') as f:
-                    group = f[list(f.keys())[0]]
-                    for tid_no in list(group.keys()):
-                        tid_no = str(tid_no)
-                        tid = group[tid_no]
-                        pred_features = tid['features'][:]
+        self.update_progress_label.emit('We are now rolling - look in your terminal for progress')
 
-                        logging.info(full_fname + ' now predicting tid '+tid_no)
-                        self.update_progress_label.emit(full_fname+ ': tid-' + tid_no+', '+ str(i)+'/'+str(n_files))
-                        self.SetProgressBar.emit(str(i))
+        self.clf.predict_dir(self.prediction_dir,
+                             self.excel_output,
+                             called_from_gui = True)
 
-                        pred_features = self.clf.cleaner.transform(pred_features)
-                        pred_y_emitts = self.clf.rf.predict(pred_features)
-                        logp, path = self.clf.hm_model.viterbi(pred_y_emitts)
-                        vit_decoded_y = np.array([int(state.name) for idx, state in path[1:]])
-
-                        if sum(vit_decoded_y):
-                            fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
-                            name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
-                            pred_sheet = self.clf.make_excel_spreadsheet([name_array,vit_decoded_y])
-                            if not os.path.exists(self.excel_output):
-                                pred_sheet.to_csv(self.excel_output,index = False)
-                            else:
-                                with open(self.excel_output, 'a') as f:
-                                    pred_sheet.to_csv(f, header=False, index = False)
-                        else:
-                            pass
-                            #print ('no seizures')
-
-            except KeyError:
-                logging.error(str(full_fname) + ' did not contain any features! Skipping')
-                self.update_label_below.emit('ERROR: '+ full_fname + ' did not contain any features! Skipping')
-
-        try:
-            self.clf.reorder_prediction_csv(self.excel_output)
-        except:
-            print('Error reordering excel output by date')
-            print(traceback.format_exc(1))
-
-        self.update_progress_label.emit('Re - ordering spreadsheet by date')
         self.update_progress_label.emit('Done')
         self.finished.emit()
         self.exit()
@@ -341,25 +299,19 @@ class TrainClassifierThread(QThread):
     def run(self):
 
         '''
-        # think you should just be using clf train method here
-        self.update_progress_label.emit('Training Random Forest...')
-        self.clf.rf =  RandomForestClassifier(n_jobs=self.n_cores, n_estimators= self.ntrees, oob_score=True, bootstrap=True)
-        self.clf.rf.fit(self.res_x, np.ravel(self.res_y))
-        self.update_progress_label.emit('Getting Hidden Markov Model params...')
-        self.clf.make_hmm_model() # this has default fold arguement of 3
-
-        print ('********* oob results on resampled data  - not including HMM *******')
-        self.oob_preds = np.round(self.clf.rf.oob_decision_function_[:,1])
-        print('ROC_AUC score: '+str(metrics.roc_auc_score(np.ravel(self.res_y), self.clf.rf.oob_decision_function_[:,1])))
-        print('Recall: '+str(metrics.recall_score(np.ravel(self.res_y), self.oob_preds)))
-        print('F1: '+str(metrics.f1_score(np.ravel(self.res_y), self.oob_preds)))
-        print(metrics.classification_report(np.ravel(self.res_y),self.oob_preds))
-
         # would be very nice to emit this back
         #self.feature_weightings = sorted(zip(self.clf.rf.feature_importances_, self.clf.feature_names),reverse = True)
         '''
         self.update_progress_label.emit('Training Random Forest...')
-        self.clf.train(self.downsample_bl_factor,self.upsample_seizure_factor,self.ntrees,self.n_cores,n_emission_prob_cvfolds = 3)
+        self.clf.train(self.downsample_bl_factor,
+                       self.upsample_seizure_factor,
+                       self.ntrees,
+                       self.n_cores,
+                       n_emission_prob_cvfolds = 3,
+                       pyecog_hmm = True,
+                       calc_emissions = True,
+                       rf_weights = None,
+                       calibrate = False)
         self.finished.emit()
         self.exit()
 
@@ -438,6 +390,7 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
 
 class ExtractPredictionFeaturesThread(QThread):
+    # todo this re implements datahandler - delete this!
     set_max_progress = pyqtSignal(str)
     update_hidden_label = pyqtSignal(str)
     set_progress_bar =  pyqtSignal(str)
