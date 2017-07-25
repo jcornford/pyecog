@@ -345,7 +345,10 @@ apply_async_with_callback()
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
             print("Error getting annotations from your file, probably column names. Please ensure columns are named: 'filename', 'transmitter','start','end'")
-            annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            #annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            return 0
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
@@ -369,16 +372,23 @@ apply_async_with_callback()
 
         # now populate to seizure lib with data, time and labels
         # make a list
-        l = len(annotation_dicts)-1
-        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation,
-                                           fs,
-                                           timewindow,
-                                           seizure_library_path,
-                                           verbose = verbose,
-                                           scale_and_filter = scale_and_filter)
-            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        try:
+            l = len(annotation_dicts)-1
+            self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+            for i, annotation in enumerate(annotation_dicts):
+                self._populate_seizure_library(annotation,
+                                               fs,
+                                               timewindow,
+                                               seizure_library_path,
+                                               verbose = verbose,
+                                               scale_and_filter = scale_and_filter)
+                self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
+        except Exception:
+            print ('Error in building seizure library')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            return 0
 
     def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
                                   timewindow = 5,
@@ -430,18 +440,28 @@ apply_async_with_callback()
                                   seizure_library_path,
                                   verbose = False,
                                   scale_and_filter = False):
+        '''
+
+        Uses annotations to add to seizure library
+
+        '''
 
         logging.debug('Adding '+str(annotation['fname']))
+        tid = annotation['tid']
+
         if annotation['fname'].endswith('.ndf'):
             h5file_obj = NdfFile(annotation['fname'],fs = fs)
             h5file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
             h5file_obj = H5File(annotation['fname'])
+            h5_fs = eval(h5file_obj.attributes['fs_dict'])[tid]
+            if h5_fs != fs:
+                print('WARNING: fs do not match! h5 fs is ' +str(h5_fs)+', you entered '+ str(fs)+'.')
         else:
             print('ERROR: Unrecognised file-type')
 
-        data_array = h5file_obj[annotation['tid']]['data'] # just 1D at the moment!
-        tid = annotation['tid']
+        data_array = h5file_obj[tid]['data'] # just 1D at the moment!
+
         try:
             features_array = h5file_obj[tid]['features']
             # this is is a none if no key? - suprising, thought would return key error

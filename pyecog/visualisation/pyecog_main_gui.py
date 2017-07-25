@@ -43,6 +43,16 @@ else:
     import subwindows
     from context import H5File
 
+
+def throw_error(error_text = None):
+    msgBox = QtWidgets.QMessageBox()
+    if error_text is None:
+        msgBox.setText('Error caught! \n'+str(traceback.format_exc(1)))
+    else:
+        msgBox.setText('Error caught! \n'+str(error_text))
+    msgBox.exec_()
+    return 0
+
 class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
         pg.setConfigOption('background', 'w')

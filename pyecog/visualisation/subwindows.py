@@ -33,6 +33,15 @@ except:
 '''
 # todo : these classes could inherit classes that have signals and slots already made, as you kept the gui element names the same when possible.
 
+def throw_error(error_text = None):
+    msgBox = QtWidgets.QMessageBox()
+    if error_text is None:
+        msgBox.setText('Error caught! \n'+str(traceback.format_exc(1)))
+    else:
+        msgBox.setText('Error caught! \n'+str(error_text))
+    msgBox.exec_()
+    return 0
+
 class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
     ''' For handling the classifier...'''
     def __init__(self, parent = None):
@@ -561,51 +570,43 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
     def make_new_library(self):
         self.library_path = QtGui.QFileDialog.getSaveFileName(self,  "Make new Library file", self.home)[0]
+        if self.library_path == '':
+            print('No path entered... aborting')
+            return 0
+
         if not self.library_path.endswith('.h5'):
             try:
                 self.library_path = self.library_path.split('.')[0]+'.h5'
             except:
                 self.library_path = self.library_path +'.h5'
+        print(self.library_path)
+
 
         self.update_library_path_display()
-
 
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-        elif self.worker.isFinished():
+        else:
             self.worker.set_library_attributes(self.library_path,
                                      self.annotation_df,
                                      self.h5_folder_path,
                                      self.chosen_chunk_length,
                                      self.overwrite_bool,
                                      self.fs)
-
             self.worker.new_library_mode()
             self.worker.start()
             self.worker.wait()
 
             print('Worker finished')
             self.emit_finished_message()
-        else:
-            print('else got called')
-            self.worker.set_library_attributes(self.library_path,
-                                     self.annotation_df,
-                                     self.h5_folder_path,
-                                     self.chosen_chunk_length,
-                                     self.overwrite_bool,
-                                     self.fs)
-
-            self.worker.new_library_mode()
-            self.worker.start()
-            self.worker.wait()
-            self.emit_finished_message()
 
     def emit_finished_message(self):
         # as you currently have the prgoressbar frozen
         msgBox = QtWidgets.QMessageBox()
-        msgBox.setText('Process finished: Progress bar is frozen until coded up...')
+        msgBox.setText('Process finished')
         msgBox.exec_()
+
     def append_to_library(self):
         if self.library_path:
             self.select_library(default_lib=self.library_path)
@@ -619,7 +620,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-        elif self.worker.isFinished():
+        else:
             self.worker.set_library_attributes(self.library_path,
                                      self.annotation_df,
                                      self.h5_folder_path,
@@ -632,19 +633,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             #self.worker.wait()
             print('Worker finished')
             self.emit_finished_message()
-        else: # why do you have this - for running first time off??
-            print('else got called in append to library')
-            self.worker.set_library_attributes(self.library_path,
-                                     self.annotation_df,
-                                     self.h5_folder_path,
-                                     self.chosen_chunk_length,
-                                     self.overwrite_bool,
-                                     self.fs)
 
-            self.worker.append_to_library_mode()
-            self.worker.start()
-            #self.worker.wait()
-            self.emit_finished_message()
 
     def calculate_features_for_library(self):
         if self.library_path is None:
@@ -654,17 +643,11 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-        elif self.worker.isFinished():
+        else:
             self.worker.add_features_mode()
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
             print('Worker finished')
-            self.emit_finished_message()
-        else:
-            print('else got called in labels to library')
-            self.worker.add_features_mode()
-            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
-            self.worker.start()
             self.emit_finished_message()
 
 
@@ -676,18 +659,11 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         if self.worker.isRunning():
             QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
-        elif self.worker.isFinished():
+        else:
             self.worker.add_labels_mode()
             self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
             self.worker.start()
             print('Worker finished')
-            self.emit_finished_message()
-
-        else:
-            print('else got called in labels to library')
-            self.worker.add_labels_mode()
-            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
-            self.worker.start()
             self.emit_finished_message()
 
 class LibraryWorkerThread(QThread):
@@ -740,11 +716,11 @@ class LibraryWorkerThread(QThread):
 
     def run(self):
 
-        # this is gonna be a bit of a hack...
+        # this not how to do it
         if self.labels_or_features == False:
             if self.appending_to_library:
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
-                self.handler.append_to_seizure_library(df = self.annotations_df,
+                output = self.handler.append_to_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_path=self.library_path,
                                                        overwrite=self.overwrite_bool,
@@ -752,11 +728,14 @@ class LibraryWorkerThread(QThread):
             else:
                 #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
-                self.handler.make_seizure_library(df = self.annotations_df,
+                output = self.handler.make_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_name=self.library_path,
                                                        overwrite=self.overwrite_bool,
                                                        timewindow=self.t_len, fs=self.fs)
+                if output == 0:
+                    throw_error(' An error occurred, check terminal window ')
+
         elif self.labels_or_features == True:
             if not self.add_features:
                 #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
