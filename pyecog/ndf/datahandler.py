@@ -569,6 +569,35 @@ apply_async_with_callback()
             os.utime(fpath,(time.time(),time.time()))
         logging.info('Datahandler - reset date modified time called')
 
+    def get_time_from_filename_with_mcode(self, filepath, return_string = True):
+        # convert m name
+        filename = os.path.split(filepath)[1]
+        if filename.endswith('.ndf'):
+            tstamp = float(filename.split('.')[0][-10:])
+        elif filename.endswith('.h5'):
+            tstamp = float(filename.split('_')[0][-10:])
+        else:
+            print(' Not recognised filetype - please supply ndf or h5')
+            return 0
+        print(tstamp)
+
+        if return_string:
+            ndf_time = str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '-')
+            ndf_time =  ndf_time.replace(' ', '-')
+            return ndf_time
+        else:
+            ndf_time = pd.Timestamp.fromtimestamp(tstamp)
+            return ndf_time
+
+    def add_seconds_to_pandas_timestamp(self, seconds, timestamp):
+        new_stamp = timestamp + pd.Timedelta(seconds=seconds)
+        return new_stamp
+
+    def get_time_from_seconds_and_filepath(self, filepath, seconds):
+        f_stamp = self.get_time_from_filename_with_mcode(filepath, return_string=False)
+        time_stamp_combined = self.add_seconds_to_pandas_timestamp(seconds, f_stamp)
+        return time_stamp_combined
+
     def convert_ndf(self, filename):
 
         savedir = self.savedir_for_parallel_conversion
@@ -576,17 +605,14 @@ apply_async_with_callback()
         fs = self.fs_for_parallel_conversion
 
         # convert m name
-        mname = os.path.split(filename)[1]
-        tstamp = float(mname.strip('M').split('.')[0])
-        ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
-        ndf_time =  ndf_time.replace(' ', '_')
+        ndf_time =  self.get_time_from_filename_with_mcode(filename)
         start = time.time()
         try:
             ndf = NdfFile(filename, fs = fs)
             tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids)
-                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(ndf.read_ids))
+                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
             else:
                 logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')

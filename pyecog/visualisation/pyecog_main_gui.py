@@ -220,6 +220,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.library_up = False
         self.file_dir_up = False
         self.substates_up = True
+
     def populate_tree_for_substates(self,index,fpath,tids):
         self.treeWidget.h5folder = self.h5directory
         self.treeWidget.setColumnCount(6)
@@ -239,7 +240,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             item.addChild(QtGui.QTreeWidgetItem([str(i),
                                                str(i*self.substates_timewindow_secs)+ '-' +str((i+1)*self.substates_timewindow_secs),
                                                str('category to go here')]))
-
         self.tree_items.append(item)
 
     def load_h5_folder(self):
@@ -648,11 +648,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             end = float(fields.text(2))
         except:
             end = start + 1
-            print(' caught you not clicking an end, line 541, need to code this better')
+            print(' caught you not clicking an end, line 651, need to code this better')
         index = float(fields.text(0))
         # duration is fields.text(3)
 
-        correct_file = self.startname_to_full[fields.text(5).split('[')[0]]
+        try:
+            correct_file = self.startname_to_full[fields.text(5).split('[')[0]]
+        except KeyError:
+            throw_error()
+            return 0
         fpath = os.path.join(self.h5directory, correct_file)
 
         h5 = H5File(fpath)

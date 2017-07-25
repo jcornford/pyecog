@@ -547,3 +547,4 @@ class Classifier():
         if iteration == total:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
