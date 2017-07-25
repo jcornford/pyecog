@@ -36,13 +36,14 @@ except:
 if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
     from . import subwindows
-    from .context import H5File
+    from .context import ndf
 
 else:
     import check_preds_design, loading_subwindow, convert_ndf_window
     import subwindows
-    from context import H5File
-
+    from context import ndf
+from ndf.h5loader import H5File
+from ndf.datahandler import DataHandler
 
 def throw_error(error_text = None):
     msgBox = QtWidgets.QMessageBox()
@@ -59,6 +60,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         pg.setConfigOption('foreground', 'k')
         super(MainGui, self).__init__(parent)
         self.setupUi(self)
+        self.handler = DataHandler()
 
 
         self.scroll_flag = -1
@@ -95,6 +97,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.valid_tids_to_indexes = None
         self.indexes_to_valid_tids = None
         self.tid_spinbox_just_changed = False
+        self.annotation_change_tid = False
 
         if os.path.exists('pyecog_temp_file.pickle'):
             with open('pyecog_temp_file.pickle', "rb") as temp_file:
@@ -254,7 +257,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 print('Failed to add: '+ str(fname))
 
         self.treeWidget.addTopLevelItems(self.tree_items)
-
+        self.update_h5_folder_display()
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = True
@@ -262,14 +265,16 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
         self.treeWidget.setColumnCount(6)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname', 'real_start','real_end'])
 
         details_entry = [str(index),
                          '',
                          '',
                          '',
                          str(tids),
-                         str(fpath)]
+                         str(fpath),
+                         '',
+                         '']
 
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
@@ -292,6 +297,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
                 for i, group in enumerate(groups):
                     for seizure_i in range(group.attrs['precise_annotation'].shape[0]):
+                        real_start = self.handler.get_time_from_seconds_and_filepath(group_names[i],
+                                                                                     group.attrs['precise_annotation'][seizure_i, 0],
+                                                                                     split_on_underscore=True).round('s')
+
+                        real_end = self.handler.get_time_from_seconds_and_filepath(group_names[i],
+                                                                                     group.attrs['precise_annotation'][seizure_i, 1],
+                                                                                     split_on_underscore=True).round('s')
                         row = {'name' : group_names[i],
                                'start': group.attrs['precise_annotation'][seizure_i, 0],
                                'end'  : group.attrs['precise_annotation'][seizure_i, 1],
@@ -299,6 +311,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                                'index': i,
                                'chunk_start': group.attrs['chunked_annotation'][seizure_i, 0],
                                'chunk_end': group.attrs['chunked_annotation'][seizure_i, 1],
+                               'real_start':real_start,
+                               'real_end':real_end
                                }
                         self.populate_tree_items_from_library(row)
                 self.treeWidget.addTopLevelItems(self.tree_items)
@@ -314,8 +328,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def populate_tree_items_from_library(self, row):
-        self.treeWidget.setColumnCount(7)
-        self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name'])
+        self.treeWidget.setColumnCount(9)
+        self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name', 'real_start', 'real_end'])
+
         details_entry = [str(row['index']),
                          str(row['start']),
                          str(row['end']),
@@ -323,7 +338,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(row['chunk_start']),
                          str(row['chunk_end']),
                          str(row['tid']),
-                         str(row['name'])]
+                         str(row['name']),
+                         str(row['real_start']),
+                         str(row['real_end'])
+                         ]
 
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
@@ -381,7 +399,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         # now build dataframe from the tree
         root = self.treeWidget.invisibleRootItem()
         child_count = root.childCount()
-        index, start, end, tid, fname, duration = [],[],[],[],[], []
+        index, start, end, tid, fname, duration,real_end,real_start = [],[],[],[],[], [],[],[]
         for i in range(child_count):
             item = root.child(i)
             index.append(item.text(0))
@@ -397,7 +415,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid.append(tid_str)
             fname.append(item.text(5))
             duration.append(item.text(3))
-        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','transmitter'] )
+            real_end.append(item.text(6))
+            real_start.append(item.text(7))
+        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid, real_end,real_start]).T,columns = ['old_index','filename','start','end',
+                                                                                                       'duration','transmitter', 'real_start', 'real_end'] )
 
         save_name = save_name.strip('.csv')
         exported_df.to_csv(save_name+'.csv')
@@ -516,6 +537,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         ''' called when box data changes '''
         if self.tid_spinBox.value() == self.previously_displayed_tid:
             # catching the loop which occurs if setting the spinbox after finding next tid
+            return 0
+        elif self.annotation_change_tid == True:
+            self.annotation_change_tid = False
             return 0
         else:
             self.tid_spinBox_handling()
@@ -643,6 +667,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid = eval(fields.text(4))
             if hasattr(tid, '__iter__'):
                 tid = tid[0]
+        print(tid)
+
         start = float(fields.text(1))
         try:
             end = float(fields.text(2))
@@ -680,6 +706,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n' + str(start)+' - ' +str(end))
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
+
+        # you need to change the spinbox - should be caught if already the same?
+        self.annotation_change_tid = True
+        self.set_tid_spinbox(tid)
 
     #@lprofile()
     def add_data_to_plots(self, data, time):
@@ -758,8 +788,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tree_row = self.treeWidget.currentItem()
             duration = float(tree_row.text(2))-float(tree_row.text(1))
             tree_row.setText(3, '{:.2f}'.format(duration))
+            self.update_real_times()
         except:
-            print('caught error at 639')
+            print('caught error at 777')
 
     def plot_traces(self, data_dict):
 
@@ -861,14 +892,28 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
 
     def populate_tree_items_list_from_predictions(self, row, tids):
-        # todo refactor this name
+        # todo refactor this name to annoations etc
 
-        self.treeWidget.setColumnCount(5)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname'])
+        self.treeWidget.setColumnCount(7)
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
         filename = row['filename']
         index =  row['index']
         start =  row['start']
         end = row['end']
+        if row['start'] !='' and row['end'] !='':
+            try: # if made with, then will have both
+                real_start = row['real_start']
+                real_end   = row['real_end']
+            except:
+                real_start = self.handler.get_time_from_seconds_and_filepath(filename,
+                                                                             start,
+                                                                             split_on_underscore=True).round('s')
+
+                real_end   = self.handler.get_time_from_seconds_and_filepath(filename,
+                                                                             end,
+                                                                             split_on_underscore=True).round('s')
+        else:
+            real_start, real_end = '',''
         try:
             duration = row['end']-row['start']
         except:
@@ -880,7 +925,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(end),
                          str(duration),
                          str(tids), # bad, should make only tid having one explicit - predictions should only have one!
-                         str(filename)]
+                         str(filename),
+                         str(real_start),
+                         str(real_end)]
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
@@ -894,7 +941,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(''),
                          str(''),
                          str(current_tid), # bad, should make only tid having one explicit
-                         str(item.text(5))]
+                         str(item.text(5)),
+                         str(''),
+                         str('')]
 
         new_item = QtGui.QTreeWidgetItem(details_entry)
         return new_item
@@ -933,6 +982,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.update_tree_element_duration()
 
 
+    def update_real_times(self):
+        # this is called by the update_tree_element_duration
+        try:
+            tree_row = self.treeWidget.currentItem()
+            fname = tree_row.text(5)
+            real_start = self.handler.get_time_from_seconds_and_filepath(fname,float(tree_row.text(1)), split_on_underscore = True).round('s')
+            real_end   =  self.handler.get_time_from_seconds_and_filepath(fname,float(tree_row.text(2)), split_on_underscore = True ).round('s')
+            tree_row.setText(6, str(real_start))
+            tree_row.setText(7, str(real_end))
+        except:
+            throw_error()
+
+            print('caught error at 777')
+
+
     def add_end_line_to_h5(self, xpos):
         # do something to move existing end line self.check_end_line_exists()
         if self.end_line is None:
@@ -953,9 +1017,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         modifier = evt[0].modifiers()
 
         if modifier == Qt.ShiftModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
             self.add_start_line_to_h5_file(mousePoint.x())
 
         elif modifier == Qt.AltModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
             self.add_end_line_to_h5(mousePoint.x())
 
     def mouse_click_in_overview(self,evt):

@@ -569,17 +569,18 @@ apply_async_with_callback()
             os.utime(fpath,(time.time(),time.time()))
         logging.info('Datahandler - reset date modified time called')
 
-    def get_time_from_filename_with_mcode(self, filepath, return_string = True):
+    def get_time_from_filename_with_mcode(self, filepath, return_string = True, split_on_underscore = False):
         # convert m name
         filename = os.path.split(filepath)[1]
         if filename.endswith('.ndf'):
             tstamp = float(filename.split('.')[0][-10:])
         elif filename.endswith('.h5'):
             tstamp = float(filename.split('_')[0][-10:])
+        elif split_on_underscore:
+            tstamp = float(filename.split('_')[0][-10:])
         else:
-            print(' Not recognised filetype - please supply ndf or h5')
+            print('fileformat for splitting unknown')
             return 0
-        print(tstamp)
 
         if return_string:
             ndf_time = str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '-')
@@ -590,11 +591,22 @@ apply_async_with_callback()
             return ndf_time
 
     def add_seconds_to_pandas_timestamp(self, seconds, timestamp):
-        new_stamp = timestamp + pd.Timedelta(seconds=seconds)
+
+        new_stamp = timestamp + pd.Timedelta(seconds=float(seconds))
         return new_stamp
 
-    def get_time_from_seconds_and_filepath(self, filepath, seconds):
-        f_stamp = self.get_time_from_filename_with_mcode(filepath, return_string=False)
+    def get_time_from_seconds_and_filepath(self, filepath, seconds,split_on_underscore = False):
+        '''
+        Args:
+            filepath:
+            seconds:
+            split_on_underscore:
+
+        Returns:
+            a pandas timestamp
+
+        '''
+        f_stamp = self.get_time_from_filename_with_mcode(filepath, return_string=False, split_on_underscore=split_on_underscore)
         time_stamp_combined = self.add_seconds_to_pandas_timestamp(seconds, f_stamp)
         return time_stamp_combined
 

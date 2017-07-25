@@ -22,7 +22,7 @@ except:
     from .context import ndf
 
 from ndf.h5loader import H5File
-from ndf.datahandler import DataHandler, NdfFile
+from ndf.datahandler import DataHandler, NdfFile # todo - should bot be importing ndffile?
 from ndf.classifier import Classifier
 '''
 except:
