@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import multiprocessing
@@ -680,14 +681,14 @@ apply_async_with_callback()
         """
         filledLength    = int(round(barLength * iteration / float(total)))
         percents        = round(100.00 * (iteration / float(total)), decimals)
-        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
         sys.stdout.flush()
         if iteration == total:
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def printProgress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+    def printProgress(self, iteration, total, prefix='', suffix='', decimals=1, barLength=100):
         """
         Call in a loop to create terminal progress bar
         @params:
@@ -700,8 +701,8 @@ apply_async_with_callback()
         """
         str_format = "{0:." + str(decimals) + "f}"
         percents = str_format.format(100 * (iteration / float(total)))
-        filled_length = int(round(bar_length * iteration / float(total)))
-        bar = '█' * filled_length + '-' * (bar_length - filled_length)
+        filled_length = int(round(barLength * iteration / float(total)))
+        bar = '*' * filled_length + '-' * (barLength - filled_length)
 
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
 

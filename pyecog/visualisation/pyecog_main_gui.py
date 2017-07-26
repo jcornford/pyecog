@@ -525,7 +525,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         if current_spinbox_id not in self.valid_h5_tids:
             self.tid_spinBox.setValue(self.valid_h5_tids[0]) # no reason to default to first
             # here you add something to hold id if needed
-            print('File tid changed as previous tid not valid')
+            #print('File tid changed as previous tid not valid')
             # this will now automatically call the tid_spinBox_change method - as you have tid changed it
         else:
             # can use the same tid so plot
@@ -647,6 +647,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
             self.updatePlot()
 
+        self.annotation_change_tid = True
+        self.set_tid_spinbox(tid)
+
 
     def build_startswith_to_filename(self):
         self.startname_to_full = {}
@@ -667,7 +670,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid = eval(fields.text(4))
             if hasattr(tid, '__iter__'):
                 tid = tid[0]
-        print(tid)
+
 
         start = float(fields.text(1))
         try:

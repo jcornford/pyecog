@@ -413,6 +413,7 @@ class Classifier():
 
 
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        skip_n =  0
         for i,fpath in enumerate(files_to_predict):
             full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
 
@@ -451,10 +452,19 @@ class Classifier():
 
             except KeyError:
                 logging.error(str(full_fname) + ' did not contain any features! Skipping')
+                skip_n += 1
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        print('Re - ordering spreadsheet by date')
-        self.reorder_prediction_csv(excel_sheet)
-        print ('Done')
+        try:
+            print('Re - ordering spreadsheet by date')
+            self.reorder_prediction_csv(excel_sheet)
+            print ('Done')
+        except:
+            print('unable to re-order spreadsheet by date, does it exist?')
+
+        if skip_n != 0:
+            print('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
+            time.sleep(5)
+        return skip_n
 
     def reorder_prediction_csv(self, csv_path):
         df = pd.read_csv(csv_path)
@@ -541,7 +551,7 @@ class Classifier():
         """
         filledLength    = int(round(barLength * iteration / float(total)))
         percents        = round(100.00 * (iteration / float(total)), decimals)
-        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
         sys.stdout.flush()
         if iteration == total:
