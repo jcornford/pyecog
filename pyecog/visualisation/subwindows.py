@@ -173,6 +173,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.update_label_above2.connect( self.update_label_above2)
         self.worker.finished.connect(self.end_training)
 
+
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
         ntrees = int(self.n_trees.text())
@@ -209,6 +210,8 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.progressBar.setMaximum(int(signal))
     def update_progress(self, signal):
         self.progressBar.setValue(int(signal))
+    def missing_features(self, n_missing):
+        throw_error('There were '+str(n_missing)+' files with missing features!')
 
     def predict_seizures(self):
         try:
@@ -236,6 +239,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
             self.worker.update_label_below.connect( self.update_label_below)
             self.worker.update_label_above2.connect( self.update_label_above2)
             self.worker.finished.connect(self.end_prediction)
+            self.worker.missing_features.connect(self.missing_features)
 
             h5_folder = self.h5_folder_display.text()
             excel_sheet = QtGui.QFileDialog.getSaveFileName(self,  "make output csv file", self.home)[0]
@@ -256,6 +260,7 @@ class PredictSeizuresThread(QThread):
     setMaximum_progressbar= pyqtSignal(str)
     update_label_below = pyqtSignal(str)
     update_label_above2 = pyqtSignal(str)
+    missing_features = pyqtSignal(str)
 
     def __init__(self):
         QThread.__init__(self)
@@ -270,10 +275,11 @@ class PredictSeizuresThread(QThread):
         self.update_label_below.emit('Saving predictions: '+ self.excel_output)
         self.update_progress_label.emit('We are now rolling - look in your terminal for progress')
 
-        self.clf.predict_dir(self.prediction_dir,
+        output = self.clf.predict_dir(self.prediction_dir,
                              self.excel_output,
                              called_from_gui = True)
-
+        if output != 0:
+            self.missing_features.emit(str(output))
         self.update_progress_label.emit('Done')
         self.finished.emit()
         self.exit()
