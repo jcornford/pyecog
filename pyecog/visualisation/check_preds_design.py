@@ -70,7 +70,6 @@ class Ui_MainWindow(object):
         self.treeWidget.header().setMinimumSectionSize(5)
         self.treeWidget.header().setSortIndicatorShown(True)
         self.verticalLayout_2.addWidget(self.treeWidget)
-        self.treeWidget.raise_()
         self.tabWidget.addTab(self.widget, "")
         self.tabWidgetPage2 = QtWidgets.QWidget()
         self.tabWidgetPage2.setObjectName("tabWidgetPage2")
@@ -346,15 +345,9 @@ class Ui_MainWindow(object):
         self.GraphicsLayoutWidget.setBaseSize(QtCore.QSize(800, 300))
         self.GraphicsLayoutWidget.setObjectName("GraphicsLayoutWidget")
         self.gridLayout.addWidget(self.splitter_3, 0, 0, 1, 1)
-        self.splitter_3.raise_()
-        self.splitter_3.raise_()
-        self.label_8.raise_()
-        self.frame_4.raise_()
-        self.frame_5.raise_()
-        self.splitter_3.raise_()
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1280, 38))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1280, 31))
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
@@ -419,7 +412,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuAnalyse.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
