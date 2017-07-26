@@ -789,6 +789,7 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         tids = self.transmitter_ids.text().strip("'")
         fs   = int(self.fs_box.text())
         ncores = self.cores_to_use.text()
+        glitch_detection = self.checkbox_ndf_glitch_removal.isChecked()
         if ncores == 'all':
             ncores = -1
         else:
@@ -820,7 +821,8 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
                                                 save_dir=self.h5directory,
                                                 tids=tids,
                                                 n_cores=ncores,
-                                                fs=fs)
+                                                fs=fs,
+                                                glitch_detection_flag = glitch_detection)
             self.converting_thread.start()
         except:
             QtGui.QMessageBox.information(self," ", "Error!")
@@ -851,11 +853,12 @@ class ConvertNdfThread(QThread):
                                     tids = 'all',
                                     save_dir  = 'same_level',
                                     n_cores = -1,
-                                    fs = 'auto'):
+                                    fs = 'auto',
+                                    glitch_detection_flag = True):
         """
         Copy from datahandler, this should be a thread?
         """
-
+        self.handler.glitch_detection_flag_for_parallel_conversion = glitch_detection_flag
         self.handler.fs_for_parallel_conversion = fs
         print(self.handler.fs_for_parallel_conversion)
         self.files = [f for f in self.handler.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
