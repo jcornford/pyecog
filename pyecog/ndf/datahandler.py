@@ -256,22 +256,51 @@ apply_async_with_callback()
         self.parrallel_flag_pred = False
         self.reset_date_modified_time(files_to_add_features)
 
+    def prepare_annotation_dataframe(self, df):
+        df.columns = [label.lower() for label in df.columns]
+        df.columns  = [label.strip(' ') for label in df.columns]
+        original_row_n = df.shape[0]
+        df = df.dropna(subset=['start', 'end'])
+        n_dropped = original_row_n - df.shape[0]
+        if n_dropped != 0:
+            print('WARNING: Dropped '+ str(n_dropped)+ ' rows from your annotation file with missing start and end entries')
+        return df
+
+    def load_annotation_df_if_not_dataframe(self,df):
+        if isinstance(df, str):
+                try:
+                    if df.endswith('.xlsx'):
+                        df = pd.read_excel(df)
+                    elif df.endswith('.csv'):
+                        df = pd.read_csv(df)
+                    return df
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+                    return 0
+        else:
+            print('Error: Please pass a pandas dataframe or a path to .csv or .xlsx file')
+            return 0
+
+
+
     def get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
         This function matches the entries in a dataframe with files in a directory
 
         Returns: list of annotations stored in a list
         '''
+        if not isinstance(df, pd.DataFrame):
+            df = self.load_annotation_df_if_not_dataframe(df)
+        df = self.prepare_annotation_dataframe(df)
 
         abs_filenames = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
         data_filenames = [f for f in os.listdir(file_dir) if f.startswith('M')]
         mcodes = [os.path.split(f)[1][:11] for f in os.listdir(file_dir) if f.startswith('M')]
         n_files = len(data_filenames)
 
-        # now loop through matching the tid to datafile in the annotations
-        df.columns = [label.lower() for label in df.columns]
-        df.columns  = [label.strip(' ') for label in df.columns]
 
+        # now loop through matching the tid to datafile in the annotations
         reference_count = 0
         annotation_dicts = []
         for row in df.iterrows():
@@ -515,7 +544,7 @@ apply_async_with_callback()
         ''' returns full filepath,  excludes hidden files, starting with .'''
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = 4, fs = 'auto'):
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = 4, fs = 'auto',glitch_detection = True):
         """
 
         Args:
@@ -528,7 +557,7 @@ apply_async_with_callback()
         ndfs conversion seem to be pretty buggy...
 
         """
-
+        self.glitch_detection_flag_for_parallel_conversion = glitch_detection
         self.fs_for_parallel_conversion = fs
         files = [f for f in self.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
         if type(tids)=='tid': tids = tids.strip(' ')
@@ -615,6 +644,7 @@ apply_async_with_callback()
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
+        glitch_detection_flag = self.glitch_detection_flag_for_parallel_conversion
 
         # convert m name
         ndf_time =  self.get_time_from_filename_with_mcode(filename)
@@ -623,7 +653,7 @@ apply_async_with_callback()
             ndf = NdfFile(filename, fs = fs)
             tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
-                ndf.load(tids)
+                ndf.load(tids,auto_glitch_removal=glitch_detection_flag)
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
             else:
