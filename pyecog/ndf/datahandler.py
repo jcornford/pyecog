@@ -345,7 +345,10 @@ apply_async_with_callback()
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
             print("Error getting annotations from your file, probably column names. Please ensure columns are named: 'filename', 'transmitter','start','end'")
-            annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            #annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            return 0
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
@@ -369,16 +372,23 @@ apply_async_with_callback()
 
         # now populate to seizure lib with data, time and labels
         # make a list
-        l = len(annotation_dicts)-1
-        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation,
-                                           fs,
-                                           timewindow,
-                                           seizure_library_path,
-                                           verbose = verbose,
-                                           scale_and_filter = scale_and_filter)
-            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        try:
+            l = len(annotation_dicts)-1
+            self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+            for i, annotation in enumerate(annotation_dicts):
+                self._populate_seizure_library(annotation,
+                                               fs,
+                                               timewindow,
+                                               seizure_library_path,
+                                               verbose = verbose,
+                                               scale_and_filter = scale_and_filter)
+                self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
+        except Exception:
+            print ('Error in building seizure library')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            return 0
 
     def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
                                   timewindow = 5,
@@ -430,18 +440,28 @@ apply_async_with_callback()
                                   seizure_library_path,
                                   verbose = False,
                                   scale_and_filter = False):
+        '''
+
+        Uses annotations to add to seizure library
+
+        '''
 
         logging.debug('Adding '+str(annotation['fname']))
+        tid = annotation['tid']
+
         if annotation['fname'].endswith('.ndf'):
             h5file_obj = NdfFile(annotation['fname'],fs = fs)
             h5file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
             h5file_obj = H5File(annotation['fname'])
+            h5_fs = eval(h5file_obj.attributes['fs_dict'])[tid]
+            if h5_fs != fs:
+                print('WARNING: fs do not match! h5 fs is ' +str(h5_fs)+', you entered '+ str(fs)+'.')
         else:
             print('ERROR: Unrecognised file-type')
 
-        data_array = h5file_obj[annotation['tid']]['data'] # just 1D at the moment!
-        tid = annotation['tid']
+        data_array = h5file_obj[tid]['data'] # just 1D at the moment!
+
         try:
             features_array = h5file_obj[tid]['features']
             # this is is a none if no key? - suprising, thought would return key error
@@ -549,6 +569,47 @@ apply_async_with_callback()
             os.utime(fpath,(time.time(),time.time()))
         logging.info('Datahandler - reset date modified time called')
 
+    def get_time_from_filename_with_mcode(self, filepath, return_string = True, split_on_underscore = False):
+        # convert m name
+        filename = os.path.split(filepath)[1]
+        if filename.endswith('.ndf'):
+            tstamp = float(filename.split('.')[0][-10:])
+        elif filename.endswith('.h5'):
+            tstamp = float(filename.split('_')[0][-10:])
+        elif split_on_underscore:
+            tstamp = float(filename.split('_')[0][-10:])
+        else:
+            print('fileformat for splitting unknown')
+            return 0
+
+        if return_string:
+            ndf_time = str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '-')
+            ndf_time =  ndf_time.replace(' ', '-')
+            return ndf_time
+        else:
+            ndf_time = pd.Timestamp.fromtimestamp(tstamp)
+            return ndf_time
+
+    def add_seconds_to_pandas_timestamp(self, seconds, timestamp):
+
+        new_stamp = timestamp + pd.Timedelta(seconds=float(seconds))
+        return new_stamp
+
+    def get_time_from_seconds_and_filepath(self, filepath, seconds,split_on_underscore = False):
+        '''
+        Args:
+            filepath:
+            seconds:
+            split_on_underscore:
+
+        Returns:
+            a pandas timestamp
+
+        '''
+        f_stamp = self.get_time_from_filename_with_mcode(filepath, return_string=False, split_on_underscore=split_on_underscore)
+        time_stamp_combined = self.add_seconds_to_pandas_timestamp(seconds, f_stamp)
+        return time_stamp_combined
+
     def convert_ndf(self, filename):
 
         savedir = self.savedir_for_parallel_conversion
@@ -556,17 +617,14 @@ apply_async_with_callback()
         fs = self.fs_for_parallel_conversion
 
         # convert m name
-        mname = os.path.split(filename)[1]
-        tstamp = float(mname.strip('M').split('.')[0])
-        ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
-        ndf_time =  ndf_time.replace(' ', '_')
+        ndf_time =  self.get_time_from_filename_with_mcode(filename)
         start = time.time()
         try:
             ndf = NdfFile(filename, fs = fs)
             tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids)
-                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(ndf.read_ids))
+                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
             else:
                 logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')

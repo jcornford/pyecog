@@ -92,7 +92,7 @@ class Classifier():
                     upsample_seizure_by_x = 1,
                     ntrees=800, n_cores = -1,
                     n_emission_prob_cvfolds = 3,
-                    pyecog_hmm = False,
+                    pyecog_hmm = True,
                     calc_emissions = True,
                     rf_weights = None,
                     calibrate = False):
@@ -381,17 +381,24 @@ class Classifier():
         """ this method relies on rolled own version..."""
         pred_features = self.cleaner.transform(pred_features)
 
-        if use_probs:
+        if use_probs: # x is a 2d vector of p(zt|xt)
             pred_y_probs = self.rf.predict_proba(pred_features).T # expecting cols to be timepoints
             posterior = self.hm_model.forward_backward(pred_y_probs, phi_mat=None)
-        else:
+        else: # x is assumed to be a 1d vector of emissions and phi mat is cross validation?
             pred_y_emitts = self.rf.predict(pred_features)
-            posterior = self.hm_model.forward_backward(pred_y_emitts,phi_mat = self.transition_probs)
+            #print('running clf on hmm features pyecog')
+            posterior = self.hm_model.forward_backward(pred_y_emitts, phi_mat = self.emission_probs)
         decoded_y = posterior[1,:]>self.posterior_thresh
         return decoded_y
 
-    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv',
-                    overwrite_previous_predicitions = True, pyecog_hmm = True, use_probs = False, posterior_thresh = 0.5):
+    def predict_dir(self, prediction_dir,
+                    excel_sheet = 'clf_predictions.csv',
+                    overwrite_previous_predicitions = True,
+                    pyecog_hmm = True,
+                    use_probs = False,
+                    posterior_thresh = 0.5,
+                    called_from_gui = False):
+
         self.posterior_thresh = posterior_thresh
         files_to_predict = [os.path.join(prediction_dir,f) for f in os.listdir(prediction_dir) if not f.startswith('.') if f.endswith('.h5') ]
         l = len(files_to_predict)-1
@@ -540,3 +547,4 @@ class Classifier():
         if iteration == total:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
