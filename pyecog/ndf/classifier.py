@@ -541,7 +541,7 @@ class Classifier():
         """
         filledLength    = int(round(barLength * iteration / float(total)))
         percents        = round(100.00 * (iteration / float(total)), decimals)
-        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
         sys.stdout.flush()
         if iteration == total:
