@@ -64,9 +64,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
         self.scroll_flag = -1
-        self.splitter.setSizes([50,20])
-        self.splitter_2.setSizes([50,20])
-        self.splitter_3.setSizes([50,20])
+        self.deleted_tree_items = []
+        #self.splitter.setSizes([50,20])
+        #self.splitter_2.setSizes([50,20])
+        #self.splitter_3.setSizes([50,20])
         #self.bottom_splitter.setSizes([200,300])
         #self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
@@ -225,6 +226,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = True
 
     def populate_tree_for_substates(self,index,fpath,tids):
+        self.deleted_tree_items = []
         self.treeWidget.h5folder = self.h5directory
         self.treeWidget.setColumnCount(6)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
@@ -264,6 +266,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
+        self.deleted_tree_items = []
         self.treeWidget.setColumnCount(6)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname', 'real_start','real_end'])
 
@@ -328,6 +331,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def populate_tree_items_from_library(self, row):
+        self.deleted_tree_items = []
         self.treeWidget.setColumnCount(9)
         self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name', 'real_start', 'real_end'])
 
@@ -896,7 +900,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def populate_tree_items_list_from_predictions(self, row, tids):
         # todo refactor this name to annoations etc
-
+        self.deleted_tree_items = []
         self.treeWidget.setColumnCount(7)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
         filename = row['filename']
@@ -963,6 +967,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         xlims  = self.plot_1.getViewBox().viewRange()[0]
         self.treeWidget.setCurrentItem(test_item)
         self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
+
+
 
 
     def add_start_line_to_h5_file(self,xpos):
@@ -1076,9 +1082,35 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.xrange_spinBox.setValue(xrange)
 
 
+    def undo_tree_deletion(self):
+
+        if len(self.deleted_tree_items) == 0:
+            print('Nothing to undo')
+            return 0
+        old_item = self.deleted_tree_items[-1]
+        del self.deleted_tree_items[-1]
+        original_index = int(old_item.text(0))
+        tree_index = self.get_new_index_for_deleted_tree_element(original_index)
+
+        self.treeWidget.insertTopLevelItem(tree_index, old_item)
+        self.treeWidget.setCurrentItem(old_item)
+
+    def get_new_index_for_deleted_tree_element(self, deleted_element_index):
+
+        root = self.treeWidget.invisibleRootItem()
+        child_count = root.childCount()
+        index_list = []
+        for i in range(child_count):
+            item = root.child(i)
+            index_list.append(int(item.text(0)))
+        correct_tree_index = bisect.bisect_left(index_list, int(deleted_element_index))
+        return correct_tree_index
+
     def keyPressEvent(self, eventQKeyEvent):
 
         key_id = eventQKeyEvent.key()
+        modifier = eventQKeyEvent.modifiers()
+
         key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
         if key_id in list(key_id_to_numbers.keys()):
             self.plot_change = False # disable this as key now entered
@@ -1090,6 +1122,18 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 # connected trigger will call xrange change
 
         x,y = self.plot_1.getViewBox().viewRange()
+
+        if key_id == Qt.Key_Delete or key_id == Qt.Key_Backspace:
+            # store the deleted element so you can undo it
+            tree_entry = self.treeWidget.currentItem()
+            self.deleted_tree_items.append(tree_entry)
+
+        if key_id ==  Qt.Key_Z and modifier == Qt.ControlModifier:
+            self.undo_tree_deletion()
+
+        if key_id ==  Qt.Key_Z :
+            self.undo_tree_deletion()
+
         if key_id == Qt.Key_Up:
             if self.scroll_flag==True:
                 scroll_rate = self.scroll_speed_box.value()
