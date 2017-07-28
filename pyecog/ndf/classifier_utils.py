@@ -5,11 +5,16 @@ import pandas as pd
 def make_clf_report(f_string,anno_string, unfair_df = False ):
     ''' f sting is the predictions, anno'''
     print("Classification report for predictions "+f_string)
-
-    pred_df = pd.read_csv(f_string).iloc[:,1:]
+    try:
+        pred_df = pd.read_csv(f_string).iloc[:,1:]
+    except:
+        pred_df = pd.read_excel(f_string).iloc[:,1:]
     pred_df = add_mcode_tid_col(pred_df)
 
-    anno_df = pd.read_csv(anno_string).iloc[:,1:]
+    try:
+        anno_df = pd.read_csv(anno_string).iloc[:,1:]
+    except:
+        anno_df = pd.read_excel(anno_string).iloc[:,1:]
     anno_df  = add_mcode_tid_col(anno_df)
     if unfair_df:
         anno_unfair_df = add_mcode_tid_col(unfair_df)

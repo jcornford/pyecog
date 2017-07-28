@@ -4,10 +4,12 @@ from .datahandler import DataHandler
 from .classifier import FeaturePreProcesser
 from .classifier import Classifier
 from .classifier import load_classifier
+
 #from .bokeh_visualisation import plot
 #from .bokeh_visualisation import basic_plot
 from .feature_extractor import FeatureExtractor
-from .hmm import make_hmm_model
+
+from . import classifier_utils
 
 import os
 import logging
