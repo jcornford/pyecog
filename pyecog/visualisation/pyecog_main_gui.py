@@ -2,12 +2,15 @@ import sys
 import os
 import bisect
 import traceback
+import time
 
 import numpy as np
 import pandas as pd
+import pickle as p
 
 from PyQt5 import QtGui, QtWidgets#,# uic
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QRect, QTimer
+from scipy import signal, stats
 import pyqtgraph as pg
 import inspect
 import h5py
@@ -33,12 +36,23 @@ except:
 if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
     from . import subwindows
-    from .context import H5File
+    from .context import ndf
 
 else:
     import check_preds_design, loading_subwindow, convert_ndf_window
     import subwindows
-    from context import H5File
+    from context import ndf
+from ndf.h5loader import H5File
+from ndf.datahandler import DataHandler
+
+def throw_error(error_text = None):
+    msgBox = QtWidgets.QMessageBox()
+    if error_text is None:
+        msgBox.setText('Error caught! \n'+str(traceback.format_exc(1)))
+    else:
+        msgBox.setText('Error caught! \n'+str(error_text))
+    msgBox.exec_()
+    return 0
 
 class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
@@ -46,10 +60,16 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         pg.setConfigOption('foreground', 'k')
         super(MainGui, self).__init__(parent)
         self.setupUi(self)
+        self.handler = DataHandler()
+
+
         self.scroll_flag = -1
-        self.top_splitter.setSizes([200,600])
-        self.bottom_splitter.setSizes([500,300])
-        self.full_splitter.setSizes([300,200,150])
+        self.deleted_tree_items = []
+        #self.splitter.setSizes([50,20])
+        #self.splitter_2.setSizes([50,20])
+        #self.splitter_3.setSizes([50,20])
+        #self.bottom_splitter.setSizes([200,300])
+        #self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
             self.blink      = 1
         else:
@@ -58,21 +78,31 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
         self.blink_box.stateChanged.connect(self.blink_box_change)
+
         self.scroll_speed_box.valueChanged.connect(self.scroll_speed_change)
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
-        self.tid_spinBox.valueChanged.connect(self.tid_spinBox_handling)
+        self.tid_spinBox.valueChanged.connect(self.tid_spinBox_change)
+        self.checkbox_filter_toggle.stateChanged.connect(self.plot1_display_filter_toggled)
+        self.hp_filter_freq.valueChanged.connect(self.hp_filter_settings_changed)
 
         self.fs = None # change !
+        self.previously_displayed_tid = None
         self.data_obj = None
         self.predictions_df = None
         self.h5directory = None
         self.tree_items = []
         self.valid_h5_tids = None
 
-        if os.path.exists('/Volumes/LaCie/Pyecog_demo_stuff'):
-            #self.home = '/Volumes/G-DRIVE with Thunderbolt/2017 pyecog demo/'
-            self.home = '/Volumes/LaCie/Pyecog_demo_stuff'
+        self.hdf5_plot = None
+        self.valid_tids_to_indexes = None
+        self.indexes_to_valid_tids = None
+        self.tid_spinbox_just_changed = False
+        self.annotation_change_tid = False
+
+        if os.path.exists('pyecog_temp_file.pickle'):
+            with open('pyecog_temp_file.pickle', "rb") as temp_file:
+                self.home = p.load(temp_file)
         else:
             self.home = os.getcwd()
 
@@ -104,6 +134,27 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.file_dir_up = False
         self.substates_up = False
         self.substate_child_selected = False
+
+    def hp_filter_settings_changed(self):
+        if self.hdf5_plot is not None:
+            self.hdf5_plot.wipe_filtered_data()
+            self.plot1_display_filter_toggled()
+
+    def plot1_display_filter_toggled(self):
+        # set filter settings on trace
+        if self.hdf5_plot is not None:
+            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
+            self.hdf5_plot.updateHDF5Plot()
+
+    def get_plot1_display_filter_settings_from_maingui(self):
+        ''' Returns the state, high pass and low pass values from main gui'''
+        hp = self.hp_filter_freq.value()
+        lp = self.lp_filter_freq.value()
+        if hp <= 0:
+            self.hp_filter_freq.setValue(1.0)
+        toggle = self.checkbox_filter_toggle.isChecked()
+        return toggle, hp, lp
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
@@ -142,12 +193,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
     def set_home(self):
         self.home = QtGui.QFileDialog.getExistingDirectory(self, "Set a default folder to load from", self.home)
+        with open("pyecog_temp_file.pickle", "wb") as f:
+            p.dump(self.home, f)
 
     def get_h5_folder_fnames(self):
-        self.h5directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
-        if self.h5directory == '':
+        new_directory = QtGui.QFileDialog.getExistingDirectory(self, "Pick a h5 folder", self.home)
+        if new_directory == '':
             print('No folder selected')
             return 0
+        self.h5directory = new_directory
         self.clear_QTreeWidget()
         self.build_startswith_to_filename()
         fnames = [f for f in os.listdir(self.h5directory) if f.endswith('.h5') if not f.startswith('.') ]
@@ -170,7 +224,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.library_up = False
         self.file_dir_up = False
         self.substates_up = True
+
     def populate_tree_for_substates(self,index,fpath,tids):
+        self.deleted_tree_items = []
         self.treeWidget.h5folder = self.h5directory
         self.treeWidget.setColumnCount(6)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
@@ -189,7 +245,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             item.addChild(QtGui.QTreeWidgetItem([str(i),
                                                str(i*self.substates_timewindow_secs)+ '-' +str((i+1)*self.substates_timewindow_secs),
                                                str('category to go here')]))
-
         self.tree_items.append(item)
 
     def load_h5_folder(self):
@@ -204,22 +259,25 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 print('Failed to add: '+ str(fname))
 
         self.treeWidget.addTopLevelItems(self.tree_items)
-
+        self.update_h5_folder_display()
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = True
         self.substates_up = False
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
+        self.deleted_tree_items = []
         self.treeWidget.setColumnCount(6)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname', 'real_start','real_end'])
 
         details_entry = [str(index),
                          '',
                          '',
                          '',
                          str(tids),
-                         str(fpath)]
+                         str(fpath),
+                         '',
+                         '']
 
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
@@ -242,6 +300,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
                 for i, group in enumerate(groups):
                     for seizure_i in range(group.attrs['precise_annotation'].shape[0]):
+                        real_start = self.handler.get_time_from_seconds_and_filepath(group_names[i],
+                                                                                     group.attrs['precise_annotation'][seizure_i, 0],
+                                                                                     split_on_underscore=True).round('s')
+
+                        real_end = self.handler.get_time_from_seconds_and_filepath(group_names[i],
+                                                                                     group.attrs['precise_annotation'][seizure_i, 1],
+                                                                                     split_on_underscore=True).round('s')
                         row = {'name' : group_names[i],
                                'start': group.attrs['precise_annotation'][seizure_i, 0],
                                'end'  : group.attrs['precise_annotation'][seizure_i, 1],
@@ -249,6 +314,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                                'index': i,
                                'chunk_start': group.attrs['chunked_annotation'][seizure_i, 0],
                                'chunk_end': group.attrs['chunked_annotation'][seizure_i, 1],
+                               'real_start':real_start,
+                               'real_end':real_end
                                }
                         self.populate_tree_items_from_library(row)
                 self.treeWidget.addTopLevelItems(self.tree_items)
@@ -264,8 +331,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def populate_tree_items_from_library(self, row):
-        self.treeWidget.setColumnCount(7)
-        self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name'])
+        self.deleted_tree_items = []
+        self.treeWidget.setColumnCount(9)
+        self.treeWidget.setHeaderLabels(['index','start','end','duration','chunk_start','chunk_end', 'tid','name', 'real_start', 'real_end'])
+
         details_entry = [str(row['index']),
                          str(row['start']),
                          str(row['end']),
@@ -273,7 +342,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(row['chunk_start']),
                          str(row['chunk_end']),
                          str(row['tid']),
-                         str(row['name'])]
+                         str(row['name']),
+                         str(row['real_start']),
+                         str(row['real_end'])
+                         ]
 
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
@@ -331,7 +403,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         # now build dataframe from the tree
         root = self.treeWidget.invisibleRootItem()
         child_count = root.childCount()
-        index, start, end, tid, fname, duration = [],[],[],[],[], []
+        index, start, end, tid, fname, duration,real_end,real_start = [],[],[],[],[], [],[],[]
         for i in range(child_count):
             item = root.child(i)
             index.append(item.text(0))
@@ -343,11 +415,14 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 # tid is probably a '[x]'
                 tid_str = eval(item.text(4))
                 if hasattr(tid_str, '__iter__'):
-                    tid_str = tid_str[0]
+                    tid_str = str(tid_str)
             tid.append(tid_str)
             fname.append(item.text(5))
             duration.append(item.text(3))
-        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid]).T,columns = ['old_index','filename','start','end','duration','transmitter'] )
+            real_end.append(item.text(6))
+            real_start.append(item.text(7))
+        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid, real_end,real_start]).T,columns = ['old_index','filename','start','end',
+                                                                                                       'duration','transmitter', 'real_start', 'real_end'] )
 
         save_name = save_name.strip('.csv')
         exported_df.to_csv(save_name+'.csv')
@@ -355,7 +430,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def master_tree_selection(self):
         if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
             if self.predictions_up:
-                self.tree_selection_predictions()
+                #todo Jonny hacking awway again, this actuall loops back to tree_selections_preductions
+                self.tree_selection_file_dir()
+                #self.tree_selection_predictions()
             elif self.library_up:
                 self.tree_selection_library()
             elif self.file_dir_up:
@@ -366,13 +443,20 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def get_next_tree_item(self):
         print('not implememented: try to grab next treewidget item!')
 
+    def set_valid_h5_ids(self, tid_list):
+        self.valid_h5_tids = tid_list
+        self.valid_tids_to_indexes
+        self.valid_tids_to_indexes = {tid:i for i, tid in enumerate(self.valid_h5_tids)}
+        self.indexes_to_valid_tids = {i:tid for i, tid in enumerate(self.valid_h5_tids)}
+        self.previously_displayed_tid = None # you also want to "wipe the list?"
+
     def tree_selection_substates(self):
         item = self.treeWidget.currentItem()
         if item.text(2).startswith('M'):
             #print('Filerow')
             self.treeWidget.substate_child_selected = False
             tids = item.text(1)
-            self.valid_h5_tids = eval(tids)
+            self.set_valid_h5_ids(eval(tids))
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             #print('child')
@@ -402,12 +486,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
                 # do something else here
                 self.tree_selection_predictions()
-                tids = current_item.text(4)
-                self.valid_h5_tids = eval(tids)
-                self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+                #tids = current_item.text(4)
+                #self.set_valid_h5_ids(eval(tids))
+                #self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
         else:
             tids = current_item.text(4)
-            self.valid_h5_tids = eval(tids)
+            self.set_valid_h5_ids(eval(tids))
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
 
 
@@ -425,32 +509,86 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         data_dict = h5[tid]
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
-        xrange = self.xrange_spinBox.value()
-        self.plot_1.setXRange(0, xrange)
+        if self.checkbox_hold_trace_position.isChecked():
+            xlims  = self.plot_1.getViewBox().viewRange()[0]
+            x_min = xlims[0]
+            x_max = xlims[1]
+        else:
+            xrange = self.xrange_spinBox.value()
+            x_min = 0
+            x_max = xrange
+        self.plot_1.setXRange(x_min, x_max, padding=0)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
     def handle_tid_for_file_dir_plotting(self):
         # this is called when clicking on the tree structure
+        # therefore first check if can use the same tid or not...
         current_spinbox_id = self.tid_spinBox.value()
         if current_spinbox_id not in self.valid_h5_tids:
-            self.tid_spinBox.setValue(self.valid_h5_tids[0])
-            print('File Tid changed')
+            self.tid_spinBox.setValue(self.valid_h5_tids[0]) # no reason to default to first
+            # here you add something to hold id if needed
+            #print('File tid changed as previous tid not valid')
+            # this will now automatically call the tid_spinBox_change method - as you have tid changed it
+        else:
+            # can use the same tid so plot
+            self.load_filedir_h5_file(current_spinbox_id)
+
+        # as id number will now be the last value next time changed
+
+    def tid_spinBox_change(self):
+        ''' called when box data changes '''
+        if self.tid_spinBox.value() == self.previously_displayed_tid:
+            # catching the loop which occurs if setting the spinbox after finding next tid
+            return 0
+        elif self.annotation_change_tid == True:
+            self.annotation_change_tid = False
+            return 0
         else:
             self.tid_spinBox_handling()
 
+    def set_tid_spinbox(self, value):
+        '''
+        This wil
+        '''
+        #print('Tid_spinbox has been set by code' )
+        self.tid_spinBox.setValue(value)
+        self.tid_spinbox_just_changed = True
+
     def tid_spinBox_handling(self):
+        #print('tid spin box handling called')
         try:
             # tid_spinbox.valueChanged connects to here
             new_val = self.tid_spinBox.value()
-            if new_val < min(self.valid_h5_tids):
+            #print(time.time(), 'New spinbox value is ', new_val)
+            set_tid_box = True
+            if new_val in self.valid_h5_tids:
+                set_tid_box = False # dont need to overwrite box
+                new_tid = new_val
+            elif new_val < min(self.valid_h5_tids): # this is rolling 0
                 new_tid = self.valid_h5_tids[-1]
+
+            elif new_val > max(self.valid_h5_tids): # this is rolling 0
+                new_tid = self.valid_h5_tids[0]
+
             else:
-                i = bisect.bisect_left(self.valid_h5_tids,new_val)
-                new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
-            self.tid_spinBox.setValue(new_tid)
+                if self.previously_displayed_tid is not None:
+                    step = new_val - self.previously_displayed_tid
+                    old_index = self.valid_tids_to_indexes[self.previously_displayed_tid]
+                    new_index = old_index+step
+                    new_tid   = self.indexes_to_valid_tids[new_index]
+                else:
+                    i = bisect.bisect_left(self.valid_h5_tids,new_val)
+                    new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
+
+            #print('New is:', new_tid)
+            #print('Last was:', self.previously_displayed_tid)
+            self.previously_displayed_tid = new_tid
             self.load_filedir_h5_file(new_tid)
+            if set_tid_box:
+                self.set_tid_spinbox(new_tid)
+
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
@@ -508,16 +646,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             self.plot_1.addItem(self.end_coarse)
             self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
             self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
-            self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer)
+            self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer, padding=0)
             self.plot_1.setTitle(str(index)+' - '+ key+ '\n' + str(start)+' - ' +str(end))
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
             self.updatePlot()
 
+        self.annotation_change_tid = True
+        self.set_tid_spinbox(tid)
+
 
     def build_startswith_to_filename(self):
+        ''' split either on the bracket of the .'''
         self.startname_to_full = {}
+
         for f in os.listdir(self.h5directory):
-            self.startname_to_full[f.split('[')[0]] = f
+            self.startname_to_full[f[:11]] = f
 
     def tree_selection_predictions(self):
         # this method does too much
@@ -533,12 +676,22 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             tid = eval(fields.text(4))
             if hasattr(tid, '__iter__'):
                 tid = tid[0]
+
+
         start = float(fields.text(1))
-        end = float(fields.text(2))
+        try:
+            end = float(fields.text(2))
+        except:
+            end = start + 1
+            print(' caught you not clicking an end, line 651, need to code this better')
         index = float(fields.text(0))
         # duration is fields.text(3)
 
-        correct_file = self.startname_to_full[fields.text(5).split('[')[0]]
+        try:
+            correct_file = self.startname_to_full[fields.text(5)[:11]]
+        except KeyError:
+                throw_error()
+                return 0
         fpath = os.path.join(self.h5directory, correct_file)
 
         h5 = H5File(fpath)
@@ -558,25 +711,32 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
         self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
 
-        self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer)
+        self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer, padding=0)
         self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n' + str(start)+' - ' +str(end))
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
+
+        # you need to change the spinbox - should be caught if already the same?
+        self.annotation_change_tid = True
+        self.set_tid_spinbox(tid)
 
     #@lprofile()
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
-        hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
-        hdf5_plot.setHDF5(data, time, self.fs)
-        self.plot_1.addItem(hdf5_plot)
+        self.hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
+        if self.checkbox_filter_toggle.isChecked():
+            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp)
+        self.hdf5_plot.setHDF5(data, time, self.fs)
+        self.plot_1.addItem(self.hdf5_plot)
         self.plot_1.setLabel('left', 'Voltage (uV)')
         self.plot_1.setLabel('bottom','Time (s)')
 
         # hit up the linked view here
         self.plot_overview.clear()
         self.plot_overview.enableAutoRange(False,False)
-        self.plot_overview.setXRange(0,3600) # hardcoding in the hour here...
+        self.plot_overview.setXRange(0,3600, padding=0) # hardcoding in the hour here...
         self.plot_overview.setMouseEnabled(x = False, y= True)
         self.bx_overview = self.plot_overview.getViewBox()
         hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
@@ -633,9 +793,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def update_tree_element_duration(self):
-        tree_row = self.treeWidget.currentItem()
-        duration = float(tree_row.text(2))-float(tree_row.text(1))
-        tree_row.setText(3, '{:.2f}'.format(duration))
+        try:
+            tree_row = self.treeWidget.currentItem()
+            duration = float(tree_row.text(2))-float(tree_row.text(1))
+            tree_row.setText(3, '{:.2f}'.format(duration))
+            self.update_real_times()
+        except:
+            print('caught error at 777')
 
     def plot_traces(self, data_dict):
 
@@ -648,7 +812,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.addItem(hdf5_plot)
 
         #self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
-        self.plot_1.setXRange(row['Start'], row['End'])
+        self.plot_1.setXRange(row['Start'], row['End'], padding=0)
         #self.plot_1.ti
 
     def clear_QTreeWidget(self):
@@ -702,11 +866,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
             return 0
         self.update_predictionfile_display()
         self.predictions_df['Index'] = self.predictions_df.index
+        self.predictions_df.columns = [colname.lower() for colname in self.predictions_df.columns]
+        self.predictions_df.fillna(value = '', inplace=True)
         if self.h5directory is None:
             self.set_h5_folder()
-
+        #print(self.predictions_df)
         for i,row in list(self.predictions_df.iterrows()):
-            fpath = os.path.join(self.h5directory,row['Filename'])
+            #todo correct this
+
+            fpath = os.path.join(self.h5directory, row['filename'])
             #TODO : decide what to do with tids, this is not thought out at the moment
             #So not bothering to load the tids here as should be one only per seizure... can either  load on demand
             # or use only for the data explorer stuff. Can maybe have dynamic when you click to see the full tree.
@@ -715,8 +883,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
             #h5 = H5File(fpath)
             #tids = h5.attributes['t_ids']
-            tids = [int(fpath.split(']')[0].split('[')[1])]
-            s,e = row['Start'], row['End']
+            try:
+                tids = row['transmitter']
+            except:
+                # this is legacy from when there was only one
+                print('WARNING: DO NOT RELY ON ONE TID PER FILE - TELL JONNY')
+                tids = [int(fpath.split(']')[0].split('[')[1])]
+
+            s, e = row['start'], row['end']
+
             self.populate_tree_items_list_from_predictions(row, tids)    # this just populates self.tree_items
         self.treeWidget.addTopLevelItems(self.tree_items)
 
@@ -726,23 +901,42 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
 
     def populate_tree_items_list_from_predictions(self, row, tids):
-        # todo refactor this name
+        # todo refactor this name to annoations etc
+        self.deleted_tree_items = []
+        self.treeWidget.setColumnCount(7)
+        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
+        filename = row['filename']
+        index =  row['index']
+        start =  row['start']
+        end = row['end']
+        if row['start'] !='' and row['end'] !='':
+            try: # if made with, then will have both
+                real_start = row['real_start']
+                real_end   = row['real_end']
+            except:
+                real_start = self.handler.get_time_from_seconds_and_filepath(filename,
+                                                                             start,
+                                                                             split_on_underscore=True).round('s')
 
-        self.treeWidget.setColumnCount(5)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname'])
-        filename = row['Filename']
-        index =  row['Index']
-        start =  row['Start']
-        end = row['End']
-        duration = row['End']-row['Start']
+                real_end   = self.handler.get_time_from_seconds_and_filepath(filename,
+                                                                             end,
+                                                                             split_on_underscore=True).round('s')
+        else:
+            real_start, real_end = '',''
+        try:
+            duration = row['end']-row['start']
+        except:
+            duration = ''
 
         fname_entry = [str(filename)]
         details_entry = [str(index),
                          str(start),
                          str(end),
                          str(duration),
-                         str(tids[0]), # bad, should make only tid having one explicit - predictions should only have one!
-                         str(filename)]
+                         str(tids), # bad, should make only tid having one explicit - predictions should only have one!
+                         str(filename),
+                         str(real_start),
+                         str(real_end)]
         item = QtGui.QTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
@@ -756,7 +950,9 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(''),
                          str(''),
                          str(current_tid), # bad, should make only tid having one explicit
-                         str(item.text(5))]
+                         str(item.text(5)),
+                         str(''),
+                         str('')]
 
         new_item = QtGui.QTreeWidgetItem(details_entry)
         return new_item
@@ -773,6 +969,8 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         xlims  = self.plot_1.getViewBox().viewRange()[0]
         self.treeWidget.setCurrentItem(test_item)
         self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
+
+
 
 
     def add_start_line_to_h5_file(self,xpos):
@@ -795,6 +993,21 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.update_tree_element_duration()
 
 
+    def update_real_times(self):
+        # this is called by the update_tree_element_duration
+        try:
+            tree_row = self.treeWidget.currentItem()
+            fname = tree_row.text(5)
+            real_start = self.handler.get_time_from_seconds_and_filepath(fname,float(tree_row.text(1)), split_on_underscore = True).round('s')
+            real_end   =  self.handler.get_time_from_seconds_and_filepath(fname,float(tree_row.text(2)), split_on_underscore = True ).round('s')
+            tree_row.setText(6, str(real_start))
+            tree_row.setText(7, str(real_end))
+        except:
+            throw_error()
+
+            print('caught error at 777')
+
+
     def add_end_line_to_h5(self, xpos):
         # do something to move existing end line self.check_end_line_exists()
         if self.end_line is None:
@@ -815,9 +1028,15 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         modifier = evt[0].modifiers()
 
         if modifier == Qt.ShiftModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
             self.add_start_line_to_h5_file(mousePoint.x())
 
         elif modifier == Qt.AltModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
             self.add_end_line_to_h5(mousePoint.x())
 
     def mouse_click_in_overview(self,evt):
@@ -865,9 +1084,35 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.xrange_spinBox.setValue(xrange)
 
 
+    def undo_tree_deletion(self):
+
+        if len(self.deleted_tree_items) == 0:
+            print('Nothing to undo')
+            return 0
+        old_item = self.deleted_tree_items[-1]
+        del self.deleted_tree_items[-1]
+        original_index = int(old_item.text(0))
+        tree_index = self.get_new_index_for_deleted_tree_element(original_index)
+
+        self.treeWidget.insertTopLevelItem(tree_index, old_item)
+        self.treeWidget.setCurrentItem(old_item)
+
+    def get_new_index_for_deleted_tree_element(self, deleted_element_index):
+
+        root = self.treeWidget.invisibleRootItem()
+        child_count = root.childCount()
+        index_list = []
+        for i in range(child_count):
+            item = root.child(i)
+            index_list.append(int(item.text(0)))
+        correct_tree_index = bisect.bisect_left(index_list, int(deleted_element_index))
+        return correct_tree_index
+
     def keyPressEvent(self, eventQKeyEvent):
 
         key_id = eventQKeyEvent.key()
+        modifier = eventQKeyEvent.modifiers()
+
         key_id_to_numbers = {eval('Qt.Key_'+str(i)):i for i in range(1,10)}
         if key_id in list(key_id_to_numbers.keys()):
             self.plot_change = False # disable this as key now entered
@@ -879,6 +1124,18 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 # connected trigger will call xrange change
 
         x,y = self.plot_1.getViewBox().viewRange()
+
+        if key_id == Qt.Key_Delete or key_id == Qt.Key_Backspace:
+            # store the deleted element so you can undo it
+            tree_entry = self.treeWidget.currentItem()
+            self.deleted_tree_items.append(tree_entry)
+
+        if key_id ==  Qt.Key_Z and modifier == Qt.ControlModifier:
+            self.undo_tree_deletion()
+
+        if key_id ==  Qt.Key_Z :
+            self.undo_tree_deletion()
+
         if key_id == Qt.Key_Up:
             if self.scroll_flag==True:
                 scroll_rate = self.scroll_speed_box.value()
@@ -1038,10 +1295,14 @@ class HDF5Plot(pg.PlotCurveItem):
     def __init__(self, downsample_limit = 20000,viewbox = None, *args, **kwds):
         " TODO what are the args and kwds for PlotCurveItem class?"
         self.hdf5 = None
+        self.hdf5_filtered_data = None
         self.time = None
         self.fs = None
         self.vb = viewbox
         self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
+        self.display_filter = None
+        self.hp_cutoff = None
+        self.lp_cutoff = None
         pg.PlotCurveItem.__init__(self, *args, **kwds)
         if pg.CONFIG_OPTIONS['background'] == 'w':
             self.pen = (0,0,0)
@@ -1064,6 +1325,31 @@ class HDF5Plot(pg.PlotCurveItem):
         #print ( self.hdf5.shape, self.time.shape)
         self.updateHDF5Plot()
 
+    def set_display_filter_settings(self, display_filter, hp_cutoff, lp_cutoff):
+        self.display_filter = display_filter
+        self.hp_cutoff = hp_cutoff
+        self.lp_cutoff = lp_cutoff
+
+
+    def highpass_filter(self, data):
+        '''
+        Implements high pass digital butterworth filter, order 2.
+
+        Args:
+            cutoff_hz: default is 1hz
+        '''
+
+        nyq = 0.5 * self.fs
+        cutoff_decimal = self.hp_cutoff/nyq
+        b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
+
+        filtered_data = signal.filtfilt(b, a, data)
+        return filtered_data
+
+    def wipe_filtered_data(self):
+        self.hdf5_filtered_data = None
+
+
     def viewRangeChanged(self):
         self.updateHDF5Plot()
 
@@ -1072,6 +1358,14 @@ class HDF5Plot(pg.PlotCurveItem):
             self.setData([])
             return 0
 
+        if self.display_filter:
+
+            if self.hdf5_filtered_data is None:
+                self.hdf5_filtered_data = hdf5data = self.highpass_filter(self.hdf5)
+            hdf5data = self.hdf5_filtered_data
+
+        else:
+            hdf5data = self.hdf5
         #vb = self.getViewBox()
         #if vb is None:
         #    return  # no ViewBox yet
@@ -1079,7 +1373,7 @@ class HDF5Plot(pg.PlotCurveItem):
         # Determine what data range must be read from HDF5
         xrange = [i*self.fs for i in self.vb.viewRange()[0]]
         start = max(0,int(xrange[0])-1)
-        stop = min(len(self.hdf5), int(xrange[1]+2))
+        stop = min(len(hdf5data), int(xrange[1]+2))
         if stop-start < 1:
             print('didnt update')
             return 0
@@ -1087,14 +1381,14 @@ class HDF5Plot(pg.PlotCurveItem):
         ds = int((stop-start) / self.limit) + 1
         if ds == 1:
             # Small enough to display with no intervention.
-            visible_y = self.hdf5[start:stop]
+            visible_y = hdf5data[start:stop]
             visible_x = self.time[start:stop]
             scale = 1
         else:
             # Here convert data into a down-sampled array suitable for visualizing.
             # Must do this piecewise to limit memory usage.
             samples = 1 + ((stop-start) // ds)
-            visible_y = np.zeros(samples*2, dtype=self.hdf5.dtype)
+            visible_y = np.zeros(samples*2, dtype=hdf5data.dtype)
             visible_x = np.zeros(samples*2, dtype=self.time.dtype)
             sourcePtr = start
             targetPtr = 0
@@ -1103,7 +1397,7 @@ class HDF5Plot(pg.PlotCurveItem):
             chunkSize = (1000000//ds) * ds
             while sourcePtr < stop-1:
 
-                chunk = self.hdf5[sourcePtr:min(stop,sourcePtr+chunkSize)]
+                chunk = hdf5data[sourcePtr:min(stop,sourcePtr+chunkSize)]
                 chunk_x = self.time[sourcePtr:min(stop,sourcePtr+chunkSize)]
                 sourcePtr += len(chunk)
                 #print(chunk.shape, chunk_x.shape)
@@ -1142,6 +1436,9 @@ class HDF5Plot(pg.PlotCurveItem):
         # TODO: setPos, scale, resetTransform methods... scale?
 
 
+
+
+
         self.setData(visible_x, visible_y, pen=self.pen) # update the plot
         #self.setPos(start, 0) # shift to match starting index ### Had comment out to stop it breaking... when limit is >0?!
         self.resetTransform()
@@ -1150,8 +1447,18 @@ class HDF5Plot(pg.PlotCurveItem):
 
 def main():
     app = QtGui.QApplication(sys.argv)
-    form = MainGui()
-    form.show()
+    maingui = MainGui()
+
+    # cannot get menu bar to show on first launch - need to click of and back
+    #maingui.menuBar.raise_()
+    #maingui.menuBar.show()
+    #maingui.menuBar.activateWindow()
+    #maingui.menuBar.focusWidget(True)
+    maingui.menuBar.setNativeMenuBar(False) # therefore turn of native
+
+    maingui.raise_()
+    maingui.show()
+
     app.exec_()
 
 if __name__ == '__main__':

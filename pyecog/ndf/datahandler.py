@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import multiprocessing
@@ -256,27 +257,73 @@ apply_async_with_callback()
         self.parrallel_flag_pred = False
         self.reset_date_modified_time(files_to_add_features)
 
+    def prepare_annotation_dataframe(self, df):
+        df.columns = [label.lower() for label in df.columns]
+        df.columns  = [label.strip(' ') for label in df.columns]
+        original_row_n = df.shape[0]
+        df = df.dropna(subset=['start', 'end'])
+        n_dropped = original_row_n - df.shape[0]
+        if n_dropped != 0:
+            print('WARNING: Dropped '+ str(n_dropped)+ ' rows from your annotation file with missing start and end entries')
+        return df
+
+    def load_annotation_df_if_not_dataframe(self,df):
+        if isinstance(df, str):
+                try:
+                    if df.endswith('.xlsx'):
+                        df = pd.read_excel(df)
+                    elif df.endswith('.csv'):
+                        df = pd.read_csv(df)
+                    return df
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+                    return 0
+        else:
+            print('Error: Please pass a pandas dataframe or a path to .csv or .xlsx file')
+            return 0
+
+
+
     def get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
         This function matches the entries in a dataframe with files in a directory
 
         Returns: list of annotations stored in a list
         '''
+        if not isinstance(df, pd.DataFrame):
+            df = self.load_annotation_df_if_not_dataframe(df)
+        df = self.prepare_annotation_dataframe(df)
 
         abs_filenames = [os.path.join(file_dir, f) for f in os.listdir(file_dir)]
         data_filenames = [f for f in os.listdir(file_dir) if f.startswith('M')]
         mcodes = [os.path.split(f)[1][:11] for f in os.listdir(file_dir) if f.startswith('M')]
         n_files = len(data_filenames)
 
-        # now loop through matching the tid to datafile in the annotations
-        df.columns = [label.lower() for label in df.columns]
-        df.columns  = [label.strip(' ') for label in df.columns]
 
+        # now loop through matching the tid to datafile in the annotations
         reference_count = 0
         annotation_dicts = []
         for row in df.iterrows():
             # annotation name is bad, but will ultimately be the library h5 dataset name
-            annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(int(row[1]['transmitter']))
+            try:
+                tid = int(row[1]['transmitter'])
+            except:
+                try:
+                    if type(row[1]['transmitter']) == str:
+                        tid_entry = eval(row[1]['transmitter'])
+                    else:
+                        tid_entry = row[1]['transmitter']
+                    assert len(tid_entry) == 1
+                    tid = int(tid_entry[0])
+
+                except:
+                    # insert elegant error handling is transmitter row is not
+                    print('something wrong with your transmitter entry!:')
+                    print(row[1]['transmitter'])
+                    raise
+
+            annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(tid)
             for datafile in data_filenames:
                 if datafile.startswith(annotation_name.split('_')[0]):
                     start = row[1]['start']
@@ -285,7 +332,7 @@ apply_async_with_callback()
                                              'start': start,
                                              'end': end,
                                              'dataset_name': annotation_name,
-                                             'tid':int(row[1]['transmitter'])})
+                                             'tid':tid})
                     reference_count += 1
 
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
@@ -328,7 +375,10 @@ apply_async_with_callback()
             annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
         except:
             print("Error getting annotations from your file, probably column names. Please ensure columns are named: 'filename', 'transmitter','start','end'")
-            annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            #annotation_dicts = self.get_annotations_from_df_datadir_matches(df, file_dir)
+            return 0
         # annotations_dicts is a list of dicts with... e.g 'dataset_name': 'M1445443776_tid_9',
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
@@ -352,16 +402,23 @@ apply_async_with_callback()
 
         # now populate to seizure lib with data, time and labels
         # make a list
-        l = len(annotation_dicts)-1
-        self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation,
-                                           fs,
-                                           timewindow,
-                                           seizure_library_path,
-                                           verbose = verbose,
-                                           scale_and_filter = scale_and_filter)
-            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        try:
+            l = len(annotation_dicts)-1
+            self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+            for i, annotation in enumerate(annotation_dicts):
+                self._populate_seizure_library(annotation,
+                                               fs,
+                                               timewindow,
+                                               seizure_library_path,
+                                               verbose = verbose,
+                                               scale_and_filter = scale_and_filter)
+                self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
+        except Exception:
+            print ('Error in building seizure library')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+            return 0
 
     def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
                                   timewindow = 5,
@@ -413,18 +470,28 @@ apply_async_with_callback()
                                   seizure_library_path,
                                   verbose = False,
                                   scale_and_filter = False):
+        '''
+
+        Uses annotations to add to seizure library
+
+        '''
 
         logging.debug('Adding '+str(annotation['fname']))
+        tid = annotation['tid']
+
         if annotation['fname'].endswith('.ndf'):
             h5file_obj = NdfFile(annotation['fname'],fs = fs)
             h5file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
         elif annotation['fname'].endswith('.h5'):
             h5file_obj = H5File(annotation['fname'])
+            h5_fs = eval(h5file_obj.attributes['fs_dict'])[tid]
+            if h5_fs != fs:
+                print('WARNING: fs do not match! h5 fs is ' +str(h5_fs)+', you entered '+ str(fs)+'.')
         else:
             print('ERROR: Unrecognised file-type')
 
-        data_array = h5file_obj[annotation['tid']]['data'] # just 1D at the moment!
-        tid = annotation['tid']
+        data_array = h5file_obj[tid]['data'] # just 1D at the moment!
+
         try:
             features_array = h5file_obj[tid]['features']
             # this is is a none if no key? - suprising, thought would return key error
@@ -478,7 +545,7 @@ apply_async_with_callback()
         ''' returns full filepath,  excludes hidden files, starting with .'''
         return [os.path.join(d, f) for f in os.listdir(d) if not f.startswith('.')]
 
-    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = 4, fs = 'auto'):
+    def convert_ndf_directory_to_h5(self, ndf_dir, tids = 'all', save_dir  = 'same_level', n_cores = 4, fs = 'auto',glitch_detection = True):
         """
 
         Args:
@@ -491,7 +558,7 @@ apply_async_with_callback()
         ndfs conversion seem to be pretty buggy...
 
         """
-
+        self.glitch_detection_flag_for_parallel_conversion = glitch_detection
         self.fs_for_parallel_conversion = fs
         files = [f for f in self.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
         if type(tids)=='tid': tids = tids.strip(' ')
@@ -532,23 +599,63 @@ apply_async_with_callback()
             os.utime(fpath,(time.time(),time.time()))
         logging.info('Datahandler - reset date modified time called')
 
+    def get_time_from_filename_with_mcode(self, filepath, return_string = True, split_on_underscore = False):
+        # convert m name
+        filename = os.path.split(filepath)[1]
+        if filename.endswith('.ndf'):
+            tstamp = float(filename.split('.')[0][-10:])
+        elif filename.endswith('.h5'):
+            tstamp = float(filename.split('_')[0][-10:])
+        elif split_on_underscore:
+            tstamp = float(filename.split('_')[0][-10:])
+        else:
+            print('fileformat for splitting unknown')
+            return 0
+
+        if return_string:
+            ndf_time = str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '-')
+            ndf_time =  ndf_time.replace(' ', '-')
+            return ndf_time
+        else:
+            ndf_time = pd.Timestamp.fromtimestamp(tstamp)
+            return ndf_time
+
+    def add_seconds_to_pandas_timestamp(self, seconds, timestamp):
+
+        new_stamp = timestamp + pd.Timedelta(seconds=float(seconds))
+        return new_stamp
+
+    def get_time_from_seconds_and_filepath(self, filepath, seconds,split_on_underscore = False):
+        '''
+        Args:
+            filepath:
+            seconds:
+            split_on_underscore:
+
+        Returns:
+            a pandas timestamp
+
+        '''
+        f_stamp = self.get_time_from_filename_with_mcode(filepath, return_string=False, split_on_underscore=split_on_underscore)
+        time_stamp_combined = self.add_seconds_to_pandas_timestamp(seconds, f_stamp)
+        return time_stamp_combined
+
     def convert_ndf(self, filename):
 
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
+        glitch_detection_flag = self.glitch_detection_flag_for_parallel_conversion
 
         # convert m name
-        mname = os.path.split(filename)[1]
-        tstamp = float(mname.strip('M').split('.')[0])
-        ndf_time = '_'+str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '_')
-        ndf_time =  ndf_time.replace(' ', '_')
+        ndf_time =  self.get_time_from_filename_with_mcode(filename)
         start = time.time()
         try:
             ndf = NdfFile(filename, fs = fs)
+            tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
-                ndf.load(tids)
-                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+ndf_time+' tids_'+str(ndf.read_ids))
+                ndf.load(tids,auto_glitch_removal=glitch_detection_flag)
+                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
             else:
                 logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
@@ -561,7 +668,7 @@ apply_async_with_callback()
         return 0 # don't think i actually use this
     # Print iterations progress
 
-    def printProgress (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
+    def printProgress_old_version (self, iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
         """
         Call in a loop to create terminal progress bar
         @params:
@@ -574,9 +681,32 @@ apply_async_with_callback()
         """
         filledLength    = int(round(barLength * iteration / float(total)))
         percents        = round(100.00 * (iteration / float(total)), decimals)
-        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
         sys.stdout.flush()
         if iteration == total:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
+    def printProgress(self, iteration, total, prefix='', suffix='', decimals=1, barLength=100):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            bar_length  - Optional  : character length of bar (Int)
+        """
+        str_format = "{0:." + str(decimals) + "f}"
+        percents = str_format.format(100 * (iteration / float(total)))
+        filled_length = int(round(barLength * iteration / float(total)))
+        bar = '*' * filled_length + '-' * (barLength - filled_length)
+
+        sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+
+        if iteration == total:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+

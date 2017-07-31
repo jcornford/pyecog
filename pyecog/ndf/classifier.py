@@ -20,13 +20,31 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation as cv
 from sklearn import metrics
 from sklearn.calibration import CalibratedClassifierCV
-try:
-    from . import hmm
-except:
-    print('Problem import hmm module - presumably do not have pomegranate insalled?')
+
 
 from .h5loader import H5File
+from . import utils
 from . import hmm_pyecog
+
+try:
+    from line_profiler import LineProfiler
+    # decorator needed when profiling
+    def lprofile():
+        def inner(func):
+            def profiled_func(*args, **kwargs):
+                try:
+                    profiler = LineProfiler()
+                    profiler.add_function(func)
+
+                    profiler.enable_by_count()
+                    return func(*args, **kwargs)
+                finally:
+                    profiler.print_stats()
+            return profiled_func
+        return inner
+except:
+    print('failed to load lineprofile')
+    pass
 
 def load_classifier(filepath):
     f = open(filepath, 'rb')
@@ -92,11 +110,26 @@ class Classifier():
                     upsample_seizure_by_x = 1,
                     ntrees=800, n_cores = -1,
                     n_emission_prob_cvfolds = 3,
-                    pyecog_hmm = False,
+                    pyecog_hmm = True,
                     calc_emissions = True,
                     rf_weights = None,
                     calibrate = False):
-        print('updated 5 - with new hmm module')
+        '''
+
+        Args:
+            downsample_bl_by_x:
+            upsample_seizure_by_x:
+            ntrees:
+            n_cores:
+            n_emission_prob_cvfolds:
+            pyecog_hmm: NOT NEEDED ANYMORE!
+            calc_emissions:
+            rf_weights:
+            calibrate:
+
+        Returns:
+
+        '''
         self.ntrees = ntrees
         self.downsample_bl_factor    = downsample_bl_by_x
         self.upsample_seizure_factor = upsample_seizure_by_x
@@ -143,11 +176,6 @@ class Classifier():
             print('Now getting HMM parameters using pyecog hmm class')
             self.make_pyecog_hmm_model(n_emission_prob_cvfolds, calc_emissions = calc_emissions) # initially keep for the non prob version of self rolled f/b stuff
 
-        else:
-            logging.info(' Now getting HMM parameters:')
-            print('Now getting HMM parameters')
-            self.make_hmm_model(n_emission_prob_cvfolds) # uses normal data, you should pass downsampling params?
-
     def make_pyecog_hmm_model(self, n_emission_prob_folds = 3, calc_emissions = True):
         # how to get these bad boys...
         if calc_emissions:
@@ -160,18 +188,6 @@ class Classifier():
         print ('Transition probs')
         print (self.transition_probs)
         self.hm_model =  hmm_pyecog.HMM(self.transition_probs)
-
-    def make_hmm_model(self, n_emission_prob_folds = 3):
-        # how to get these bad boys...
-        self.emission_probs = self.get_cross_validation_emission_probs(self.features,
-                                                                       self.labels,
-                                                                       nfolds = n_emission_prob_folds)
-        print('Emission probs')
-        print (self.emission_probs)
-        self.transition_probs = hmm.get_state_transition_probs(self.labels)
-        print ('Transition probs')
-        print (self.transition_probs)
-        self.hm_model = hmm.make_hmm_model(self.emission_probs,self.emission_probs)
         
     def get_cross_validation_emission_probs(self, X, y, nfolds = 3):
         '''
@@ -216,7 +232,7 @@ class Classifier():
 
             # work out emission probabilities from the difference between annotations and emissions
             binary_states = np.where(y_test==0,0,1) # this is for when multiple labels
-            emission_matrix = hmm.get_state_emission_probs(test_emitts, binary_states)
+            emission_matrix = hmm_pyecog.get_state_emission_probs(test_emitts, binary_states)
             print('CV fold: '+str(fold)+ ' emission matrix:')
             print(emission_matrix)
             emission_matrices_list.append(emission_matrix)
@@ -254,14 +270,17 @@ class Classifier():
 
             # now you need the hmm params! nest this shit up
             train_emission_probs = self.get_cross_validation_emission_probs(X_train, y_train,nfolds = 4)
-            train_transition_probs = hmm.get_state_transition_probs(y_train)
-            train_hm_model = hmm.make_hmm_model(train_emission_probs,train_transition_probs)
+            train_transition_probs = hmm_pyecog.get_state_transition_probs(y_train)
+
+            train_hm_model =  hmm_pyecog.HMM(train_transition_probs)
+
 
             # predict the y_test with the rf trained on the resampled data:
             test_emissions = rf.predict(X_test)
             #viterbi_decoded = train_hm_model.predict(test_emissions, algorithm='viterbi')[1:]
-            logp, path = train_hm_model.viterbi(test_emissions)
-            viterbi_decoded = np.array([int(state.name) for idx, state in path[1:]])
+            posterior = self.hm_model.forward_backward(test_emissions, phi_mat = train_emission_probs)
+            decoded_y = posterior[1,:]>self.posterior_thresh
+            viterbi_decoded = decoded_y
 
             p_score = metrics.precision_score(y_test, viterbi_decoded)
             precision.append(p_score)
@@ -369,46 +388,67 @@ class Classifier():
         # we want to tune class weights?
         # also depth, leaves and n features?
 
-    def run_clf_and_hmm_on_features(self, pred_features):
-        """ this method relies on clf being used with pomegranate: eventually to be replaced"""
-        pred_features = self.cleaner.transform(pred_features)
-        pred_y_emitts = self.rf.predict(pred_features)
-        logp, path = self.hm_model.viterbi(pred_y_emitts)
-        decoded_y = np.array([int(state.name) for idx, state in path[1:]])
-        return decoded_y
 
     def run_clf_and_hmm_on_features_pyecog(self, pred_features, use_probs = False):
-        """ this method relies on rolled own version..."""
+        """ this method relies on rolled own version...
+
+        time is 75% on pred_y_emits and 25% on forward backward (for else)
+
+        """
         pred_features = self.cleaner.transform(pred_features)
 
-        if use_probs:
+        if use_probs: # x is a 2d vector of p(zt|xt)
             pred_y_probs = self.rf.predict_proba(pred_features).T # expecting cols to be timepoints
             posterior = self.hm_model.forward_backward(pred_y_probs, phi_mat=None)
-        else:
+        else: # x is assumed to be a 1d vector of emissions and phi mat is cross validation?
             pred_y_emitts = self.rf.predict(pred_features)
-            posterior = self.hm_model.forward_backward(pred_y_emitts,phi_mat = self.transition_probs)
+            #print('running clf on hmm features pyecog')
+            posterior = self.hm_model.forward_backward(pred_y_emitts, phi_mat = self.emission_probs)
         decoded_y = posterior[1,:]>self.posterior_thresh
         return decoded_y
 
-    def predict_dir(self, prediction_dir, excel_sheet = 'clf_predictions.csv',
-                    overwrite_previous_predicitions = True, pyecog_hmm = True, use_probs = False, posterior_thresh = 0.5):
+    #@lprofile()
+    def predict_dir(self, prediction_dir,
+                    output_csv_filename ='clf_predictions.csv',
+                    overwrite_previous_predicitions = True,
+                    pyecog_hmm = True,
+                    use_probs = False,
+                    posterior_thresh = 0.5,
+                    called_from_gui = False):
+        '''
+        Args:
+            prediction_dir:
+            output_csv_filename:
+            overwrite_previous_predicitions:
+            pyecog_hmm:  NOT NEEDED ANYMORE!
+            use_probs:
+            posterior_thresh:
+            called_from_gui:
+
+        Returns:
+        '''
+        if not output_csv_filename.endswith('.csv'):
+            output_csv_filename = output_csv_filename + '.csv'
         self.posterior_thresh = posterior_thresh
         files_to_predict = [os.path.join(prediction_dir,f) for f in os.listdir(prediction_dir) if not f.startswith('.') if f.endswith('.h5') ]
         l = len(files_to_predict)-1
-        print('Looking through '+ str(len(files_to_predict)) + ' file for seizures:')
 
-        '''
+        print('Looking through '+ str(len(files_to_predict)) + ' files for seizures:')
+
         if overwrite_previous_predicitions:
-            if os.path.exists(excel_sheet):
-                with open(excel_sheet, 'w') as f:
-                    pass
-        '''
+            try:
+                os.remove(output_csv_filename)
+            except:
+                pass
 
 
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+        skip_n =  0
+        pred_count = 0
+        all_predictions_df = None
+
         for i,fpath in enumerate(files_to_predict):
             full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
-
             try:
                 with h5py.File(fpath, 'r+') as f:
                     group = f[list(f.keys())[0]]
@@ -416,38 +456,55 @@ class Classifier():
                         tid_no = str(tid_no)
                         tid = group[tid_no]
                         pred_features = tid['features'][:]
-
                         logging.info(full_fname + ' now predicting tid '+tid_no)
-                        if pyecog_hmm:
-                            # run probabolisitic eventially, initally just the non pomegranate stuff
-                            if use_probs:
-                                vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features, use_probs = True)
-                            else:
-                                vit_decoded_y = self.run_clf_and_hmm_on_features_pyecog(pred_features)
-                        else:
-                            vit_decoded_y = self.run_clf_and_hmm_on_features(pred_features)
+                        if use_probs: # we are going to change this towards the probabilities using forward backward...
+                            posterior_y = self.run_clf_and_hmm_on_features_pyecog(pred_features, use_probs = True)
+                        else: # use the CV emission probs
+                            posterior_y = self.run_clf_and_hmm_on_features_pyecog(pred_features)
 
-                        # we are going to change this towards the probabilities using forward backward...
-
-                        if sum(vit_decoded_y):
+                        if sum(posterior_y):
                             fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
-                            name_array = np.array([fname for i in range(vit_decoded_y.shape[0])])
-                            pred_sheet = self.make_excel_spreadsheet(tid_no,to_stack = [name_array,vit_decoded_y],)
-                            if not os.path.exists(excel_sheet):
-                                pred_sheet.to_csv(excel_sheet,index = False)
+                            name_array = np.array([fname for i in range(posterior_y.shape[0])])
+                            prediction_df = self.make_prediction_dataframe_rows_from_chunk_labels(tid_no, to_stack = [name_array, posterior_y], )
+                            pred_count += prediction_df.shape[0]
+                            if all_predictions_df is None:
+                                all_predictions_df = prediction_df
                             else:
-                                with open(excel_sheet, 'a') as f2:
-                                    pred_sheet.to_csv(f2, header=False, index = False)
+                                all_predictions_df = all_predictions_df.append(prediction_df, ignore_index=True, )
+
+                            if all_predictions_df.shape[0] > 50:
+                                if not os.path.exists(output_csv_filename):
+                                    all_predictions_df.to_csv(output_csv_filename, index = False)
+                                else:
+                                    with open(output_csv_filename, 'a') as f2:
+                                        all_predictions_df.to_csv(f2, header=False, index = False)
+                                all_predictions_df = None
                         else:
                             pass
-                            # no seizures detected for that vit_decoded_y
-
+                            # no seizures detected for that posterior_y
             except KeyError:
                 logging.error(str(full_fname) + ' did not contain any features! Skipping')
-            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        print('Re - ordering spreadsheet by date')
-        self.reorder_prediction_csv(excel_sheet)
-        print ('Done')
+                skip_n += 1
+            self.print_progress_preds(i,l, pred_count,prefix = 'Progress:', suffix = 'Seizure predictions:', barLength = 50)
+        # save whatever is left of the predicitions (will be < 50 as)
+        if not os.path.exists(output_csv_filename):
+            all_predictions_df.to_csv(output_csv_filename, index = False)
+        else:
+            with open(output_csv_filename, 'a') as f2:
+                all_predictions_df.to_csv(f2, header=False, index = False)
+        try:
+            print('Re - ordering spreadsheet by date')
+            self.reorder_prediction_csv(output_csv_filename)
+            print ('Done')
+        except:
+            print('unable to re-order spreadsheet by date, does it exist?')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+
+        if skip_n != 0:
+            print('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
+            time.sleep(5)
+        return skip_n
 
     def reorder_prediction_csv(self, csv_path):
         df = pd.read_csv(csv_path)
@@ -462,7 +519,7 @@ class Classifier():
         reordered_df = df.sort_values(by=['datetime', 'start']).drop('datetime', axis = 1)
         reordered_df.to_csv(csv_path)
 
-    def make_excel_spreadsheet(self,tid_no, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
+    def make_prediction_dataframe_rows_from_chunk_labels(self, tid_no, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
         '''
         to_stack list:
             - first needs to be the name array
@@ -515,8 +572,10 @@ class Classifier():
             start_time = df.ix[tup[0],'start_time']
             end_time = df.ix[tup[1],'end_time']
             duration = end_time-start_time
-            row = pd.Series([name,start_time,end_time,duration, tid_no],
-                            index = ['filename','start', 'end','duration', 'transmitter'])
+            real_start = utils.get_time_from_seconds_and_filepath(name,float(start_time), split_on_underscore = True).round('s')
+            real_end   =  utils.get_time_from_seconds_and_filepath(name,float(end_time), split_on_underscore = True ).round('s')
+            row = pd.Series([name,start_time,end_time,duration, tid_no, real_start,real_end],
+                            index = ['filename','start', 'end','duration', 'transmitter','real_start','real_end'])
             df_rows.append(row)
         excel_sheet = pd.DataFrame(df_rows)
         return excel_sheet
@@ -534,9 +593,31 @@ class Classifier():
         """
         filledLength    = int(round(barLength * iteration / float(total)))
         percents        = round(100.00 * (iteration / float(total)), decimals)
-        bar             = '█' * filledLength + '-' * (barLength - filledLength)
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
         sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
         sys.stdout.flush()
         if iteration == total:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
+    def print_progress_preds (self, iteration, total, pred_count, prefix = '', suffix = '', decimals = 2, barLength = 100):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : number of decimals in percent complete (Int)
+            barLength   - Optional  : character length of bar (Int)
+        """
+        filledLength    = int(round(barLength * iteration / float(total)))
+        percents        = round(100.00 * (iteration / float(total)), decimals)
+
+        bar             = '*' * filledLength + '-' * (barLength - filledLength)
+        sys.stdout.write('\r%s |%s| %.2f%s %s %s' % (prefix, bar, percents, '%', suffix, pred_count)),
+        sys.stdout.flush()
+        if iteration == total:
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+

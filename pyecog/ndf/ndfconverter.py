@@ -30,9 +30,11 @@ try:
             return profiled_func
         return inner
 except:
+    print('failed to load')
     pass
 
 class NdfFile:
+
     """
     TODO:
      - glitch detection is a little messy, relying on bindings.
@@ -76,7 +78,6 @@ class NdfFile:
     """
 
     def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200):
-
         self.filepath = file_path
 
         #  some unused
@@ -161,6 +162,7 @@ class NdfFile:
                 self.tid_data_time_dict[tid] = {}
         logging.info(self.filepath)
         logging.info('Valid ids and freq are: '+str(self.tid_to_fs_dict))
+        f.close()
 
     #@lprofile()
     def glitch_removal(self, plot_glitches=False, print_output=False,
@@ -193,14 +195,15 @@ class NdfFile:
                 crossing_locations = np.where(self._mad_based_outlier())[0]
                 self._check_glitch_candidates(crossing_locations)
 
+
             elif tactic == 'roll_med':
                 crossing_locations = np.where(self._rolling_median_based_outlier())[0]
                 self._check_glitch_candidates(crossing_locations)
 
             elif tactic == 'big_guns':
-                crossing_locations = np.where(self._rolling_median_based_outlier())[0]
-                self._check_glitch_candidates(crossing_locations)
                 crossing_locations = np.where(self._mad_based_outlier())[0]
+                self._check_glitch_candidates(crossing_locations)
+                crossing_locations = np.where(self._rolling_median_based_outlier())[0]
                 self._check_glitch_candidates(crossing_locations)
                 crossing_locations = self._stddev_based_outlier()
                 self._check_glitch_candidates(crossing_locations)
@@ -230,6 +233,8 @@ class NdfFile:
         thresh : The modified z-score to use as a threshold. Observations with
             a modified z-score (based on the median absolute deviation) greater
             than this value will be classified as outliers.
+            
+        https://stackoverflow.com/questions/22354094/pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
         """
         points = self.data_to_deglitch
         if len(points.shape) == 1:
