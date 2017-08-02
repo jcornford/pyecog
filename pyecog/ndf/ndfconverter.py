@@ -75,7 +75,7 @@ class NdfFile:
 
     """
 
-    def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200):
+    def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200, one_hour_segments = True):
 
         self.filepath = file_path
 
@@ -102,7 +102,11 @@ class NdfFile:
 
         self.verbose = verbose
 
-        self.file_time_len_sec = 3600
+        if one_hour_segments:
+            self.file_time_len_sec = 3600
+        else:
+            self.file_time_len_sec = 0
+
         self.micro_volt_div = 0.4 # this is the dac units?
 
         # firmware dependent:
@@ -111,6 +115,8 @@ class NdfFile:
 
         self._read_file_metadata()
         self.get_valid_tids_and_fs()
+
+
 
     def __getitem__(self, item):
         #assert type(item) == int
@@ -313,7 +319,7 @@ class NdfFile:
             not_nan = np.logical_not(np.isnan(self.tid_data_time_dict[tid]['data']))
             self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time,
                                                              self.tid_data_time_dict[tid]['time'][not_nan],
-                                                             self.tid_data_time_dict[tid]['data'][not_nan])
+                                                             self.tid_data_time_dict[tid]['data'][not_nan],)
 
             self.tid_data_time_dict[tid]['time'] = regularised_time
 
@@ -369,11 +375,16 @@ class NdfFile:
     #@lprofile()
     def _merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
-        t_clock_data = np.zeros(self.voltage_messages.shape)
-        t_clock_data[self.transmitter_id_bytes == 0] = 1 # this is big ticks
+        t_clock_data = np.zeros(self.voltage_messages.shape,dtype='float32')
+        t_clock_idices = np.where(self.transmitter_id_bytes == 0)[0]
+        t_clock_data[t_clock_idices] = 1 # this is big ticks
         corse_time_vector = np.multiply(np.cumsum(t_clock_data), self.clock_tick_cycle)
         fine_time_vector  = np.multiply(self.t_stamps_256, self.clock_division)
         self.time_array   =  np.add(fine_time_vector,corse_time_vector)
+
+        clock_tstamp = self.t_stamps_256[t_clock_idices[0]]
+        bad_timming = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
+        self.time_array[bad_timming] = self.time_array[bad_timming] + 1 / 128
         # Why does this take so long?  (7.7% of runtime)
         # this stuff takes a lot of time... I think it's because it's now working in double precision!
 
