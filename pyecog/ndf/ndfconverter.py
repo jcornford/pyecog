@@ -73,12 +73,10 @@ class NdfFile:
     channel 0 message (because they are operating at 512 Hz, while the clock is at 128 Hz).
 
     """
-
-    def __init__(self, file_path, verbose = False, fs = 'auto'):
+    def __init__(self, file_path, verbose = False, fs = 'auto', force_one_hour_file_length = True):
 
         self.filepath = file_path
 
-        #  some unused
         self.tid_set = set()
         self.tid_to_fs_dict = {}
         self.tid_raw_data_time_dict  = {}
@@ -101,8 +99,12 @@ class NdfFile:
 
         self.verbose = verbose
 
-        self.file_time_len_sec = 3600
-        self.micro_volt_div = 0.4 # this is the dac units?
+        if force_one_hour_file_length:
+            self.file_time_len_sec = 3600
+        else:
+            self.file_time_len_sec = None
+
+        self.micro_volt_div = 0.4 # this is the dac units
 
         # firmware dependent:
         self.clock_tick_cycle = 7.8125e-3  # the "big" clock messages are 128Hz, 1/128 = 7.8125e-3
@@ -112,7 +114,6 @@ class NdfFile:
         self.get_valid_tids_and_fs()
 
     def __getitem__(self, item):
-        #assert type(item) == int
         assert item in self.tid_set, 'ERROR: Invalid tid for file'
         return self.tid_data_time_dict[item]
 
@@ -122,17 +123,12 @@ class NdfFile:
             f.seek(0)
             self.identifier = f.read(4)
             assert (self.identifier == b' ndf')
-
             meta_data_string_address = struct.unpack('>I', f.read(4))[0]
             self.data_address = struct.unpack('>I', f.read(4))[0]
             meta_data_length = struct.unpack('>I', f.read(4))[0]
-
             if meta_data_length != 0:
                 f.seek(meta_data_string_address)
                 self.metadata = f.read(meta_data_length)
-                # need to handle the fact it is in bytes?
-                #print ('\n'.join(self.metadata.split('\n')[1:-2]))
-                #print (self.metadata)
             else:
                 print('meta data length unknown - not bothering to work it out...')
                 # isn't it just (data_address - meta_data_string_address) ?
@@ -140,7 +136,7 @@ class NdfFile:
     def get_valid_tids_and_fs(self):
         """
         - Here work out which t_ids are in the file and their
-          sampling frequency. Threshold of at least 5000 datapoints!
+          sampling frequency. Arbitary threshold of at least 5000 datapoints!
         """
         f = open(self.filepath, 'rb')
         f.seek(self.data_address)
@@ -314,7 +310,7 @@ class NdfFile:
             not_nan = np.logical_not(np.isnan(self.tid_data_time_dict[tid]['data']))
             self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time,
                                                              self.tid_data_time_dict[tid]['time'][not_nan],
-                                                             self.tid_data_time_dict[tid]['data'][not_nan])
+                                                             self.tid_data_time_dict[tid]['data'][not_nan],)
 
             self.tid_data_time_dict[tid]['time'] = regularised_time
 
@@ -370,11 +366,16 @@ class NdfFile:
     #@lprofile()
     def _merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
-        t_clock_data = np.zeros(self.voltage_messages.shape)
-        t_clock_data[self.transmitter_id_bytes == 0] = 1 # this is big ticks
+        t_clock_data = np.zeros(self.voltage_messages.shape,dtype='float32')
+        t_clock_idices = np.where(self.transmitter_id_bytes == 0)[0]
+        t_clock_data[t_clock_idices] = 1 # this is big ticks
         corse_time_vector = np.multiply(np.cumsum(t_clock_data), self.clock_tick_cycle)
         fine_time_vector  = np.multiply(self.t_stamps_256, self.clock_division)
         self.time_array   =  np.add(fine_time_vector,corse_time_vector)
+
+        clock_tstamp = self.t_stamps_256[t_clock_idices[0]]
+        bad_timming = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
+        self.time_array[bad_timming] = self.time_array[bad_timming] + 1 / 128
         # Why does this take so long?  (7.7% of runtime)
         # this stuff takes a lot of time... I think it's because it's now working in double precision!
 
