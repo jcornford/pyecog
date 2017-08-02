@@ -8,14 +8,13 @@ import pandas as pd
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as ss
 from scipy import signal, stats
 
 if sys.version_info < (3,):
     range = xrange
 try:
     from line_profiler import LineProfiler
-    # decorator needed when profiling
+    # decorator for profiling methods
     def lprofile():
         def inner(func):
             def profiled_func(*args, **kwargs):
@@ -75,7 +74,7 @@ class NdfFile:
 
     """
 
-    def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200):
+    def __init__(self, file_path, verbose = False, fs = 'auto'):
 
         self.filepath = file_path
 
@@ -150,7 +149,7 @@ class NdfFile:
         tid_message_counts = pd.Series(self.transmitter_id_bytes).value_counts()  # count how many different ids exist
         possible_freqs = [256,512,1024]
         for tid, count in tid_message_counts.iteritems():
-            if count > 5000 and tid != 0: # arbitrary threshold to exclude glitches
+            if count > 5000 and tid != 0: # arbitrary number of messages threshold to exclude glitches
                 error = [abs(3600 - count/fs) for fs in possible_freqs]  # what wizardry is this Johnny!
                 if self.fs == 'auto':
                     self.tid_to_fs_dict[tid] = possible_freqs[np.argmin(error)]
@@ -164,8 +163,7 @@ class NdfFile:
         logging.info('Valid ids and freq are: '+str(self.tid_to_fs_dict))
 
     #@lprofile()
-    def glitch_removal(self, plot_glitches=False, print_output=False,
-                       plot_sub_glitches = False):
+    def glitch_removal(self, plot_glitches=False, print_output=False, plot_sub_glitches = False):
         """
         The idea is to identify large transients in the data
         to do: eliminate the usage of bindings...
@@ -205,11 +203,11 @@ class NdfFile:
                         plt.xlim(0, self.time_to_deglitch[-1])
                         plt.show()
 
-            logging.debug('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
+            logging.debug('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '
+                          +str(self._n_possible_glitches)+' possible glitches.')
             if self.verbose:
-                print('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '+str(self._n_possible_glitches)+' possible glitches.')
-
-
+                print('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '
+                      +str(self._n_possible_glitches)+' possible glitches.')
 
             #self.tid_data_time_dict[tid]['data'] = self.data_to_deglitch[:]
             #self.tid_data_time_dict[tid]['time'] = self.time_to_deglitch[:]
@@ -302,11 +300,14 @@ class NdfFile:
             seconds_missing = np.sum(second_gaps)
             n_second_gaps   = second_gaps.shape[0]
             if n_second_gaps >0:
-                logging.debug('Tid '+str(tid)+': File contained '+ str(n_second_gaps)+' gaps of >1 second. Total Missing: '+str(seconds_missing)+ ' s.')
+                logging.debug('Tid '+str(tid)+': File contained '+ str(n_second_gaps)+
+                              ' gaps of >1 second. Total Missing: '+str(seconds_missing)+ ' s.')
             try:
                 assert max_interp < 2.0
             except:
-                logging.warning(str(os.path.split(self.filepath)[1])+ ' Tid '+str(tid)+': You interpolated (at least once) for greater than two seconds! ('+ str('{first:.2f}'.format(first = max_interp))+' sec)')
+                logging.warning(str(os.path.split(self.filepath)[1])+ ' Tid '+str(tid)+
+                                ': You interpolated (at least once) for greater than two seconds! ('+
+                                str('{first:.2f}'.format(first = max_interp))+' sec)')
 
             # do linear interpolation between the points, where !nan
             regularised_time = np.linspace(0, 3600.0, num= 3600 * self.tid_to_fs_dict[tid])
@@ -402,9 +403,7 @@ class NdfFile:
         Returns:
             data and time is stored in self.tid_data_time_dict attribute. Access data via obj[tid]['data'].
 
-
         '''
-
         self.read_ids = read_ids
         logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
         if read_ids == [] or str(read_ids).lower() == 'all':
@@ -421,19 +420,21 @@ class NdfFile:
         # read again, but in 16 bit chunks, grab messages
         # f.seek(self.data_address + 1)
         # self.voltage_messages = np.fromfile(f, '>u2')[::2] #This seems sub-optimal: reading twice from disk
-
         self.voltage_messages = np.frombuffer(self._e_bit_reads[1:-1:].tobytes(), dtype='>u2')[::2]
 
         self._merge_coarse_and_fine_clocks()  # this generates self.time_array
 
+        invalid_ids = []
         for read_id in self.read_ids:
-            assert read_id in self.tid_set, "Transmitter %i is not a valid transmitter id" % read_id
-            self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.micro_volt_div
-            self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
-            # this stuff takes a lot of time... I think it's because it's now working in double precision!
+            if read_id not in self.tid_set:
+                invalid_ids.append(read_id)
+            else:
+                self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.micro_volt_div
+                self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
+        for invalid_id in invalid_ids: self.read_ids.remove(invalid_id)
+        if len(invalid_ids) != 0: print('Error: Invalid transmitter/s id passed to file: '+ str(invalid_ids))
 
-        # remove bad messages
-        self._correct_bad_messages()
+        self.correct_bad_messages()
 
         if auto_glitch_removal:
             self.glitch_removal()
@@ -531,12 +532,13 @@ class NdfFile:
         return np.around(mantissas, decimals=sigfigs - 1 ) * 10.0**intParts
 
     #@lprofile()
-    def _correct_bad_messages(self): #new
+    def correct_bad_messages(self): #new
         '''
         Look for short inter-message-intervals to identify bad messages
         '''
 
         for tid in self.read_ids:
+            print(self.read_ids)
             # time diference between samples
             time_256  = self.t_stamps_256[self.transmitter_id_bytes == tid]
 
