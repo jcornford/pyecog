@@ -364,18 +364,20 @@ class NdfFile:
             print('Saved data as:'+str(hdf5_filename)+ ' Resampled = ' + str(self._resampled))
 
     #@lprofile()
-    def _merge_coarse_and_fine_clocks(self):
+    def merge_coarse_and_fine_clocks(self):
         # convert timestamps into correct time using clock id
-        t_clock_data = np.zeros(self.voltage_messages.shape,dtype='float32')
-        t_clock_idices = np.where(self.transmitter_id_bytes == 0)[0]
-        t_clock_data[t_clock_idices] = 1 # this is big ticks
-        corse_time_vector = np.multiply(np.cumsum(t_clock_data), self.clock_tick_cycle)
-        fine_time_vector  = np.multiply(self.t_stamps_256, self.clock_division)
-        self.time_array   =  np.add(fine_time_vector,corse_time_vector)
+        t_clock_data = np.zeros(self.voltage_messages.shape, dtype='float32')
+        t_clock_indices = np.where(self.transmitter_id_bytes == 0)[0]
+        t_clock_data[t_clock_indices] = 1 # this is big ticks
+        coarse_time_vector = np.multiply(np.cumsum(t_clock_data), self.clock_tick_cycle)
+        fine_time_vector   = np.multiply(self.t_stamps_256, self.clock_division)
+        self.time_array    = np.add(fine_time_vector,coarse_time_vector)
 
-        clock_tstamp = self.t_stamps_256[t_clock_idices[0]]
-        bad_timming = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
-        self.time_array[bad_timming] = self.time_array[bad_timming] + 1 / 128
+        # here account for occasions when transmitter with reset clock comes before clock 0 message
+        clock_tstamp = self.t_stamps_256[t_clock_indices[0]] # clock timestamp is the same throughout
+        bad_timing = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
+        self.time_array[bad_timing] = self.time_array[bad_timing] + 1 / 128
+        
         # Why does this take so long?  (7.7% of runtime)
         # this stuff takes a lot of time... I think it's because it's now working in double precision!
 
@@ -423,7 +425,7 @@ class NdfFile:
         # self.voltage_messages = np.fromfile(f, '>u2')[::2] #This seems sub-optimal: reading twice from disk
         self.voltage_messages = np.frombuffer(self._e_bit_reads[1:-1:].tobytes(), dtype='>u2')[::2]
 
-        self._merge_coarse_and_fine_clocks()  # this generates self.time_array
+        self.merge_coarse_and_fine_clocks()  # this generates self.time_array
 
         invalid_ids = []
         for read_id in self.read_ids:
