@@ -73,7 +73,7 @@ class NdfFile:
     channel 0 message (because they are operating at 512 Hz, while the clock is at 128 Hz).
 
     """
-    def __init__(self, file_path, verbose = False, fs = 'auto', one_hour_segments = True):
+    def __init__(self, file_path, verbose = False, fs = 'auto', force_one_hour_file_length = True):
 
         self.filepath = file_path
 
@@ -99,12 +99,12 @@ class NdfFile:
 
         self.verbose = verbose
 
-        if one_hour_segments:
+        if force_one_hour_file_length:
             self.file_time_len_sec = 3600
         else:
-            self.file_time_len_sec = 0
+            self.file_time_len_sec = None
 
-        self.micro_volt_div = 0.4 # this is the dac units?
+        self.micro_volt_div = 0.4 # this is the dac units
 
         # firmware dependent:
         self.clock_tick_cycle = 7.8125e-3  # the "big" clock messages are 128Hz, 1/128 = 7.8125e-3
