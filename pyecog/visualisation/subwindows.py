@@ -174,6 +174,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.finished.connect(self.end_training)
 
 
+
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
         ntrees = int(self.n_trees.text())

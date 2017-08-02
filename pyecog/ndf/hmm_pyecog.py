@@ -75,7 +75,6 @@ class HMM():
         x_it t is the timepoint
         returns posterior distribution of p(Zt
         '''
-
         if phi_mat is None:
             self.phi =self.calc_phi(x,self.stationary_dist)
             k = x.shape[0]

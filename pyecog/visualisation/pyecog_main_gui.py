@@ -656,9 +656,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
 
     def build_startswith_to_filename(self):
+        ''' split either on the bracket of the .'''
         self.startname_to_full = {}
+
         for f in os.listdir(self.h5directory):
-            self.startname_to_full[f.split('[')[0]] = f
+            self.startname_to_full[f[:11]] = f
 
     def tree_selection_predictions(self):
         # this method does too much
@@ -686,10 +688,10 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         # duration is fields.text(3)
 
         try:
-            correct_file = self.startname_to_full[fields.text(5).split('[')[0]]
+            correct_file = self.startname_to_full[fields.text(5)[:11]]
         except KeyError:
-            throw_error()
-            return 0
+                throw_error()
+                return 0
         fpath = os.path.join(self.h5directory, correct_file)
 
         h5 = H5File(fpath)

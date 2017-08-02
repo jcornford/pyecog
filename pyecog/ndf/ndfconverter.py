@@ -30,9 +30,11 @@ try:
             return profiled_func
         return inner
 except:
+    print('failed to load')
     pass
 
 class NdfFile:
+
     """
     TODO:
      - glitch detection is a little messy, relying on bindings.
@@ -76,7 +78,6 @@ class NdfFile:
     """
 
     def __init__(self, file_path, verbose = False, fs = 'auto', amp_factor = 200):
-
         self.filepath = file_path
 
         #  some unused
@@ -161,6 +162,7 @@ class NdfFile:
                 self.tid_data_time_dict[tid] = {}
         logging.info(self.filepath)
         logging.info('Valid ids and freq are: '+str(self.tid_to_fs_dict))
+        f.close()
 
     #@lprofile()
     def glitch_removal(self, plot_glitches=False, print_output=False,
