@@ -14,6 +14,7 @@ Use python 3.5.
     conda create --name pyecog python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
     source activate pyecog_dev  # or just "activate pyecog_dev" if on windows
     pip install pyqtgraph==0.10
+    pip install pyecog
     
 3. Navigate to the folder in terminal/cmd, or open a terminal/cmd window at the extracted folder.
 
@@ -25,6 +26,7 @@ pyecog
 ```
 
 ### How to use - this needs to be updated
+- note, some gui elements not implemented (open in jupyter notebook and low pass filter)
 - [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation_notebooks/demo_loading_ndfs_notebook.ipynb)
 
 ### Repository contents:
