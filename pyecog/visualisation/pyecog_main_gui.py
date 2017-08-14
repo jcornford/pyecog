@@ -37,7 +37,6 @@ if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
     from . import subwindows
     from .context import ndf
-
 else:
     import check_preds_design, loading_subwindow, convert_ndf_window
     import subwindows
