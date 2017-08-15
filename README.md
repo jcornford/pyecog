@@ -7,9 +7,9 @@ Use python 3.5.
 
 ### Recommended installation procedure for devlopment version from Github:
 
-1. Install Anaconda. Choose the Python 3 64-bit version for your operating system (Linux, Windows, or OS X).
+1. Install [Anaconda](https://www.continuum.io/downloads). Choose the Python 3 64-bit version for your operating system (Linux, Windows, or OS X).
   You can also use python 2, but just make sure your python version for the environment is 3. 
-2. Make a new environment and install dependencies: Open a terminal windows (on Windows, a cmd prompt) and type or copy :
+2. Make a new environment and install dependencies. To do this open a terminal windows (on Windows, a cmd prompt) and type or copy :
     ```{bash}
     conda create --name pyecog python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
     source activate pyecog_dev  # or just "activate pyecog_dev" if on windows
