@@ -419,7 +419,7 @@ class NdfFile:
         self.read_ids = read_ids
         logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
         if read_ids == [] or str(read_ids).lower() == 'all':
-            self.read_ids = list(self.tid_set)
+            self.read_ids = sorted(list(self.tid_set))
         if not hasattr(self.read_ids, '__iter__'):
             self.read_ids = [read_ids]
 
