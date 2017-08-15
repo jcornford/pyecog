@@ -574,7 +574,7 @@ class Classifier():
             duration = end_time-start_time
             real_start = utils.get_time_from_seconds_and_filepath(name,float(start_time), split_on_underscore = True).round('s')
             real_end   =  utils.get_time_from_seconds_and_filepath(name,float(end_time), split_on_underscore = True ).round('s')
-            row = pd.Series([name,start_time,end_time,duration, tid_no, real_start,real_end],
+            row = pd.Series([name,start_time,end_time,duration, tid_no, real_start, real_end],
                             index = ['filename','start', 'end','duration', 'transmitter','real_start','real_end'])
             df_rows.append(row)
         excel_sheet = pd.DataFrame(df_rows)

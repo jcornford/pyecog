@@ -37,7 +37,6 @@ if __name__ != '__main__':
     from . import check_preds_design, loading_subwindow, convert_ndf_window
     from . import subwindows
     from .context import ndf
-
 else:
     import check_preds_design, loading_subwindow, convert_ndf_window
     import subwindows
@@ -53,6 +52,17 @@ def throw_error(error_text = None):
         msgBox.setText('Error caught! \n'+str(error_text))
     msgBox.exec_()
     return 0
+
+class TreeWidgetItem( QtGui.QTreeWidgetItem ):
+    def __init__(self, parent=None):
+        QtGui.QTreeWidgetItem.__init__(self, parent)
+
+    def __lt__(self, otherItem):
+        column = self.treeWidget().sortColumn()
+        try:
+            return float( self.text(column) ) > float( otherItem.text(column) )
+        except ValueError:
+            return self.text(column) > otherItem.text(column)
 
 class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
     def __init__(self, parent=None):
@@ -109,12 +119,13 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         # Hook up the file bar stuff here
         self.substates_timewindow_secs = 6
-        self.actionSubstates_Window.triggered.connect(self.load_h5_for_substate_assignments)
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
         self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
         self.actionLoad_Library.triggered.connect(self.load_seizure_library)
         self.actionLoad_h5_folder.triggered.connect(self.load_h5_folder) # this is still to do in its entireity
         self.actionSet_default_folder.triggered.connect(self.set_home)
+
+
 
         # Hook up analyse menu bar to functions here
         self.actionConvert_ndf_to_h5.triggered.connect(self.convert_ndf_folder_to_h5)
@@ -127,6 +138,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         #self.tid_box.setValue(6)
         #self.traceSelector.valueChanged.connect(self.plot_traces)
         #self.channel_selector.valueChanged.connect(self.plot_traces)
+        self.treeWidget.setSortingEnabled(True)
         self.treeWidget.itemSelectionChanged.connect(self.master_tree_selection)
 
         self.predictions_up = False
@@ -207,45 +219,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         fnames = [f for f in os.listdir(self.h5directory) if f.endswith('.h5') if not f.startswith('.') ]
         return fnames
 
-    def load_h5_for_substate_assignments(self):
-        fnames = self.get_h5_folder_fnames()
-        if fnames == 0:
-            return 0
-        for i,fname in enumerate(fnames):
-            try:
-                tids = eval('['+fname.split(']')[0].split('[')[1]+']')
-                self.populate_tree_for_substates(i,fname, tids)    # this just populates self.tree_items
-            except:
-                print('Failed to add: '+ str(fname))
 
-        self.treeWidget.addTopLevelItems(self.tree_items)
-
-        self.predictions_up = False
-        self.library_up = False
-        self.file_dir_up = False
-        self.substates_up = True
-
-    def populate_tree_for_substates(self,index,fpath,tids):
-        self.deleted_tree_items = []
-        self.treeWidget.h5folder = self.h5directory
-        self.treeWidget.setColumnCount(6)
-        self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tids', 'fname'])
-
-        fname_entry = [str(fpath)] # us this pointless!?
-        details_entry = [str(index),
-                         '',
-                         '',
-                         '',
-                         str(tids), # bad, should make only tid having one explicit
-                         str(fpath)]
-
-        item = QtGui.QTreeWidgetItem(details_entry)
-        item.setFirstColumnSpanned(True)
-        for i in range(int(3600/self.substates_timewindow_secs)):
-            item.addChild(QtGui.QTreeWidgetItem([str(i),
-                                               str(i*self.substates_timewindow_secs)+ '-' +str((i+1)*self.substates_timewindow_secs),
-                                               str('category to go here')]))
-        self.tree_items.append(item)
 
     def load_h5_folder(self):
         fnames = self.get_h5_folder_fnames()
@@ -256,6 +230,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                 tids = eval('['+fname.split(']')[0].split('[')[1]+']')
                 self.populate_tree_items_list_from_h5_folder(i,fname, tids)    # this just populates self.tree_items
             except:
+
                 print('Failed to add: '+ str(fname))
 
         self.treeWidget.addTopLevelItems(self.tree_items)
@@ -279,7 +254,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          '',
                          '']
 
-        item = QtGui.QTreeWidgetItem(details_entry)
+        item = TreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
@@ -347,7 +322,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(row['real_end'])
                          ]
 
-        item = QtGui.QTreeWidgetItem(details_entry)
+        item = TreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
@@ -937,7 +912,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(filename),
                          str(real_start),
                          str(real_end)]
-        item = QtGui.QTreeWidgetItem(details_entry)
+        item = TreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
