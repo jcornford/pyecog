@@ -652,7 +652,7 @@ apply_async_with_callback()
         start = time.time()
         try:
             ndf = NdfFile(filename, fs = fs, verbose = True)
-            if tids != 'all'
+            if tids != 'all':
                 tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids,auto_glitch_removal=glitch_detection_flag)
