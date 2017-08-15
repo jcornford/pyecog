@@ -651,8 +651,9 @@ apply_async_with_callback()
         ndf_time =  self.get_time_from_filename_with_mcode(filename)
         start = time.time()
         try:
-            ndf = NdfFile(filename, fs = fs)
-            tids = [tid for tid in tids if tid in ndf.tid_set]
+            ndf = NdfFile(filename, fs = fs, verbose = True)
+            if tids != 'all':
+                tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids,auto_glitch_removal=glitch_detection_flag)
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
