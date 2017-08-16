@@ -374,6 +374,7 @@ class NdfFile:
 
     #@lprofile()
     def merge_coarse_and_fine_clocks(self):
+        # would this be more effcient if just using lower precision?
         # convert timestamps into correct time using clock id
         t_clock_data = np.zeros(self.voltage_messages.shape, dtype='float32')
         t_clock_indices = np.where(self.transmitter_id_bytes == 0)[0]
@@ -383,12 +384,16 @@ class NdfFile:
         self.time_array    = np.add(fine_time_vector,coarse_time_vector)
 
         # here account for occasions when transmitter with reset clock comes before clock 0 message
-        clock_tstamp = self.t_stamps_256[t_clock_indices[0]] # clock timestamp is the same throughout
+        try:
+            clock_tstamp = self.t_stamps_256[t_clock_indices[0]] # clock timestamp is the same throughout
+        except IndexError:
+            print('ERROR: No clock messages!')
+            return 1
         bad_timing = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
         self.time_array[bad_timing] = self.time_array[bad_timing] + 1 / 128
+        return 0
         
-        # Why does this take so long?  (7.7% of runtime)
-        # this stuff takes a lot of time... I think it's because it's now working in double precision!
+
 
     #@lprofile()
     def load(self, read_ids = [],
@@ -434,7 +439,9 @@ class NdfFile:
         # self.voltage_messages = np.fromfile(f, '>u2')[::2] #This seems sub-optimal: reading twice from disk
         self.voltage_messages = np.frombuffer(self._e_bit_reads[1:-1:].tobytes(), dtype='>u2')[::2]
 
-        self.merge_coarse_and_fine_clocks()  # this generates self.time_array
+        error_flag = self.merge_coarse_and_fine_clocks()  # this generates self.time_array
+        if error_flag:
+            return 1
 
         invalid_ids = []
         for read_id in self.read_ids:
