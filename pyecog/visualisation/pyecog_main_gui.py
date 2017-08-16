@@ -364,7 +364,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         exported_df = pd.DataFrame(data = np.vstack([fname,start,end,duration,tid]).T,columns = ['filename','start','end','duration','transmitter'] )
 
         save_name = save_name.strip('.csv')
-        exported_df.to_csv(save_name+'.csv')
+
+        try:
+            exported_df.to_csv(save_name+'.csv')
+        except PermissionError:
+            throw_error('Error - permission error! Is the file open somewhere else?')
+            return 1
 
     def predictions_tree_export_csv(self):
         if self.h5directory:
@@ -400,7 +405,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                                                                                                        'duration','transmitter', 'real_start', 'real_end'] )
 
         save_name = save_name.strip('.csv')
-        exported_df.to_csv(save_name+'.csv')
+        try:
+            exported_df.to_csv(save_name+'.csv')
+        except PermissionError:
+            throw_error('Error - permission error! Is the file open somewhere else?')
+            return 1
 
     def master_tree_selection(self):
         if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
