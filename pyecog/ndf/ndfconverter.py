@@ -256,30 +256,33 @@ class NdfFile:
                     while ii in crossing_locations:
                         ii = ii + 1
 
-                    # plot glitches to be removed if plotting option is on
-                    if self._plot_each_glitch:
-                        plt.figure(figsize = (15, 4))
-                        ax1 = plt.subplot2grid((1, 1), (0, 0), colspan=3)
-                        ax1.plot(self.time_to_deglitch[i:ii+1],
-                                 self.data_to_deglitch[i:ii+1], 'r.-', zorder = 2)
-                        ax1.set_xlabel('Time (s)'); ax1.set_title('Glitch '+str(glitch_count+1))
+                    # Correct only if surounding data points look normal
+                    if abs(self.data_to_deglitch[i] - self.data_to_deglitch[ii])< 2*diff_threshold * self.stddiff_data_to_deglitch:
 
-                    try:
-                        removed = 'False'
-                        if ii-i>1:  # ensure there are 3 points in the glitch, eliminates asymmetrical false positives
-                            self.data_to_deglitch[i1] = (self.data_to_deglitch[i] + self.data_to_deglitch[ii])/2
-                            glitch_count += 1
-                            removed = 'True'
-
+                        # plot glitches to be removed if plotting option is on
                         if self._plot_each_glitch:
-                            ax1.plot(self.time_to_deglitch[i1 - 64:i1 + 64],
-                                     self.data_to_deglitch[i1 - 64:i1 + 64], 'k-', zorder = 1, label = 'Glitch removed :'+removed)
-                            ax1.legend(loc = 1)
-                    except IndexError:
-                        print('IndexError')
-                        pass
-                    if self._plot_each_glitch:
-                        plt.show()
+                            plt.figure(figsize = (15, 4))
+                            ax1 = plt.subplot2grid((1, 1), (0, 0), colspan=3)
+                            ax1.plot(self.time_to_deglitch[i:ii+1],
+                                     self.data_to_deglitch[i:ii+1], 'r.-', zorder = 2)
+                            ax1.set_xlabel('Time (s)'); ax1.set_title('Glitch '+str(glitch_count+1))
+
+                        try:
+                            removed = 'False'
+                            if ii-i>1:  # ensure there are 3 points in the glitch, eliminates asymmetrical false positives
+                                self.data_to_deglitch[i1] = (self.data_to_deglitch[i] + self.data_to_deglitch[ii])/2
+                                glitch_count += 1
+                                removed = 'True'
+
+                            if self._plot_each_glitch:
+                                ax1.plot(self.time_to_deglitch[i1 - 64:i1 + 64],
+                                         self.data_to_deglitch[i1 - 64:i1 + 64], 'k-', zorder = 1, label = 'Glitch removed :'+removed)
+                                ax1.legend(loc = 1)
+                        except IndexError:
+                            print('IndexError')
+                            pass
+                        if self._plot_each_glitch:
+                            plt.show()
 
 
             except IndexError:
