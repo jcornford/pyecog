@@ -497,7 +497,7 @@ class Classifier():
             self.reorder_prediction_csv(output_csv_filename)
             print ('Done')
         except:
-            print('unable to re-order spreadsheet by date, does it exist?')
+            print('unable to re-order spreadsheet by date')
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
 
@@ -507,16 +507,8 @@ class Classifier():
         return skip_n
 
     def reorder_prediction_csv(self, csv_path):
-        df = pd.read_csv(csv_path)
-        datetimes = []
-        for string in df.filename:
-            ymd = string.split('_')[1]
-            h = string.split('_')[2]
-            m = string.split('_')[3]
-            x = ymd+h+m
-            datetimes.append(pd.to_datetime(x, format = '%Y-%m-%d%H%M'))
-        df['datetime'] = pd.Series(datetimes)
-        reordered_df = df.sort_values(by=['datetime', 'start']).drop('datetime', axis = 1)
+        df = pd.read_csv(csv_path, parse_dates=['real_start'])
+        reordered_df = df.sort_values(by='real_start')
         reordered_df.to_csv(csv_path)
 
     def make_prediction_dataframe_rows_from_chunk_labels(self, tid_no, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
@@ -572,8 +564,8 @@ class Classifier():
             start_time = df.ix[tup[0],'start_time']
             end_time = df.ix[tup[1],'end_time']
             duration = end_time-start_time
-            real_start = utils.get_time_from_seconds_and_filepath(name,float(start_time), split_on_underscore = True).round('s')
-            real_end   =  utils.get_time_from_seconds_and_filepath(name,float(end_time), split_on_underscore = True ).round('s')
+            real_start = utils.get_time_from_seconds_and_filepath(name, float(start_time), split_on_underscore = True).round('s')
+            real_end   = utils.get_time_from_seconds_and_filepath(name,float(end_time), split_on_underscore = True ).round('s')
             row = pd.Series([name,start_time,end_time,duration, tid_no, real_start, real_end],
                             index = ['filename','start', 'end','duration', 'transmitter','real_start','real_end'])
             df_rows.append(row)
