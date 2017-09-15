@@ -12,7 +12,7 @@ Use python 3.5.
 2. Make a new environment and install dependencies. To do this open a terminal windows (on Windows, a cmd prompt) and type or copy :
     ```{bash}
     conda create --name pyecog python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
-    source activate pyecog_dev  # or just "activate pyecog_dev" if on windows
+    source activate pyecog  # or just "activate pyecog" if you are on windows
     pip install pyqtgraph==0.10
     pip install pyecog
     
