@@ -53,14 +53,14 @@ def throw_error(error_text = None):
     msgBox.exec_()
     return 0
 
-class TreeWidgetItem( QtGui.QTreeWidgetItem ):
+class TreeWidgetItem(QtGui.QTreeWidgetItem ):
     def __init__(self, parent=None):
         QtGui.QTreeWidgetItem.__init__(self, parent)
 
     def __lt__(self, otherItem):
         column = self.treeWidget().sortColumn()
         try:
-            return float( self.text(column) ) > float( otherItem.text(column) )
+            return float(self.text(column) ) > float( otherItem.text(column) )
         except ValueError:
             return self.text(column) > otherItem.text(column)
 
@@ -364,7 +364,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         exported_df = pd.DataFrame(data = np.vstack([fname,start,end,duration,tid]).T,columns = ['filename','start','end','duration','transmitter'] )
 
         save_name = save_name.strip('.csv')
-        exported_df.to_csv(save_name+'.csv')
+
+        try:
+            exported_df.to_csv(save_name+'.csv')
+        except PermissionError:
+            throw_error('Error - permission error! Is the file open somewhere else?')
+            return 1
 
     def predictions_tree_export_csv(self):
         if self.h5directory:
@@ -400,7 +405,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                                                                                                        'duration','transmitter', 'real_start', 'real_end'] )
 
         save_name = save_name.strip('.csv')
-        exported_df.to_csv(save_name+'.csv')
+        try:
+            exported_df.to_csv(save_name+'.csv')
+        except PermissionError:
+            throw_error('Error - permission error! Is the file open somewhere else?')
+            return 1
 
     def master_tree_selection(self):
         if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
@@ -929,7 +938,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
                          str(''),
                          str('')]
 
-        new_item = QtGui.QTreeWidgetItem(details_entry)
+        new_item = TreeWidgetItem(details_entry)
         return new_item
 
     def add_new_entry_to_tree_widget(self,xpos):

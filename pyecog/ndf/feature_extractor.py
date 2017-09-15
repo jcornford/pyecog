@@ -145,7 +145,8 @@ class FeatureExtractor():
         self.basic_stats[:,5] = stats.skew(self.dataset, axis = 1)
         self.basic_stats[:,6] = np.sum(np.absolute(np.diff(self.dataset, axis = 1)),axis = 1)
 
-        # get rid of pesky NaNs, from interpolating over corruptions etc, in more controlled way than just imputing later
+        # get rid of NaNs, from interpolating over corruptions etc, in more controlled way than just imputing later
+        # todo not sure about this?
         self.basic_stats[:,4][np.isnan(self.basic_stats[:,4])] = -3.0
         self.basic_stats[:,5][np.isnan(self.basic_stats[:,5])] = 0.0
         self.basic_stats[:,4][np.isinf(self.basic_stats[:,4])] = -3.0

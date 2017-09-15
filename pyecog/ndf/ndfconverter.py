@@ -256,30 +256,33 @@ class NdfFile:
                     while ii in crossing_locations:
                         ii = ii + 1
 
-                    # plot glitches to be removed if plotting option is on
-                    if self._plot_each_glitch:
-                        plt.figure(figsize = (15, 4))
-                        ax1 = plt.subplot2grid((1, 1), (0, 0), colspan=3)
-                        ax1.plot(self.time_to_deglitch[i:ii+1],
-                                 self.data_to_deglitch[i:ii+1], 'r.-', zorder = 2)
-                        ax1.set_xlabel('Time (s)'); ax1.set_title('Glitch '+str(glitch_count+1))
+                    # Correct only if surounding data points look normal
+                    if abs(self.data_to_deglitch[i] - self.data_to_deglitch[ii])< 2*diff_threshold * self.stddiff_data_to_deglitch:
 
-                    try:
-                        removed = 'False'
-                        if ii-i>1:  # ensure there are 3 points in the glitch, eliminates asymmetrical false positives
-                            self.data_to_deglitch[i1] = (self.data_to_deglitch[i] + self.data_to_deglitch[ii])/2
-                            glitch_count += 1
-                            removed = 'True'
-
+                        # plot glitches to be removed if plotting option is on
                         if self._plot_each_glitch:
-                            ax1.plot(self.time_to_deglitch[i1 - 64:i1 + 64],
-                                     self.data_to_deglitch[i1 - 64:i1 + 64], 'k-', zorder = 1, label = 'Glitch removed :'+removed)
-                            ax1.legend(loc = 1)
-                    except IndexError:
-                        print('IndexError')
-                        pass
-                    if self._plot_each_glitch:
-                        plt.show()
+                            plt.figure(figsize = (15, 4))
+                            ax1 = plt.subplot2grid((1, 1), (0, 0), colspan=3)
+                            ax1.plot(self.time_to_deglitch[i:ii+1],
+                                     self.data_to_deglitch[i:ii+1], 'r.-', zorder = 2)
+                            ax1.set_xlabel('Time (s)'); ax1.set_title('Glitch '+str(glitch_count+1))
+
+                        try:
+                            removed = 'False'
+                            if ii-i>1:  # ensure there are 3 points in the glitch, eliminates asymmetrical false positives
+                                self.data_to_deglitch[i1] = (self.data_to_deglitch[i] + self.data_to_deglitch[ii])/2
+                                glitch_count += 1
+                                removed = 'True'
+
+                            if self._plot_each_glitch:
+                                ax1.plot(self.time_to_deglitch[i1 - 64:i1 + 64],
+                                         self.data_to_deglitch[i1 - 64:i1 + 64], 'k-', zorder = 1, label = 'Glitch removed :'+removed)
+                                ax1.legend(loc = 1)
+                        except IndexError:
+                            print('IndexError')
+                            pass
+                        if self._plot_each_glitch:
+                            plt.show()
 
 
             except IndexError:
@@ -374,6 +377,7 @@ class NdfFile:
 
     #@lprofile()
     def merge_coarse_and_fine_clocks(self):
+        # would this be more effcient if just using lower precision?
         # convert timestamps into correct time using clock id
         t_clock_data = np.zeros(self.voltage_messages.shape, dtype='float32')
         t_clock_indices = np.where(self.transmitter_id_bytes == 0)[0]
@@ -383,12 +387,16 @@ class NdfFile:
         self.time_array    = np.add(fine_time_vector,coarse_time_vector)
 
         # here account for occasions when transmitter with reset clock comes before clock 0 message
-        clock_tstamp = self.t_stamps_256[t_clock_indices[0]] # clock timestamp is the same throughout
+        try:
+            clock_tstamp = self.t_stamps_256[t_clock_indices[0]] # clock timestamp is the same throughout
+        except IndexError:
+            print('ERROR: No clock messages!')
+            return 1
         bad_timing = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
         self.time_array[bad_timing] = self.time_array[bad_timing] + 1 / 128
+        return 0
         
-        # Why does this take so long?  (7.7% of runtime)
-        # this stuff takes a lot of time... I think it's because it's now working in double precision!
+
 
     #@lprofile()
     def load(self, read_ids = [],
@@ -434,7 +442,9 @@ class NdfFile:
         # self.voltage_messages = np.fromfile(f, '>u2')[::2] #This seems sub-optimal: reading twice from disk
         self.voltage_messages = np.frombuffer(self._e_bit_reads[1:-1:].tobytes(), dtype='>u2')[::2]
 
-        self.merge_coarse_and_fine_clocks()  # this generates self.time_array
+        error_flag = self.merge_coarse_and_fine_clocks()  # this generates self.time_array
+        if error_flag:
+            return 1
 
         invalid_ids = []
         for read_id in self.read_ids:
