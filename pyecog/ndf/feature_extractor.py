@@ -4,13 +4,6 @@ import logging
 import warnings
 import numpy as np
 import scipy.stats as stats
-import time
-import sys
-import logging
-import warnings
-import numpy as np
-import scipy.stats as stats
-
 
 class StdDevStandardiser():
     def __init__(self, data, std_sigfigs=2):
@@ -31,7 +24,7 @@ class StdDevStandardiser():
             self.scaled_data = np.divide(data, self.mode_std)
             logging.debug(str(self.mode_std) + ' is mode std of trace split into ')
 
-        # recording might not contain any data that has std != 0 
+        # recording might not contain any data that has std != 0
         elif std_vector.shape[0] == 0:
             self.scaled_data = None
             logging.error('File std is all 0, changed self.scaled_data to be None')
