@@ -3,7 +3,7 @@ from .h5loader import H5File
 from .datahandler import DataHandler
 from .classifier import FeaturePreProcesser
 from .classifier import Classifier
-from .classifier import load_classifier
+#ßfrom .classifier  import load_classifier
 
 #from .bokeh_visualisation import plot
 #from .bokeh_visualisation import basic_plot

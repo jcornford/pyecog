@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 import scipy.stats as stats
 
+
 class StdDevStandardiser():
     def __init__(self, data, std_sigfigs=2):
         '''
@@ -38,7 +39,7 @@ class FeatureExtractor():
      - https://gist.github.com/sixtenbe/1178136 could be used for peak detections
     '''
 
-    def __init__(self, data, fs, extract=True, length_seconds=3600):
+    def __init__(self, data, fs, extract=True):
         '''
         Arguments:
             - data: this should already be chunked into desired windows over which to calculate features.
@@ -46,17 +47,15 @@ class FeatureExtractor():
             - fs: sampling frequency of the data
             - extract: a bool specifying whether to extract all the features on class init. If false,
               feature methods should be called directly.
-            - length of data in seconds used to calculate windwo length. Do not change for now.
         '''
         # first add noise to the data in the order of the least significant bit
-
         data = data + 0.4 * np.random.randn(data.shape[0], data.shape[1])
 
         std_dev_standardiser = StdDevStandardiser(data, std_sigfigs=2)
         self.dataset = std_dev_standardiser.scaled_data
         self.mode_std = std_dev_standardiser.mode_std
 
-        self.chunk_len = length_seconds / self.dataset.shape[0]  # get this as an arg?
+        self.chunk_len = 3600 / self.dataset.shape[0]  # get this as an arg?
         self.flat_data = np.ravel(self.dataset, order='C')
         self.fs = fs
 
@@ -199,8 +198,8 @@ class FeatureExtractor():
         above_threshold_masked = np.ma.masked_where(rolling_std_array < threshold, flat_data)
         # masked_where puts a mask where the condition is met, so sign is other way to what you would expect
         # when using indexing, i.e.: above_threshold = flat_data[np.where(rolling_std_array > threshold)[0]]
-        below_std_arr = np.reshape(below_threshold_masked, newshape=data.shape, order='C')
-        above_std_arr = np.reshape(above_threshold_masked, newshape=data.shape, order='C')
+        below_std_arr = np.reshape(below_threshold_masked, newshape=self.dataset.shape, order='C')
+        #above_std_arr = np.reshape(above_threshold_masked, newshape=self.dataset.shape, order='C')
         baseline_length = below_std_arr.count(axis=1)  # .count counts numb of non masked elements
 
         self.baseline_features = np.vstack([baseline_length]).T

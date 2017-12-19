@@ -2,6 +2,81 @@ import numpy as np
 
 import pandas as pd
 
+from sklearn.preprocessing import Imputer, StandardScaler
+
+
+def get_feature_imps(clf_obj, X_df_columns):
+    feature_imps = pd.Series(data=clf_obj.feature_importances_, index=X_df_columns).sort_values(ascending=False)
+    return feature_imps
+
+
+def get_preds_from_rf_oob(rf):
+    # todo docstring
+    dummy_preds = np.zeros(shape=rf.oob_decision_function_.shape)
+    dummy_preds[np.arange(rf.oob_decision_function_.shape[0]), rf.oob_decision_function_.argmax(axis=1)] = 1
+    dummy_preds_df = pd.DataFrame(dummy_preds, columns=rf.classes_).astype(int)
+
+    yhat = dummy_preds_df.idxmax(axis=1)
+    return yhat
+
+
+def labelled_confusion_matrix(y, ypred, clf):
+    # todo docstring
+    row_labels = ['True ' + label for label in clf.classes_]
+    col_labels = ['Predicted ' + label for label in clf.classes_]
+
+    cm = sk_metrics.confusion_matrix(y, ypred, labels=clf.classes_)
+    cm_df = pd.DataFrame(cm, index=row_labels, columns=col_labels)
+
+    cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    cm_norm = np.round(cm_norm, decimals=3)
+    cm_norm_df = pd.DataFrame(cm_norm, index=row_labels, columns=col_labels)
+
+    return cm_df, cm_norm_df
+
+
+def get_clf_performance(X, y, model, n_cvfolds=3, random_state=7):
+    metrics = [sk_metrics.f1_score, sk_metrics.log_loss]
+    model_cv_performance = {m.__name__: [] for m in metrics}
+    model_tr_performance = {m.__name__: [] for m in metrics}
+
+    skfold_cv = StratifiedKFold(n_cvfolds, random_state=7)
+    for t_index, v_index in skfold_cv.split(X, y):
+        x_val = X[v_index, :]
+        x_train = X[t_index, :]
+        y_val = y[v_index]
+        y_train = y[t_index]
+
+        model.fit(x_train, y_train)
+
+        # get predictions
+        val_preds = model.predict(x_val)
+        val_probs = model.predict_proba(x_val)
+        train_preds = model.predict(x_train)
+        train_probs = model.predict_proba(x_train)
+
+        # validation scores
+        f1score = sk_metrics.f1_score(y_val, val_preds, pos_label=1)
+        logloss = sk_metrics.log_loss(y_val, val_probs[:, 1])  # print(model.classes_) if uncertain
+        model_cv_performance['log_loss'].append(logloss)
+        model_cv_performance['f1_score'].append(f1score)
+
+        # training scores
+        f1score = sk_metrics.f1_score(y_train, train_preds, pos_label=1)
+        logloss = sk_metrics.log_loss(y_train, train_probs[:, 1])  # print(model.classes_) if uncertain
+        model_tr_performance['log_loss'].append(logloss)
+        model_tr_performance['f1_score'].append(f1score)
+
+    # insert confusion matrix adding...
+
+    for key in model_cv_performance.keys():
+        model_cv_performance[key] = np.mean(model_cv_performance[key])
+        model_tr_performance[key] = np.mean(model_tr_performance[key])
+    print(model.classes_)
+    print('Training:', model_tr_performance)
+    print('Testing: ', model_cv_performance)
+
+
 def make_clf_report(f_string,anno_string, unfair_df = False ):
     ''' f sting is the predictions, anno'''
     print("Classification report for predictions "+f_string)

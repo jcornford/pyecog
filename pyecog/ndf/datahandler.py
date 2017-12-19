@@ -159,7 +159,7 @@ apply_async_with_callback()
                     assert len(data_array.shape) > 1
 
                     if data_array is not None:
-                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'], run_peakdet = run_peaks)
+                        extractor = FeatureExtractor(data_array, fs = group.attrs['fs'])
                         features = extractor.feature_array
                         try: # attempt to delete, will throw error if group doesn't exist.
                             del group['features']
@@ -178,7 +178,7 @@ apply_async_with_callback()
                         logging.error("Didn't add features to file: "+str(group))
                         return 0
 
-    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5, run_peakdet = True):
+    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5):
         '''
         Currently assuming only one transmitter per h5 file
 
@@ -190,7 +190,6 @@ apply_async_with_callback()
                             / time
         '''
         if self.parrallel_flag_pred:
-            run_peakdet = self.run_pkdet
             timewindow  = self.twindow
 
         with h5py.File(h5_file_path, 'r+') as f:
@@ -214,7 +213,7 @@ apply_async_with_callback()
                     except:
                         print('Warning: Data file does not contain, full data: ' + str(os.path.basename(h5_file_path)) + str(data_array.shape))
                     #return data_array
-                    extractor = FeatureExtractor(data_array, tid.attrs['fs'], run_peakdet = run_peakdet)
+                    extractor = FeatureExtractor(data_array, tid.attrs['fs'])
                     features = extractor.feature_array
 
                     try:
@@ -234,13 +233,12 @@ apply_async_with_callback()
 
                     return 0
 
-    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1, run_peakdet = False, timewindow = 5):
+    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1,  timewindow = 5):
         '''
         # NEED TO ADD SETTINGS HERE FOR THE TIMEWINDOW ETC
 
         '''
         self.parrallel_flag_pred = True
-        self.run_pkdet = run_peakdet
         self.twindow = timewindow
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')] #switch to self.fullpath_listdir()
         if n_cores == -1:
@@ -251,7 +249,7 @@ apply_async_with_callback()
         print( ' Adding features to '+str(l)+ ' hours in '+ h5py_folder)
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
-            self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+            self.printProgress(i, l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
         #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
@@ -284,8 +282,6 @@ apply_async_with_callback()
         else:
             print('Error: Please pass a pandas dataframe or a path to .csv or .xlsx file')
             return 0
-
-
 
     def get_annotations_from_df_datadir_matches(self, df, file_dir):
         '''
@@ -328,14 +324,16 @@ apply_async_with_callback()
             annotation_name = str(row[1]['filename']).split('.')[0]+'_tid_'+str(tid)
             for datafile in data_filenames:
                 if datafile.startswith(annotation_name.split('_')[0]):
-                    start = row[1]['start']
-                    end = row[1]['end']
-                    annotation_dicts.append({'fname': os.path.join(file_dir, datafile),
-                                             'start': start,
-                                             'end': end,
-                                             'dataset_name': annotation_name,
-                                             'tid':tid})
-                    reference_count += 1
+                    h5_list_string = '[' + datafile.split('[')[1].split('.')[0]
+                    if tid in eval(h5_list_string):
+                        start = row[1]['start']
+                        end = row[1]['end']
+                        annotation_dicts.append({'fname': os.path.join(file_dir, datafile),
+                                                 'start': start,
+                                                 'end': end,
+                                                 'dataset_name': annotation_name,
+                                                 'tid':tid})
+                        reference_count += 1
 
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
         return annotation_dicts
@@ -509,7 +507,6 @@ apply_async_with_callback()
 
                 f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack(
                     [f[annotation['dataset_name']].attrs['precise_annotation'], np.array([(annotation['start'],annotation['end'])])])
-
 
             else:
                 group = f.create_group(annotation['dataset_name'])
