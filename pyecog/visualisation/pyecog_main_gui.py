@@ -34,13 +34,16 @@ except:
     pass
 
 if __name__ != '__main__':
-    from . import check_preds_design, loading_subwindow, convert_ndf_window
+    from . import main_window_design, loading_subwindow, convert_ndf_window
     from . import subwindows
+    from .main_gui_plotting import HDF5Plot
     from .context import ndf
 else:
-    import check_preds_design, loading_subwindow, convert_ndf_window
+    import main_window_design, loading_subwindow, convert_ndf_window
     import subwindows
+    from main_gui_plotting import HDF5Plot
     from context import ndf
+
 from ndf.h5loader import H5File
 from ndf.datahandler import DataHandler
 
@@ -54,6 +57,7 @@ def throw_error(error_text = None):
     return 0
 
 class TreeWidgetItem(QtGui.QTreeWidgetItem ):
+    """ Subclassing for correct sorting behaviour """
     def __init__(self, parent=None):
         QtGui.QTreeWidgetItem.__init__(self, parent)
 
@@ -64,7 +68,7 @@ class TreeWidgetItem(QtGui.QTreeWidgetItem ):
         except ValueError:
             return self.text(column) > otherItem.text(column)
 
-class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
+class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
     def __init__(self, parent=None):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
@@ -75,11 +79,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.scroll_flag = -1
         self.deleted_tree_items = []
-        #self.splitter.setSizes([50,20])
-        #self.splitter_2.setSizes([50,20])
-        #self.splitter_3.setSizes([50,20])
-        #self.bottom_splitter.setSizes([200,300])
-        #self.full_splitter.setSizes([300,200,150])
         if self.blink_box.isChecked():
             self.blink      = 1
         else:
@@ -93,8 +92,11 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.checkBox_scrolling.stateChanged.connect(self.scroll_checkbox_statechange)
         self.xrange_spinBox.valueChanged.connect(self.xrange_change)
         self.tid_spinBox.valueChanged.connect(self.tid_spinBox_change)
-        self.checkbox_filter_toggle.stateChanged.connect(self.plot1_display_filter_toggled)
-        self.hp_filter_freq.valueChanged.connect(self.hp_filter_settings_changed)
+        self.checkbox_lp_filter.stateChanged.connect(self.filter_settings_changed)
+        self.checkbox_hp_filter.stateChanged.connect(self.filter_settings_changed)
+        self.hp_filter_freq.valueChanged.connect(self.filter_settings_changed)
+        self.lp_filter_freq.valueChanged.connect(self.filter_settings_changed)
+
 
         self.fs = None # change !
         self.previously_displayed_tid = None
@@ -125,8 +127,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.actionLoad_h5_folder.triggered.connect(self.load_h5_folder) # this is still to do in its entireity
         self.actionSet_default_folder.triggered.connect(self.set_home)
 
-
-
         # Hook up analyse menu bar to functions here
         self.actionConvert_ndf_to_h5.triggered.connect(self.convert_ndf_folder_to_h5)
         self.actionLibrary_logistics.triggered.connect(self.load_library_management_subwindow)
@@ -135,9 +135,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
 
         self.plot_1 = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
-        #self.tid_box.setValue(6)
-        #self.traceSelector.valueChanged.connect(self.plot_traces)
-        #self.channel_selector.valueChanged.connect(self.plot_traces)
+
         self.treeWidget.setSortingEnabled(True)
         self.treeWidget.itemSelectionChanged.connect(self.master_tree_selection)
 
@@ -147,16 +145,17 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.substates_up = False
         self.substate_child_selected = False
 
-    def hp_filter_settings_changed(self):
+    def filter_settings_changed(self):
         if self.hdf5_plot is not None:
             self.hdf5_plot.wipe_filtered_data()
             self.plot1_display_filter_toggled()
 
     def plot1_display_filter_toggled(self):
+        # todo rename
         # set filter settings on trace
         if self.hdf5_plot is not None:
-            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
-            self.hdf5_plot.set_display_filter_settings(toggle , hp, lp)
+            toggle, hp, lp, hp_toggle, lp_toggle = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle, hp, lp, hp_toggle, lp_toggle)
             self.hdf5_plot.updateHDF5Plot()
 
     def get_plot1_display_filter_settings_from_maingui(self):
@@ -165,8 +164,12 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         lp = self.lp_filter_freq.value()
         if hp <= 0:
             self.hp_filter_freq.setValue(1.0)
-        toggle = self.checkbox_filter_toggle.isChecked()
-        return toggle, hp, lp
+
+        hp_toggle = self.checkbox_hp_filter.isChecked()
+        lp_toggle = self.checkbox_lp_filter.isChecked()
+        toggle = hp_toggle + lp_toggle > 0
+        print(toggle)
+        return toggle, hp, lp, hp_toggle, lp_toggle
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
@@ -719,7 +722,7 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
         self.hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
-        if self.checkbox_filter_toggle.isChecked():
+        if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
             toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
             self.hdf5_plot.set_display_filter_settings(toggle,hp,lp)
         self.hdf5_plot.setHDF5(data, time, self.fs)
@@ -963,9 +966,6 @@ class MainGui(QtGui.QMainWindow, check_preds_design.Ui_MainWindow):
         xlims  = self.plot_1.getViewBox().viewRange()[0]
         self.treeWidget.setCurrentItem(test_item)
         self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
-
-
-
 
     def add_start_line_to_h5_file(self,xpos):
 
@@ -1272,172 +1272,6 @@ class LoadFileThread(QThread):
         print('sup, loading: '+self.filename)
         self.load_file(self.filename)
         self.emit(pyqtSignal('catch_data(PyQt_PyObject)'), self.h5obj)
-
-class HDF5Plot(pg.PlotCurveItem):
-    """
-    Create a subclass of PlotCurveItem for displaying a very large
-    data set from an HDF5 file that does not neccesarilly fit in memory.
-
-    The basic approach is to override PlotCurveItem.viewRangeChanged such that it
-    reads only the portion of the HDF5 data that is necessary to display the visible
-    portion of the data. This is further downsampled to reduce the number of samples
-    being displayed.
-
-    A more clever implementation of this class would employ some kind of caching
-    to avoid re-reading the entire visible waveform at every update.
-    """
-    def __init__(self, downsample_limit = 20000,viewbox = None, *args, **kwds):
-        " TODO what are the args and kwds for PlotCurveItem class?"
-        self.hdf5 = None
-        self.hdf5_filtered_data = None
-        self.time = None
-        self.fs = None
-        self.vb = viewbox
-        self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
-        self.display_filter = None
-        self.hp_cutoff = None
-        self.lp_cutoff = None
-        pg.PlotCurveItem.__init__(self, *args, **kwds)
-        if pg.CONFIG_OPTIONS['background'] == 'w':
-            self.pen = (0,0,0)
-        else:
-            self.pen = (255,255,255)
-
-
-    def keyPressEvent(self, event):
-        ''' this doesnt work, change key press to correct it.'''
-        if event.key() == QtCore.Qt.Key_Escape:
-            self.close()
-        else:
-            pass
-            #print(event.key())
-
-    def setHDF5(self, data, time, fs):
-        self.hdf5 = data
-        self.time = time
-        self.fs = fs
-        #print ( self.hdf5.shape, self.time.shape)
-        self.updateHDF5Plot()
-
-    def set_display_filter_settings(self, display_filter, hp_cutoff, lp_cutoff):
-        self.display_filter = display_filter
-        self.hp_cutoff = hp_cutoff
-        self.lp_cutoff = lp_cutoff
-
-
-    def highpass_filter(self, data):
-        '''
-        Implements high pass digital butterworth filter, order 2.
-
-        Args:
-            cutoff_hz: default is 1hz
-        '''
-
-        nyq = 0.5 * self.fs
-        cutoff_decimal = self.hp_cutoff/nyq
-        b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
-
-        filtered_data = signal.filtfilt(b, a, data)
-        return filtered_data
-
-    def wipe_filtered_data(self):
-        self.hdf5_filtered_data = None
-
-
-    def viewRangeChanged(self):
-        self.updateHDF5Plot()
-
-    def updateHDF5Plot(self):
-        if self.hdf5 is None:
-            self.setData([])
-            return 0
-
-        if self.display_filter:
-
-            if self.hdf5_filtered_data is None:
-                self.hdf5_filtered_data = hdf5data = self.highpass_filter(self.hdf5)
-            hdf5data = self.hdf5_filtered_data
-
-        else:
-            hdf5data = self.hdf5
-        #vb = self.getViewBox()
-        #if vb is None:
-        #    return  # no ViewBox yet
-
-        # Determine what data range must be read from HDF5
-        xrange = [i*self.fs for i in self.vb.viewRange()[0]]
-        start = max(0,int(xrange[0])-1)
-        stop = min(len(hdf5data), int(xrange[1]+2))
-        if stop-start < 1:
-            print('didnt update')
-            return 0
-        # Decide by how much we should downsample
-        ds = int((stop-start) / self.limit) + 1
-        if ds == 1:
-            # Small enough to display with no intervention.
-            visible_y = hdf5data[start:stop]
-            visible_x = self.time[start:stop]
-            scale = 1
-        else:
-            # Here convert data into a down-sampled array suitable for visualizing.
-            # Must do this piecewise to limit memory usage.
-            samples = 1 + ((stop-start) // ds)
-            visible_y = np.zeros(samples*2, dtype=hdf5data.dtype)
-            visible_x = np.zeros(samples*2, dtype=self.time.dtype)
-            sourcePtr = start
-            targetPtr = 0
-
-            # read data in chunks of ~1M samples
-            chunkSize = (1000000//ds) * ds
-            while sourcePtr < stop-1:
-
-                chunk = hdf5data[sourcePtr:min(stop,sourcePtr+chunkSize)]
-                chunk_x = self.time[sourcePtr:min(stop,sourcePtr+chunkSize)]
-                sourcePtr += len(chunk)
-                #print(chunk.shape, chunk_x.shape)
-
-                # reshape chunk to be integral multiple of ds
-                chunk = chunk[:(len(chunk)//ds) * ds].reshape(len(chunk)//ds, ds)
-                chunk_x = chunk_x[:(len(chunk_x)//ds) * ds].reshape(len(chunk_x)//ds, ds)
-
-                # compute max and min
-                #chunkMax = chunk.max(axis=1)
-                #chunkMin = chunk.min(axis=1)
-
-                mx_inds = np.argmax(chunk, axis=1)
-                mi_inds = np.argmin(chunk, axis=1)
-                row_inds = np.arange(chunk.shape[0])
-
-                chunkMax = chunk[row_inds, mx_inds]
-                chunkMin = chunk[row_inds, mi_inds]
-                chunkMax_x = chunk_x[row_inds, mx_inds]
-                chunkMin_x = chunk_x[row_inds, mi_inds]
-
-                # interleave min and max into plot data to preserve envelope shape
-                visible_y[targetPtr:targetPtr+chunk.shape[0]*2:2] = chunkMin
-                visible_y[1+targetPtr:1+targetPtr+chunk.shape[0]*2:2] = chunkMax
-                visible_x[targetPtr:targetPtr+chunk_x.shape[0]*2:2] = chunkMin_x
-                visible_x[1+targetPtr:1+targetPtr+chunk_x.shape[0]*2:2] = chunkMax_x
-
-                targetPtr += chunk.shape[0]*2
-
-            visible_x = visible_x[:targetPtr]
-            visible_y = visible_y[:targetPtr]
-            #print('**** now downsampling')
-            #print(visible_y.shape, visible_x.shape)
-            scale = ds * 0.5
-
-        # TODO: setPos, scale, resetTransform methods... scale?
-
-
-
-
-
-        self.setData(visible_x, visible_y, pen=self.pen) # update the plot
-        #self.setPos(start, 0) # shift to match starting index ### Had comment out to stop it breaking... when limit is >0?!
-        self.resetTransform()
-        #self.scale(scale, 1)  # scale to match downsampling
-
 
 def main():
     app = QtGui.QApplication(sys.argv)

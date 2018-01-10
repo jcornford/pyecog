@@ -43,7 +43,6 @@ try:
             return profiled_func
         return inner
 except:
-    print('failed to load lineprofile')
     pass
 
 def load_classifier(filepath):
