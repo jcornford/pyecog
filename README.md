@@ -12,7 +12,6 @@ Currently under heavy construction!
     conda create --name pyecog_env python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
     source activate pyecog_env  # or just "activate pyecog_env" if you are on windows
     pip install pyqtgraph==0.10
-    pip install pyecog
    ```
  * Note you do not have to make a virtual environment if you will not be using python for anything else. See below.
  
