@@ -40,11 +40,12 @@ python start.py
 ---
 ### Installing with pip:
 This is for when the software is more developed.
+
 1 . After step 2 above, run:
 ```{bash}
 pip install pyecog
 ```
-2. Ignore step 3. Open command window and activate the pyecog_env environment if you are using it. Type "pyecog" into the prompt. Gui will load.
+2. Ignore step 3. Open command window and activate the pyecog_env environment if you are using it. Type "pyecog" into the prompt. The Gui should load.
 ---
 ### How to use - this needs to be updated
 - note, some gui elements not implemented (open in jupyter notebook and low pass filter)
