@@ -21,12 +21,12 @@ Currently under heavy construction!
 ```{bash}
 activate pyecog_env  # or  "source activate pyecog_env" if on a mac
 ```
-And then run with:
+And then run the gui with:
 ```{bash}
 python start.py
 ```
-
-#### For running without an environment:
+---
+### For running without an environment:
 Replace step 2 with
  ```{bash}
     conda install python=3.5 jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
@@ -37,7 +37,7 @@ Replace step 2 with
 ```{bash}
 python start.py
 ```
-
+---
 ### Installing with pip:
 This is for when the software is more developed.
 1 . After step 2 above, run:
@@ -45,11 +45,11 @@ This is for when the software is more developed.
 pip install pyecog
 ```
 2. Ignore step 3. Open command window and activate the pyecog_env environment if you are using it. Type "pyecog" into the prompt. Gui will load.
-
+---
 ### How to use - this needs to be updated
 - note, some gui elements not implemented (open in jupyter notebook and low pass filter)
 - [Loading ndf files] (https://github.com/jcornford/pyecog/blob/master/documentation_notebooks/demo_loading_ndfs_notebook.ipynb)
-
+---
 ### Repository contents:
 * NDF:           code is the current working directory.
 * visualisation: contains a bunch of visualisation experiments
