@@ -135,6 +135,7 @@ class Ui_MainWindow(object):
         self.tid_spinBox.setMaximumSize(QtCore.QSize(51, 16777215))
         self.tid_spinBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
         self.tid_spinBox.setObjectName("tid_spinBox")
+        self.tid_spinBox.setMaximum(500)
         self.formLayout_3.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.tid_spinBox)
         self.label_11 = QtWidgets.QLabel(self.frame_4)
         self.label_11.setLayoutDirection(QtCore.Qt.LeftToRight)
