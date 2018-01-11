@@ -97,7 +97,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.hp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.lp_filter_freq.valueChanged.connect(self.filter_settings_changed)
 
-
         self.fs = None # change !
         self.previously_displayed_tid = None
         self.data_obj = None
@@ -106,7 +105,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.tree_items = []
         self.valid_h5_tids = None
 
-        self.hdf5_plot = None
+        self.hdf5_plot_inset = None
         self.valid_tids_to_indexes = None
         self.indexes_to_valid_tids = None
         self.tid_spinbox_just_changed = False
@@ -146,29 +145,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.substate_child_selected = False
 
     def filter_settings_changed(self):
-        if self.hdf5_plot is not None:
-            self.hdf5_plot.wipe_filtered_data()
-            self.plot1_display_filter_toggled()
-
-    def plot1_display_filter_toggled(self):
-        # todo rename
-        # set filter settings on trace
-        if self.hdf5_plot is not None:
-            toggle, hp, lp, hp_toggle, lp_toggle = self.get_plot1_display_filter_settings_from_maingui()
-            self.hdf5_plot.set_display_filter_settings(toggle, hp, lp, hp_toggle, lp_toggle)
-            self.hdf5_plot.updateHDF5Plot()
-
-    def get_plot1_display_filter_settings_from_maingui(self):
-        ''' Returns the state, high pass and low pass values from main gui'''
-        hp = self.hp_filter_freq.value()
-        lp = self.lp_filter_freq.value()
-        if hp <= 0:
-            self.hp_filter_freq.setValue(1.0)
-
-        hp_toggle = self.checkbox_hp_filter.isChecked()
-        lp_toggle = self.checkbox_lp_filter.isChecked()
-        toggle = hp_toggle + lp_toggle > 0
-        return toggle, hp, lp, hp_toggle, lp_toggle
+        if self.hdf5_plot_inset is not None:
+            self.hdf5_plot_inset.display_filter_update()
 
     def not_done_yet(self):
         QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
@@ -719,14 +697,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
-        self.hdf5_plot = main_gui_plotting.HDF5Plot(parent = self.plot_1,
-                                                    main_gui_obj = self,
-                                                    viewbox = self.bx1)
+        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_1,
+                                                          main_gui_obj = self,
+                                                          viewbox = self.bx1)
         if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
-            toggle, hp, lp, hp_toggle, lp_toggle = self.get_plot1_display_filter_settings_from_maingui()
-            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp, hp_toggle, lp_toggle)
-        self.hdf5_plot.setHDF5(data, time, self.fs)
-        self.plot_1.addItem(self.hdf5_plot)
+            self.hdf5_plot_inset.display_filter_update()
+        self.hdf5_plot_inset.setHDF5(data, time, self.fs)
+        self.plot_1.addItem(self.hdf5_plot_inset)
         self.plot_1.setLabel('left', 'Voltage (uV)')
         self.plot_1.setLabel('bottom','Time (s)')
 

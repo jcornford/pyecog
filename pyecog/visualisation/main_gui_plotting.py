@@ -38,17 +38,19 @@ class HDF5Plot(pg.PlotCurveItem):
     A more clever implementation of this class would employ some kind of caching
     to avoid re-reading the entire visible waveform at every update.
     """
-    def __init__(self, downsample_limit = 20000,viewbox = None, *args, **kwds):
+    def __init__(self, main_gui_obj,viewbox = None, *args, **kwds):
         " TODO what are the args and kwds for PlotCurveItem class?"
         self.hdf5 = None
         self.hdf5_filtered_data = None
         self.time = None
         self.fs = None
         self.vb = viewbox
-        self.limit = downsample_limit # maximum number of samples to be plotted, 10000 orginally
+        self.limit = 20000 # downsample_limit # maximum number of samples to be plotted, 10000 orginally
         self.display_filter = None
         self.hp_cutoff = None
         self.lp_cutoff = None
+        self.main_gui_obj = main_gui_obj
+        self.main_gui_obj.downsample_spinbox.valueChanged.connect(self.downsample_spinbox_change)
         pg.PlotCurveItem.__init__(self, *args, **kwds)
         if pg.CONFIG_OPTIONS['background'] == 'w':
             self.pen = (0,0,0)
@@ -62,7 +64,7 @@ class HDF5Plot(pg.PlotCurveItem):
             self.close()
         else:
             pass
-            #print(event.key())
+        print('l 66 main gui plotting in keyPressEvent called - tell jonny please')
 
     def setHDF5(self, data, time, fs):
         self.hdf5 = data
@@ -71,44 +73,56 @@ class HDF5Plot(pg.PlotCurveItem):
         #print ( self.hdf5.shape, self.time.shape)
         self.updateHDF5Plot()
 
-    def set_display_filter_settings(self, display_filter, hp_cutoff, lp_cutoff, hp_toggle, lp_toggle):
-        self.display_filter = display_filter
-        self.hp_cutoff = hp_cutoff
-        self.lp_cutoff = lp_cutoff
-        self.hp_toggle = hp_toggle
-        self.lp_toggle = lp_toggle
+    def display_filter_update(self):
+        self.wipe_filtered_data()
+        self.get_display_filter_settings()
+        self.updateHDF5Plot()
+        pass
 
-
-    def highpass_filter(self, data):
-        '''
-        Implements high pass digital butterworth filter, order 2.
-        '''
-
-        nyq = 0.5 * self.fs
-        cutoff_decimal = self.hp_cutoff/nyq
-
-        b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
-
-        filtered_data = signal.filtfilt(b, a, data)
-        return filtered_data
-
-    def lowpass_filter(self, data):
-        '''
-        Implements low pass digital butterworth filter, order 2.
-        '''
-
-        nyq = 0.5 * self.fs
-        cutoff_decimal = self.lp_cutoff/nyq
-
-        b, a = signal.butter(2, cutoff_decimal, 'lowpass', analog=False)
-        filtered_data = signal.filtfilt(b, a, data)
-        return filtered_data
+    def get_display_filter_settings(self):
+        self.hp_cutoff = self.main_gui_obj.hp_filter_freq.value()
+        self.lp_cutoff = self.main_gui_obj.lp_filter_freq.value()
+        self.hp_toggle = self.main_gui_obj.checkbox_hp_filter.isChecked()
+        self.lp_toggle = self.main_gui_obj.checkbox_lp_filter.isChecked()
+        self.display_filter =  self.hp_toggle + self.lp_toggle > 0
 
     def wipe_filtered_data(self):
         self.hdf5_filtered_data = None
 
+    def filter(self, cutoff, data, type):
+        '''
+
+        Args:
+            cutoff: corner freq in hz
+            data:
+            type: 'lowpass' of 'highpass'
+
+        Returns:
+
+        '''
+        nyq = 0.5 * self.fs
+        cutoff_decimal = cutoff / nyq
+        if cutoff_decimal > 1:
+            if type == 'lowpass':
+                self.main_gui_obj.lp_filter_freq.setValue(nyq)
+            elif type == 'highpass':
+                self.main_gui_obj.hp_filter_freq.setValue(nyq)
+
+        b, a = signal.butter(2, cutoff_decimal, type, analog=False)
+        filtered_data = signal.filtfilt(b, a, data)
+        return filtered_data
+
     def viewRangeChanged(self):
         self.updateHDF5Plot()
+
+    def downsample_spinbox_change(self):
+        self.set_downsample_limit()
+        self.updateHDF5Plot()
+
+    def set_downsample_limit(self):
+        spinbox_val = self.main_gui_obj.downsample_spinbox.value()
+        self.limit = spinbox_val *1000
+        # this is the number of datapoints to show
 
     def updateHDF5Plot(self):
         if self.hdf5 is None:
@@ -119,19 +133,25 @@ class HDF5Plot(pg.PlotCurveItem):
             if self.hdf5_filtered_data is None:
                 self.hdf5_filtered_data = self.hdf5
                 if self.hp_toggle:
-                    try: self.hdf5_filtered_data = self.highpass_filter(self.hdf5_filtered_data)
-                    except: throw_error()
+                    try:
+                        self.hdf5_filtered_data = self.filter(self.hp_cutoff,
+                                                              self.hdf5_filtered_data,
+                                                              'highpass')
+                    except:
+                        throw_error()
+
                 if self.lp_toggle:
-                    try: self.hdf5_filtered_data = self.lowpass_filter(self.hdf5_filtered_data)
-                    except: throw_error()
+                    try:
+                        self.hdf5_filtered_data = self.filter(self.lp_cutoff,
+                                                              self.hdf5_filtered_data,
+                                                              'lowpass')
+                    except:
+                        throw_error()
 
             hdf5data = self.hdf5_filtered_data
 
         else:
             hdf5data = self.hdf5
-        #vb = self.getViewBox()
-        #if vb is None:
-        #    return  # no ViewBox yet
 
         # Determine what data range must be read from HDF5
         xrange = [i*self.fs for i in self.vb.viewRange()[0]]
