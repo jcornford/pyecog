@@ -36,12 +36,12 @@ except:
 if __name__ != '__main__':
     from . import main_window_design, loading_subwindow, convert_ndf_window
     from . import subwindows
-    from .main_gui_plotting import HDF5Plot
+    from . import main_gui_plotting
     from .context import ndf
 else:
     import main_window_design, loading_subwindow, convert_ndf_window
     import subwindows
-    from main_gui_plotting import HDF5Plot
+    import main_gui_plotting
     from context import ndf
 
 from ndf.h5loader import H5File
@@ -168,7 +168,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         hp_toggle = self.checkbox_hp_filter.isChecked()
         lp_toggle = self.checkbox_lp_filter.isChecked()
         toggle = hp_toggle + lp_toggle > 0
-        print(toggle)
         return toggle, hp, lp, hp_toggle, lp_toggle
 
     def not_done_yet(self):
@@ -717,14 +716,15 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.annotation_change_tid = True
         self.set_tid_spinbox(tid)
 
-    #@lprofile()
     def add_data_to_plots(self, data, time):
         self.plot_1.clear()
         self.bx1 = self.plot_1.getViewBox()
-        self.hdf5_plot = HDF5Plot(parent = self.plot_1, viewbox = self.bx1)
+        self.hdf5_plot = main_gui_plotting.HDF5Plot(parent = self.plot_1,
+                                                    main_gui_obj = self,
+                                                    viewbox = self.bx1)
         if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
-            toggle, hp, lp = self.get_plot1_display_filter_settings_from_maingui()
-            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp)
+            toggle, hp, lp, hp_toggle, lp_toggle = self.get_plot1_display_filter_settings_from_maingui()
+            self.hdf5_plot.set_display_filter_settings(toggle,hp,lp, hp_toggle, lp_toggle)
         self.hdf5_plot.setHDF5(data, time, self.fs)
         self.plot_1.addItem(self.hdf5_plot)
         self.plot_1.setLabel('left', 'Voltage (uV)')
@@ -736,7 +736,9 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_overview.setXRange(0,3600, padding=0) # hardcoding in the hour here...
         self.plot_overview.setMouseEnabled(x = False, y= True)
         self.bx_overview = self.plot_overview.getViewBox()
-        hdf5_plotoverview = HDF5Plot(parent = self.plot_overview, viewbox = self.bx_overview)
+        hdf5_plotoverview = main_gui_plotting.HDF5Plot(parent = self.plot_overview,
+                                                       main_gui_obj=self,
+                                                       viewbox = self.bx_overview)
         hdf5_plotoverview.setHDF5(data, time, self.fs)
         self.plot_overview.addItem(hdf5_plotoverview)
         self.plot_overview.setXRange(time[0],time[-1], padding=0)
@@ -756,7 +758,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_1.sigXRangeChanged.connect(self.updateRegion) # xlims?
         self.plot_1.sigXRangeChanged.connect(self.xrange_changed_on_plot)
         self.updatePlot()
-
 
     # these two methods are for the lr plot connection, refactor names
     def updatePlot(self):
@@ -788,7 +789,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             print('Error when checking for blank')
             traceback.print_exception(1)
 
-
     def update_tree_element_duration(self):
         try:
             tree_row = self.treeWidget.currentItem()
@@ -797,20 +797,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.update_real_times()
         except:
             print('caught error at 777')
-
-    def plot_traces(self, data_dict):
-
-        if not self.holdPlot.isChecked():
-            self.plot_1.clear()
-        # here you need to add the h5 file class with downsampling
-
-        curve1 = HDF5Plot()#parent = self.plot_1, viewbox = bx1)
-        curve1.setHDF5(data_dict['data'], data_dict['time'], self.fs)
-        self.plot_1.addItem(hdf5_plot)
-
-        #self.plot_1.addItem(pg.PlotCurveItem(data_dict['time'], data_dict['data']))
-        self.plot_1.setXRange(row['Start'], row['End'], padding=0)
-        #self.plot_1.ti
 
     def clear_QTreeWidget(self):
         # not sure if i need this top bit
@@ -1153,10 +1139,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             if self.scroll_flag==True:
                 self.scroll_sign = 1
             else:
-                #scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
-                #if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
-                #self.plot_1.getViewBox().setXRange(min = x[0]+scroll_i, max = x[1]+scroll_i, padding=0)
-
                 scroll_i = (x[1]-x[0])*1
                 new_min =  x[0]+scroll_i
                 new_max =  x[1]+scroll_i
@@ -1166,15 +1148,10 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             if self.scroll_flag==True:
                 self.scroll_sign = -1
             else:
-                #scroll_i = (x[1]-x[0])*0.01*self.scroll_speed_box.value()
-                #if scroll_i > x[1]-x[0]: scroll_i = x[1]-x[0]
-                #self.plot_1.getViewBox().setXRange(min = x[0]-scroll_i, max = x[1]-scroll_i, padding=0)
-
                 scroll_i = (x[1]-x[0])*-1
                 new_min =  x[0]+scroll_i
                 new_max =  x[1]+scroll_i
-                #if new_max < xmax:
-                #self.get_next_tree_item()
+
                 self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
@@ -1194,7 +1171,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if key_id == Qt.Key_Space:
             self.scroll_sign = 1
             self.checkBox_scrolling.setChecked([1,0][self.checkBox_scrolling.isChecked()])
-            #self.scroll_flag *= -1
 
     def scroll_checkbox_statechange(self):
         self.scroll_sign = 1
@@ -1239,39 +1215,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             if new_max < xmax:
                 #self.get_next_tree_item()
                 self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
-
-    def load_h5_file(self,fname):
-
-        self.loading_thread = LoadFileThread(fname)
-        #self.connect(self.loading_thread, SIGNAL("finished()"), self.done)
-        self.connect(self.loading_thread, pyqtSignal("catch_data(PyQt_PyObject)"), self.catch_data)
-        self.loading_thread.start()
-
-    def catch_data(self, h5obj):
-        self.h5obj = h5obj
-        self.plot_traces()
-
-
-    def done(self):
-        QtGui.QMessageBox.information(self, "Done!", "Done loading!")
-
-
-class LoadFileThread(QThread):
-
-    def __init__(self, filename):
-        QThread.__init__(self)
-        self.filename = filename
-
-    def __del__(self):
-        self.wait()
-
-    def load_file(self, filename):
-        self.h5obj = H5File(filename)
-
-    def run(self):
-        print('sup, loading: '+self.filename)
-        self.load_file(self.filename)
-        self.emit(pyqtSignal('catch_data(PyQt_PyObject)'), self.h5obj)
 
 def main():
     app = QtGui.QApplication(sys.argv)
