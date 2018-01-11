@@ -83,6 +83,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.blink      = 1
         else:
             self.blink      = -1
+        self.just_save_annos = False
         self.scroll_sign = 1
         self.timer = QTimer()
         self.timer.timeout.connect(self.simple_scroll)
@@ -117,11 +118,11 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         else:
             self.home = os.getcwd()
 
-
         # Hook up the file bar stuff here
         self.substates_timewindow_secs = 6
         self.actionLoad_Predictions.triggered.connect(self.load_predictions_gui)
-        self.actionSave_annotations.triggered.connect(self.master_tree_export_csv)
+        self.actionSave_full_treewidget.triggered.connect(self.master_tree_export_csv)
+        self.actionSave_annotations_only.triggered.connect(self.export_annotations_only)
         self.actionLoad_Library.triggered.connect(self.load_seizure_library)
         self.actionLoad_h5_folder.triggered.connect(self.load_h5_folder) # this is still to do in its entireity
         self.actionSet_default_folder.triggered.connect(self.set_home)
@@ -132,7 +133,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.actionClassifier_components.triggered.connect(self.load_clf_subwindow)
         self.actionAdd_features_to_h5_folder.triggered.connect(self.load_add_prediction_features_subwindow)
 
-        self.plot_1 = self.GraphicsLayoutWidget.addPlot()
+        self.plot_inset = self.GraphicsLayoutWidget.addPlot()
         self.plot_overview = self.overview_plot.addPlot()
 
         self.treeWidget.setSortingEnabled(True)
@@ -307,17 +308,62 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
 
         self.tree_items.append(item)
 
+    def export_annotations_only(self):
+        self.just_save_annos = True
+        self.master_tree_export_csv()
+        self.just_save_annos = False
+
     def master_tree_export_csv(self):
         if self.predictions_up:
             self.predictions_tree_export_csv()
         elif self.library_up:
             self.library_tree_export_csv()
-        elif self.file_dir_up:
-            self.file_tree_export_csv()
+        elif self.file_dir_up: # now the same as predictions
+            self.predictions_tree_export_csv()
 
-    def file_tree_export_csv(self):
-        # we just call predicitions tree export as should be same idea
-        self.predictions_tree_export_csv()
+    def predictions_tree_export_csv(self):
+        if self.h5directory:
+            default_dir = os.path.dirname(self.h5directory)
+        else:
+            default_dir = ""
+        save_name = QtGui.QFileDialog.getSaveFileName(self, 'Save annotation .csv file', default_dir)[0]
+        if save_name is '':
+            print('nothing selected')
+            return 0
+        # now build dataframe from the tree
+        root = self.treeWidget.invisibleRootItem()
+        child_count = root.childCount()
+        index, start, end, tid, fname, duration, real_end, real_start = [], [], [], [], [], [], [], []
+        for i in range(child_count):
+            item = root.child(i)
+            if self.just_save_annos:
+                if item.text(1) == '':# start is null
+                    continue
+            index.append(item.text(0))
+            start.append(item.text(1))
+            end.append(item.text(2))
+            try:
+                tid_str = int(item.text(4))
+            except:
+                # tid is probably a '[x]'
+                tid_str = eval(item.text(4))
+                if hasattr(tid_str, '__iter__'):
+                    tid_str = str(tid_str)
+            tid.append(tid_str)
+            fname.append(item.text(5))
+            duration.append(item.text(3))
+            real_end.append(item.text(6))
+            real_start.append(item.text(7))
+        exported_df = pd.DataFrame(data=np.vstack([index, fname, start, end, duration, tid, real_end, real_start]).T,
+                                   columns=['old_index', 'filename', 'start', 'end',
+                                            'duration', 'transmitter', 'real_start', 'real_end'])
+
+        save_name = save_name.strip('.csv')
+        try:
+            exported_df.to_csv(save_name + '.csv')
+        except PermissionError:
+            throw_error('Error - permission error! Is the file open somewhere else?')
+            return 1
 
     def library_tree_export_csv(self):
         if self.h5directory:
@@ -351,45 +397,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             throw_error('Error - permission error! Is the file open somewhere else?')
             return 1
 
-    def predictions_tree_export_csv(self):
-        if self.h5directory:
-            default_dir = os.path.dirname(self.h5directory)
-        else:
-            default_dir = ""
-        save_name = QtGui.QFileDialog.getSaveFileName(self,'Save annotation .csv file',default_dir)[0]
-        if save_name is '':
-            print('nothing selected')
-            return 0
-        # now build dataframe from the tree
-        root = self.treeWidget.invisibleRootItem()
-        child_count = root.childCount()
-        index, start, end, tid, fname, duration,real_end,real_start = [],[],[],[],[], [],[],[]
-        for i in range(child_count):
-            item = root.child(i)
-            index.append(item.text(0))
-            start.append(item.text(1))
-            end.append(item.text(2))
-            try:
-                tid_str = int(item.text(4))
-            except:
-                # tid is probably a '[x]'
-                tid_str = eval(item.text(4))
-                if hasattr(tid_str, '__iter__'):
-                    tid_str = str(tid_str)
-            tid.append(tid_str)
-            fname.append(item.text(5))
-            duration.append(item.text(3))
-            real_end.append(item.text(6))
-            real_start.append(item.text(7))
-        exported_df = pd.DataFrame(data = np.vstack([index,fname,start,end,duration,tid, real_end,real_start]).T,columns = ['old_index','filename','start','end',
-                                                                                                       'duration','transmitter', 'real_start', 'real_end'] )
 
-        save_name = save_name.strip('.csv')
-        try:
-            exported_df.to_csv(save_name+'.csv')
-        except PermissionError:
-            throw_error('Error - permission error! Is the file open somewhere else?')
-            return 1
 
     def master_tree_selection(self):
         if not self.deleteing:                     # this is a hack as was being called as I was clearing the items
@@ -430,8 +438,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             t_window = chunk.split('-')
             xmin = int(t_window[0])
             xmax = int(t_window[1])
-            self.plot_1.getViewBox().setXRange(min = xmin,
-                                               max = xmax, padding=0)
+            self.plot_inset.getViewBox().setXRange(min = xmin,
+                                                   max = xmax, padding=0)
             category = item.text(2)
 
     def tree_selection_file_dir(self):
@@ -474,15 +482,15 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.fs = eval(h5.attributes['fs_dict'])[tid]
         self.add_data_to_plots(data_dict['data'], data_dict['time'])
         if self.checkbox_hold_trace_position.isChecked():
-            xlims  = self.plot_1.getViewBox().viewRange()[0]
+            xlims  = self.plot_inset.getViewBox().viewRange()[0]
             x_min = xlims[0]
             x_max = xlims[1]
         else:
             xrange = self.xrange_spinBox.value()
             x_min = 0
             x_max = xrange
-        self.plot_1.setXRange(x_min, x_max, padding=0)
-        self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n')
+        self.plot_inset.setXRange(x_min, x_max, padding=0)
+        self.plot_inset.setTitle(str(index) + ' - ' + fpath + '\n')
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
@@ -531,12 +539,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         #Todo This method is bad/crude
 
         '''
-        # tid_spinbox.valueChanged connects to here
-        #print('tid spin box handling called')
         try:
-
             new_val = self.tid_spinBox.value()
-            #print(time.time(), 'New spinbox value is ', new_val)
             set_tid_box = True
             if new_val in self.valid_h5_tids:
                 set_tid_box = False # dont need to overwrite box
@@ -556,8 +560,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                     i = bisect.bisect_left(self.valid_h5_tids,new_val)
                     new_tid = self.valid_h5_tids[i%len(self.valid_h5_tids)]
 
-            #print('New is:', new_tid)
-            #print('Last was:', self.previously_displayed_tid)
             self.previously_displayed_tid = new_tid
             self.load_filedir_h5_file(new_tid)
             if set_tid_box:
@@ -593,8 +595,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             # todo, then assumes you have calculated labels need to be calculated second?
             # i guess you can just add labels before?
 
-            self.plot_1.clear()
-            self.bx1 = self.plot_1.getViewBox()
+            self.plot_inset.clear()
+            self.bx1 = self.plot_inset.getViewBox()
 
             data = dataset['data'][:]
             time = np.linspace(0, data.shape[0]/self.fs, data.shape[0])
@@ -614,14 +616,14 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.end_coarse   = pg.InfiniteLine(pos=chunk_end, pen =coarse_pen, movable=False,label='{value:0.2f}',
                            labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
 
-            self.plot_1.addItem(self.start_line)
-            self.plot_1.addItem(self.end_line)
-            self.plot_1.addItem(self.start_coarse)
-            self.plot_1.addItem(self.end_coarse)
+            self.plot_inset.addItem(self.start_line)
+            self.plot_inset.addItem(self.end_line)
+            self.plot_inset.addItem(self.start_coarse)
+            self.plot_inset.addItem(self.end_coarse)
             self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
             self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
-            self.plot_1.setXRange(chunk_start-seizure_buffer, chunk_end+seizure_buffer, padding=0)
-            self.plot_1.setTitle(str(index)+' - '+ key+ '\n' + str(start)+' - ' +str(end))
+            self.plot_inset.setXRange(chunk_start - seizure_buffer, chunk_end + seizure_buffer, padding=0)
+            self.plot_inset.setTitle(str(index) + ' - ' + key + '\n' + str(start) + ' - ' + str(end))
             self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ key)
             self.updatePlot()
 
@@ -680,13 +682,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.end_line = pg.InfiniteLine(pos=end, pen = end_pen, movable=True,label='{value:0.2f}',
                        labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
         # todo add all lines per file in one go - more than one seizure
-        self.plot_1.addItem(self.start_line)
-        self.plot_1.addItem(self.end_line)
+        self.plot_inset.addItem(self.start_line)
+        self.plot_inset.addItem(self.end_line)
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
         self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
 
-        self.plot_1.setXRange(start-seizure_buffer, end+seizure_buffer, padding=0)
-        self.plot_1.setTitle(str(index)+' - '+ fpath+ '\n' + str(start)+' - ' +str(end))
+        self.plot_inset.setXRange(start - seizure_buffer, end + seizure_buffer, padding=0)
+        self.plot_inset.setTitle(str(index) + ' - ' + fpath + '\n' + str(start) + ' - ' + str(end))
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
@@ -695,17 +697,17 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.set_tid_spinbox(tid)
 
     def add_data_to_plots(self, data, time):
-        self.plot_1.clear()
-        self.bx1 = self.plot_1.getViewBox()
-        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_1,
+        self.plot_inset.clear()
+        self.bx1 = self.plot_inset.getViewBox()
+        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_inset,
                                                           main_gui_obj = self,
                                                           viewbox = self.bx1)
         if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
             self.hdf5_plot_inset.display_filter_update()
         self.hdf5_plot_inset.setHDF5(data, time, self.fs)
-        self.plot_1.addItem(self.hdf5_plot_inset)
-        self.plot_1.setLabel('left', 'Voltage (uV)')
-        self.plot_1.setLabel('bottom','Time (s)')
+        self.plot_inset.addItem(self.hdf5_plot_inset)
+        self.plot_inset.setLabel('left', 'Voltage (uV)')
+        self.plot_inset.setLabel('bottom', 'Time (s)')
 
         # hit up the linked view here
         self.plot_overview.clear()
@@ -723,24 +725,25 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_overview.setLabel('bottom','Time (s)')
         # mousePressEvent,mouseDoubleClickEvent ,sigMouseClicked,sigMouseMoved,wheelEvent
         # should you just be overwriting class methods for this stuff?
-        self.proxy2 = pg.SignalProxy(self.plot_1.scene().sigMouseClicked,rateLimit=30,slot=self.mouse_click_on_main)
+        self.proxy2 = pg.SignalProxy(self.plot_inset.scene().sigMouseClicked, rateLimit=30, slot=self.mouse_click_on_main)
         self.proxy = pg.SignalProxy(self.plot_overview.scene().sigMouseClicked,rateLimit=30,slot=self.mouse_click_in_overview)
         #print(dir(self.plot_overview.scene()))
 
-        self.lr = pg.LinearRegionItem(self.plot_1.getViewBox().viewRange()[0])
+        self.lr = pg.LinearRegionItem(self.plot_inset.getViewBox().viewRange()[0])
         self.lr.setZValue(-10)
         self.plot_overview.addItem(self.lr)
         # is this good practice?
         self.lr.sigRegionChanged.connect(self.updatePlot)
-        self.plot_1.sigXRangeChanged.connect(self.updateRegion) # xlims?
-        self.plot_1.sigXRangeChanged.connect(self.xrange_changed_on_plot)
+        self.plot_inset.sigXRangeChanged.connect(self.updateRegion) # xlims?
+        self.plot_inset.sigXRangeChanged.connect(self.xrange_changed_on_plot)
         self.updatePlot()
 
     # these two methods are for the lr plot connection, refactor names
     def updatePlot(self):
-        self.plot_1.setXRange(*self.lr.getRegion(), padding=0)
+        self.plot_inset.setXRange(*self.lr.getRegion(), padding=0)
+
     def updateRegion(self):
-        self.lr.setRegion(self.plot_1.getViewBox().viewRange()[0])
+        self.lr.setRegion(self.plot_inset.getViewBox().viewRange()[0])
 
     def update_tree_element_start_time(self):
         tree_row = self.treeWidget.currentItem()
@@ -926,9 +929,9 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         test_item = self.make_new_tree_entry_from_current(current_item,xpos)
         self.tree_items.insert(index+1, test_item)
         self.treeWidget.insertTopLevelItem(index+1, test_item)
-        xlims  = self.plot_1.getViewBox().viewRange()[0]
+        xlims  = self.plot_inset.getViewBox().viewRange()[0]
         self.treeWidget.setCurrentItem(test_item)
-        self.plot_1.getViewBox().setXRange(min = xlims[0],max = xlims[1], padding=0)
+        self.plot_inset.getViewBox().setXRange(min = xlims[0], max = xlims[1], padding=0)
 
     def add_start_line_to_h5_file(self,xpos):
 
@@ -938,7 +941,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         start_pen = pg.mkPen((85, 168, 104), width=3, style= Qt.DashLine)
         self.start_line = pg.InfiniteLine(pos=xpos, pen =start_pen, movable=True,label='{value:0.2f}',
                        labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
-        self.plot_1.addItem(self.start_line)
+        self.plot_inset.addItem(self.start_line)
 
         self.treeWidget.currentItem().setText(1,'{:.2f}'.format(self.start_line.x()))
         self.start_line.sigPositionChanged.connect(self.update_tree_element_start_time)
@@ -971,7 +974,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             end_pen = pg.mkPen((210,88,88), width=3, style= Qt.DashLine)
             self.end_line = pg.InfiniteLine(pos=xpos, pen = end_pen, movable=True,label='{value:0.2f}',
                            labelOpts={'position':0.1, 'color': (200,200,100), 'fill': (200,200,200,0), 'movable': True})
-            self.plot_1.addItem(self.end_line)
+            self.plot_inset.addItem(self.end_line)
             self.end_line.sigPositionChanged.connect(self.update_tree_element_end_time)
         else:
             self.end_line.setValue(xpos)
@@ -979,7 +982,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
 
     def mouse_click_on_main(self,evt):
         pos = evt[0].scenePos()
-        if self.plot_1.sceneBoundingRect().contains(pos):
+        if self.plot_inset.sceneBoundingRect().contains(pos):
             mousePoint = self.bx1.mapSceneToView(pos) # bx1 is just self.plot_1.getViewBox()
 
         modifier = evt[0].modifiers()
@@ -1012,11 +1015,11 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             except:
                 print('Your view range is messed up')
 
-            self.plot_1.getViewBox().setXRange(min = x - xrange/2.0,
-                                               max = x + xrange/2.0, padding=0)
+            self.plot_inset.getViewBox().setXRange(min =x - xrange / 2.0,
+                                                   max = x + xrange/2.0, padding=0)
 
     def get_main_plot_xrange_and_mid(self):
-        xlims  = self.plot_1.getViewBox().viewRange()[0]
+        xlims  = self.plot_inset.getViewBox().viewRange()[0]
         xrange = xlims[1]-xlims[0]
         xmid   = xlims[0]+xrange/2.0
         return xrange, xmid
@@ -1027,8 +1030,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if xrange>0:
             if self.plot_change == False:
                 _, xmid = self.get_main_plot_xrange_and_mid()
-                self.plot_1.getViewBox().setXRange(min = xmid - xrange/2.0,
-                                                   max = xmid + xrange/2.0, padding=0)
+                self.plot_inset.getViewBox().setXRange(min =xmid - xrange / 2.0,
+                                                       max = xmid + xrange/2.0, padding=0)
             elif self.plot_change == True:
                 # changing because plot has already changed - not key or spinbox alteration
                 self.plot_change = False
@@ -1080,7 +1083,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 self.xrange_spinBox.setValue(key_val)
                 # connected trigger will call xrange change
 
-        x,y = self.plot_1.getViewBox().viewRange()
+        x,y = self.plot_inset.getViewBox().viewRange()
 
         if key_id == Qt.Key_Delete or key_id == Qt.Key_Backspace:
             # store the deleted element so you can undo it
@@ -1100,7 +1103,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 self.scroll_speed_box.setValue(new_rate)
                 if self.blink ==True: self.reset_timer()
             else:
-                self.plot_1.getViewBox().setYRange(min = y[0]*0.9, max = y[1]*0.9, padding = 0)
+                self.plot_inset.getViewBox().setYRange(min =y[0] * 0.9, max =y[1] * 0.9, padding = 0)
 
         if key_id == Qt.Key_Down:
             if self.scroll_flag==True:
@@ -1110,7 +1113,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                     self.scroll_speed_box.setValue(new_rate)
                     if self.blink ==True: self.reset_timer()
             else: # just zoom
-                self.plot_1.getViewBox().setYRange(min = y[0]*1.1, max = y[1]*1.1,padding = 0)
+                self.plot_inset.getViewBox().setYRange(min =y[0] * 1.1, max =y[1] * 1.1, padding = 0)
 
         if key_id == Qt.Key_Right:
             if self.scroll_flag==True:
@@ -1119,7 +1122,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 scroll_i = (x[1]-x[0])*1
                 new_min =  x[0]+scroll_i
                 new_max =  x[1]+scroll_i
-                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+                self.plot_inset.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         if key_id == Qt.Key_Left:
             if self.scroll_flag==True:
@@ -1129,7 +1132,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 new_min =  x[0]+scroll_i
                 new_max =  x[1]+scroll_i
 
-                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+                self.plot_inset.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         if key_id == Qt.Key_Backspace or key_id == Qt.Key_Delete:
             current_item = self.treeWidget.currentItem()
@@ -1173,7 +1176,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.timer.stop()
 
     def simple_scroll(self):
-        x,y = self.plot_1.getViewBox().viewRange()
+        x,y = self.plot_inset.getViewBox().viewRange()
         scroll_rate = self.scroll_speed_box.value()
         xlims = self.plot_overview.getViewBox().viewRange()[0]
         xmax = xlims[1]
@@ -1183,7 +1186,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             new_max =  x[1]+scroll_i
             if new_max < xmax-1:
                 #self.get_next_tree_item()
-                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+                self.plot_inset.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
         elif self.blink_box.isChecked():
             scroll_i = (x[1]-x[0])*self.scroll_sign
@@ -1191,7 +1194,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             new_max =  x[1]+scroll_i
             if new_max < xmax:
                 #self.get_next_tree_item()
-                self.plot_1.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
+                self.plot_inset.getViewBox().setXRange(min =new_min, max = new_max, padding=0)
 
 def main():
     app = QtGui.QApplication(sys.argv)

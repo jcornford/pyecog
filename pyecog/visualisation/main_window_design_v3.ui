@@ -403,7 +403,7 @@ p, li { white-space: pre-wrap; }
                <double>5120.000000000000000</double>
               </property>
               <property name="value">
-               <double>40.000000000000000</double>
+               <double>1.000000000000000</double>
               </property>
              </widget>
             </item>
@@ -727,7 +727,9 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionLoad_Predictions"/>
     <addaction name="actionLoad_h5_folder"/>
     <addaction name="separator"/>
-    <addaction name="actionSave_annotations"/>
+    <addaction name="actionSave_full_treewidget"/>
+    <addaction name="actionSave_annotations_only"/>
+    <addaction name="separator"/>
     <addaction name="actionSet_default_folder"/>
     <addaction name="separator"/>
     <addaction name="actionSubstates_Window"/>
@@ -750,9 +752,9 @@ p, li { white-space: pre-wrap; }
    <addaction name="menuFile"/>
    <addaction name="menuAnalyse"/>
   </widget>
-  <action name="actionSave_annotations">
+  <action name="actionSave_full_treewidget">
    <property name="text">
-    <string>Save annotations</string>
+    <string>Save file list</string>
    </property>
   </action>
   <action name="actionLoad_Library">
@@ -832,7 +834,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionSubstates_Window">
    <property name="text">
-    <string>Substates Window</string>
+    <string>Substates (not working)</string>
    </property>
   </action>
   <action name="actionOpen_in_Jupyter_notebook">
@@ -843,6 +845,11 @@ p, li { white-space: pre-wrap; }
   <action name="actionApply_classifier_to_ndf_folder">
    <property name="text">
     <string>Apply classifier to ndf folder</string>
+   </property>
+  </action>
+  <action name="actionSave_annotations_only">
+   <property name="text">
+    <string>Save annotations only</string>
    </property>
   </action>
  </widget>
