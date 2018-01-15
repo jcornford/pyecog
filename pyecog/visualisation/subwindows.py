@@ -770,7 +770,6 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         self.set_h5_folder.clicked.connect(self.get_h5_folder)
         self.convert_button.clicked.connect(self.convert_folder)
 
-        #self.transmitter_ids
         self.home = '' # default folder to be inherited
         self.progressBar.setValue(0)
         self.cores_to_use.setText(str(1))
@@ -793,23 +792,6 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
         except:
             pass
 
-        tids = self.transmitter_ids.text().strip("'")
-        fs   = int(self.fs_box.text())
-        ncores = self.cores_to_use.text()
-        glitch_detection = self.checkbox_ndf_glitch_removal.isChecked()
-        if ncores == 'all':
-            ncores = -1
-        else:
-            ncores = int(ncores)
-
-        if tids != 'all':
-            if type(eval(tids)) != list:
-                tids = eval('['+tids+']')
-            else:
-                tids = eval(tids)
-            tids = sorted(tids)
-
-
         self.converting_thread = ConvertNdfThread()
         self.converting_thread.set_progress_bar.connect(self.update_progress)
         self.converting_thread.set_max_progress.connect( self.set_max_bar)
@@ -821,15 +803,15 @@ class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h
             self.logpath_dsplay.setText(str(logfilepath))
         except:
             print('couldnt get logpath')
-            #logfilepath = logging.getLoggerClass().root.handlers[0].baseFilename
-        try:
 
-            self.converting_thread.convert_ndf_directory_to_h5(ndf_dir=self.ndf_folder,
-                                                save_dir=self.h5directory,
-                                                tids=tids,
-                                                n_cores=ncores,
-                                                fs=fs,
-                                                glitch_detection_flag = glitch_detection)
+        try:
+            self.converting_thread.set_ndf_directory_to_h5_args(ndf_dir=self.ndf_folder,
+                                                                save_dir=self.h5directory,
+                                                                tids=self.transmitter_ids.text().strip("'"),
+                                                                n_cores = int(self.cores_to_use.text()),
+                                                                fs=int(self.fs_box.text()),
+                                                                glitch_detection_flag=self.checkbox_ndf_glitch_removal.isChecked(),
+                                                                high_pass_filter_flag=self.checkbox_ndf_hp_filter_1hz.isChecked())
             self.converting_thread.start()
         except:
             QtGui.QMessageBox.information(self," ", "Error!")
@@ -850,49 +832,42 @@ class ConvertNdfThread(QThread):
     update_hidden_label = pyqtSignal(str)
     set_progress_bar =  pyqtSignal(str)
     update_progress_label = pyqtSignal(str)
+
     def __init__(self):
         QThread.__init__(self)
         self.handler = DataHandler()
 
-
-    def convert_ndf_directory_to_h5(self,
-                                    ndf_dir,
-                                    tids = 'all',
-                                    save_dir  = 'same_level',
-                                    n_cores = -1,
-                                    fs = 'auto',
-                                    glitch_detection_flag = True):
+    def set_ndf_directory_to_h5_args(self,
+                                     ndf_dir,
+                                     save_dir,
+                                     tids,
+                                     n_cores,
+                                     fs,
+                                     glitch_detection_flag,
+                                     high_pass_filter_flag):
         """
-        Copy from datahandler, this should be a thread?
+        assigns arguments to attributes to be used in run,
         """
-        self.handler.glitch_detection_flag_for_parallel_conversion = glitch_detection_flag
-        self.handler.fs_for_parallel_conversion = fs
-        print(self.handler.fs_for_parallel_conversion)
-        self.files = [f for f in self.handler.fullpath_listdir(ndf_dir) if f.endswith('.ndf')]
-
-        # tids
-        if not tids == 'all':
-            if not hasattr(tids, '__iter__'):
-                tids = [tids]
-
-        self.handler.tids_for_parallel_conversion = tids
-
-        # set n_cores
-        if n_cores == -1:
-            n_cores = multiprocessing.cpu_count()
+        self.ndf_dir =ndf_dir
+        self.save_dir = save_dir
+        self.tids = tids
         self.n_cores = n_cores
-        # Make save directory
-        if save_dir  == 'same_level':
-            save_dir = ndf_dir+'_converted_h5s'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-        self.handler.savedir_for_parallel_conversion = save_dir
-
-        self.set_max_progress.emit(str(len(self.files)))
-        self.update_hidden_label.emit(str(len(self.files))+' Files for conversion. Transmitters: '+ str(self.handler.tids_for_parallel_conversion))
+        self.fs = fs
+        self.glitch_detection_flag = glitch_detection_flag
+        self.high_pass_filter_flag = high_pass_filter_flag
 
     def run(self):
+        self.handler.convert_ndf_directory_to_h5(ndf_dir=self.ndf_dir,
+                                                 tids=self.tids,
+                                                 save_dir=self.save_dir,
+                                                 n_cores= self.n_cores,
+                                                 fs = self.fs,
+                                                 glitch_detection = self.glitch_detection_flag,
+                                                 high_pass_filter = self.high_pass_filter_flag,
+                                                 gui_object= self)
+
+    def run1(self):
+
         pool = multiprocessing.Pool(self.n_cores)
         self.set_progress_bar.emit(str(0))
         self.update_progress_label.emit('Progress: ' +str(0)+ ' / '+ str(len(self.files)))

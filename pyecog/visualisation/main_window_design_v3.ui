@@ -28,7 +28,7 @@
         </sizepolicy>
        </property>
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="widget">
         <attribute name="title">
@@ -240,6 +240,9 @@ p, li { white-space: pre-wrap; }
             <enum>QFrame::Raised</enum>
            </property>
            <layout class="QFormLayout" name="formLayout_3">
+            <property name="fieldGrowthPolicy">
+             <enum>QFormLayout::FieldsStayAtSizeHint</enum>
+            </property>
             <property name="formAlignment">
              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
             </property>
@@ -255,7 +258,17 @@ p, li { white-space: pre-wrap; }
             <property name="bottomMargin">
              <number>5</number>
             </property>
-            <item row="1" column="0">
+            <item row="0" column="0">
+             <widget class="QCheckBox" name="fft_checkbox">
+              <property name="text">
+               <string>Placeholder</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QSpinBox" name="spinBox"/>
+            </item>
+            <item row="2" column="0">
              <widget class="QLabel" name="label_6">
               <property name="maximumSize">
                <size>
@@ -274,7 +287,7 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="2" column="1">
              <widget class="QSpinBox" name="tid_spinBox">
               <property name="maximumSize">
                <size>
@@ -290,7 +303,21 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="4" column="0">
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>(Placeholder)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QPushButton" name="add_extra_line">
+              <property name="text">
+               <string>OK</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
              <widget class="QLabel" name="label_11">
               <property name="layoutDirection">
                <enum>Qt::LeftToRight</enum>
@@ -303,7 +330,7 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="4" column="1">
+            <item row="5" column="1">
              <widget class="QCheckBox" name="checkbox_hold_trace_position">
               <property name="font">
                <font>
@@ -315,27 +342,6 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="text">
                <string/>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="add_extra_line">
-              <property name="text">
-               <string>OK</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_8">
-              <property name="text">
-               <string>(Placeholder)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QCheckBox" name="fft_checkbox">
-              <property name="text">
-               <string>Placeholder</string>
               </property>
              </widget>
             </item>
@@ -372,71 +378,10 @@ p, li { white-space: pre-wrap; }
             <property name="margin">
              <number>5</number>
             </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_2">
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
-              </property>
-              <property name="text">
-               <string>Filter  (Hz)</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="1">
-             <widget class="QDoubleSpinBox" name="lp_filter_freq">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="maximum">
-               <double>30000.000000000000000</double>
-              </property>
-              <property name="value">
-               <double>512.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QCheckBox" name="checkbox_filter_toggle">
-              <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
-              </property>
-              <property name="autoFillBackground">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string/>
-              </property>
-              <property name="tristate">
-               <bool>false</bool>
-              </property>
-             </widget>
-            </item>
             <item row="4" column="0">
              <widget class="QCheckBox" name="checkbox_hp_filter">
               <property name="text">
                <string>High pass</string>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="0">
-             <widget class="QCheckBox" name="checkbox_lp_filter">
-              <property name="text">
-               <string>Low pass</string>
               </property>
              </widget>
             </item>
@@ -455,10 +400,55 @@ p, li { white-space: pre-wrap; }
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
               </property>
               <property name="maximum">
-               <double>512.000000000000000</double>
+               <double>5120.000000000000000</double>
               </property>
               <property name="value">
                <double>1.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QCheckBox" name="checkbox_lp_filter">
+              <property name="text">
+               <string>Low pass</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="1">
+             <widget class="QDoubleSpinBox" name="lp_filter_freq">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+              <property name="maximum">
+               <double>30000.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>100.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_2">
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="text">
+               <string>Filter  (Hz)</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
               </property>
              </widget>
             </item>
@@ -505,6 +495,16 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QCheckBox" name="checkBox_scrolling">
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="text">
+               <string/>
               </property>
              </widget>
             </item>
@@ -555,16 +555,6 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="alignment">
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QCheckBox" name="checkBox_scrolling">
-              <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
-              </property>
-              <property name="text">
-               <string/>
               </property>
              </widget>
             </item>
@@ -638,7 +628,7 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="3" column="0" colspan="2">
+            <item row="4" column="0" colspan="2">
              <widget class="QLineEdit" name="h5_folder_display">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -654,6 +644,23 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="cursorMoveStyle">
                <enum>Qt::VisualMoveStyle</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QSpinBox" name="downsample_spinbox">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="value">
+               <number>20</number>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="label_9">
+              <property name="text">
+               <string>no. display points (k)</string>
               </property>
              </widget>
             </item>
@@ -720,7 +727,9 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionLoad_Predictions"/>
     <addaction name="actionLoad_h5_folder"/>
     <addaction name="separator"/>
-    <addaction name="actionSave_annotations"/>
+    <addaction name="actionSave_full_treewidget"/>
+    <addaction name="actionSave_annotations_only"/>
+    <addaction name="separator"/>
     <addaction name="actionSet_default_folder"/>
     <addaction name="separator"/>
     <addaction name="actionSubstates_Window"/>
@@ -743,9 +752,9 @@ p, li { white-space: pre-wrap; }
    <addaction name="menuFile"/>
    <addaction name="menuAnalyse"/>
   </widget>
-  <action name="actionSave_annotations">
+  <action name="actionSave_full_treewidget">
    <property name="text">
-    <string>Save annotations</string>
+    <string>Save file list</string>
    </property>
   </action>
   <action name="actionLoad_Library">
@@ -825,7 +834,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionSubstates_Window">
    <property name="text">
-    <string>Substates Window</string>
+    <string>Substates (not working)</string>
    </property>
   </action>
   <action name="actionOpen_in_Jupyter_notebook">
@@ -836,6 +845,11 @@ p, li { white-space: pre-wrap; }
   <action name="actionApply_classifier_to_ndf_folder">
    <property name="text">
     <string>Apply classifier to ndf folder</string>
+   </property>
+  </action>
+  <action name="actionSave_annotations_only">
+   <property name="text">
+    <string>Save annotations only</string>
    </property>
   </action>
  </widget>
