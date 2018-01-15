@@ -97,6 +97,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.checkbox_hp_filter.stateChanged.connect(self.filter_settings_changed)
         self.hp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.lp_filter_freq.valueChanged.connect(self.filter_settings_changed)
+        self.add_extra_line.clicked.connect(self.add_extra_line_to_plot)
 
         self.fs = None # change !
         self.previously_displayed_tid = None
@@ -696,8 +697,27 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.annotation_change_tid = True
         self.set_tid_spinbox(tid)
 
+    def add_extra_line_to_plot(self):
+        l_obj = main_gui_plotting.HDF5Plot(parent = self.plot_inset,
+                                          main_gui_obj = self,
+                                          viewbox = self.bx1)
+        self.green_line_offset = 1000 * (self.no_extra_lines +1)
+        colors = [(0,128,0), (255,0,0),(83,40,79), (0,152,219), (233,131,0)]
+        l_obj.pen = colors[self.no_extra_lines % len(colors)]
+        l_obj.setHDF5(self.hdf5_plot_inset.hdf5+self.green_line_offset,
+                      self.hdf5_plot_inset.time,
+                      self.fs)
+
+        self.plot_inset.addItem(l_obj)
+        self.no_extra_lines += 1
+
     def add_data_to_plots(self, data, time):
-        self.plot_inset.clear()
+        if self.checkbox_hold_trace_position.isChecked():
+            self.plot_inset.removeItem(self.hdf5_plot_inset)
+        else:
+            self.plot_inset.clear()
+            self.no_extra_lines = 0 # these are for adding offset to the green lines
+        self.no_extra_lines = 0
         self.bx1 = self.plot_inset.getViewBox()
         self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_inset,
                                                           main_gui_obj = self,
