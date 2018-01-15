@@ -704,7 +704,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.green_line_offset = 1000 * (self.no_extra_lines +1)
         colors = [(0,128,0), (255,0,0),(83,40,79), (0,152,219), (233,131,0)]
         l_obj.pen = colors[self.no_extra_lines % len(colors)]
-        l_obj.setHDF5(self.hdf5_plot_inset.hdf5+self.green_line_offset,
+
+        if self.hdf5_plot_inset.hdf5_filtered_data is None:
+            plot_data = self.hdf5_plot_inset.hdf5
+        else:
+            plot_data = self.hdf5_plot_inset.hdf5_filtered_data
+
+        l_obj.setHDF5(plot_data+self.green_line_offset,
                       self.hdf5_plot_inset.time,
                       self.fs)
 
