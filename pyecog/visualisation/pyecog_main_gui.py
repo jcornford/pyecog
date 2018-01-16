@@ -56,7 +56,7 @@ def throw_error(error_text = None):
     msgBox.exec_()
     return 0
 
-class TreeWidgetItem(QtGui.QTreeWidgetItem ):
+class PeycogTreeWidgetItem(QtGui.QTreeWidgetItem):
     """ Subclassing for correct sorting behaviour """
     def __init__(self, parent=None):
         QtGui.QTreeWidgetItem.__init__(self, parent)
@@ -150,9 +150,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if self.hdf5_plot_inset is not None:
             self.hdf5_plot_inset.display_filter_update()
 
-    def not_done_yet(self):
-        QtGui.QMessageBox.information(self," ", "Not implemented yet! Jonny has been lazy!")
-
     def load_clf_subwindow(self):
         child = subwindows.ClfWindow()
         child.show()
@@ -236,7 +233,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          '',
                          '']
 
-        item = TreeWidgetItem(details_entry)
+        item = PeycogTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
@@ -304,7 +301,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          str(row['real_end'])
                          ]
 
-        item = TreeWidgetItem(details_entry)
+        item = PeycogTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
@@ -926,7 +923,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          str(filename),
                          str(real_start),
                          str(real_end)]
-        item = TreeWidgetItem(details_entry)
+        item = PeycogTreeWidgetItem(details_entry)
         item.setFirstColumnSpanned(True)
 
         self.tree_items.append(item)
@@ -943,7 +940,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          str(''),
                          str('')]
 
-        new_item = TreeWidgetItem(details_entry)
+        new_item = PeycogTreeWidgetItem(details_entry)
         return new_item
 
     def add_new_entry_to_tree_widget(self,xpos):

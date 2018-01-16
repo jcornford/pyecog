@@ -79,6 +79,10 @@ class NdfFile:
 
         self.filepath = file_path
 
+
+        self.file_modified_time = os.path.getmtime(self.filepath)
+        self.file_access_time   = os.path.getatime(self.filepath)
+
         self.tid_set = set()
         self.tid_to_fs_dict = {}
         self.tid_raw_data_time_dict  = {}
@@ -112,14 +116,14 @@ class NdfFile:
         self.clock_tick_cycle = 7.8125e-3  # the "big" clock messages are 128Hz, 1/128 = 7.8125e-3
         self.clock_division = self.clock_tick_cycle / 256.0 # diff values from one byte
 
-        self._read_file_metadata()
+        self.read_file_metadata()
         self.get_valid_tids_and_fs()
 
     def __getitem__(self, item):
         assert item in self.tid_set, 'ERROR: Invalid tid for file'
         return self.tid_data_time_dict[item]
 
-    def _read_file_metadata(self):
+    def read_file_metadata(self):
         with open(self.filepath, 'rb') as f:
 
             f.seek(0)
@@ -134,6 +138,17 @@ class NdfFile:
             else:
                 print('meta data length unknown - not bothering to work it out...')
                 # isn't it just (data_address - meta_data_string_address) ?
+
+
+
+    def set_modified_time_to_old(self):
+        """ This function sets the ndf files modified and access times to those read in self.read_file_metadata"""
+
+        #mcode  = float(self.filepath.split('.')[0][-10:])
+        #os.utime(self.filepath, times = (self.file_access_time, mcode))
+        os.utime(self.filepath, times = (self.file_access_time, self.file_modified_time))
+
+
 
     def get_valid_tids_and_fs(self):
         """
@@ -471,6 +486,9 @@ class NdfFile:
 
         if scale_to_mode_std: # not normally called
             self.standardise_to_mode_stddev()
+
+        # finally reset the data modified times (python 'modifies' in binary reading mode)
+        self.set_modified_time_to_old()
 
 
     def highpass_filter(self, cutoff_hz = 1):

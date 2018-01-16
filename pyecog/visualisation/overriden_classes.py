@@ -5,6 +5,8 @@ import os
 import pandas as pd
 import numpy as np
 
+'''This is just for substates, which we no longer use'''
+
 class PecogQTreeWidget(QtWidgets.QTreeWidget):
     def __init__(self,*args, **kwargs):
         super(PecogQTreeWidget, self).__init__(*args, **kwargs)

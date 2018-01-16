@@ -256,7 +256,6 @@ apply_async_with_callback()
         pool.close()
         pool.join()
         self.parrallel_flag_pred = False
-        self.reset_date_modified_time(files_to_add_features)
 
     def prepare_annotation_dataframe(self, df):
         df.columns = [label.lower() for label in df.columns]
@@ -616,14 +615,7 @@ apply_async_with_callback()
         if gui_object:
             gui_object.update_progress_label.emit('Progress: Done')
 
-        self.reset_date_modified_time(files)
         self.gui_object = False
-
-    def reset_date_modified_time(self, fullpath_list):
-        ''' sets to the order given in the passed list'''
-        for fpath in fullpath_list:
-            os.utime(fpath,(time.time(),time.time()))
-        logging.info('Datahandler - reset date modified time called')
 
     def get_time_from_filename_with_mcode(self, filepath, return_string = True, split_on_underscore = False):
         # convert m name
@@ -686,6 +678,7 @@ apply_async_with_callback()
                          auto_filter=high_pass_filter_flag)
                 abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
                 ndf.save(save_file_name= abs_savename)
+                ndf.set_modified_time_to_old()
             else:
                 logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
 
