@@ -480,7 +480,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         start = time.time()
         fields = self.treeWidget.currentItem()
         fpath_filetree = fields.text(5)
-        path = self.startname_to_full(fpath_filetree[:11])
+        path = self.startname_to_full[fpath_filetree[:11]]
         index = float(fields.text(0))
         fpath = os.path.join(self.h5directory, path)
         h5 = H5File(fpath)
