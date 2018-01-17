@@ -876,6 +876,10 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.deleted_tree_items = []
         self.treeWidget.setColumnCount(7)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
+        tids = eval(tids)
+        if type(tids) != list:
+            tids = list(tids)
+        tids = str(tids)
         filename = row['filename']
         index =  row['index']
         start =  row['start']
@@ -904,7 +908,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          str(start),
                          str(end),
                          str(duration),
-                         str(tids), # bad, should make only tid having one explicit - predictions should only have one!
+                         str(tids),
                          str(filename),
                          str(real_start),
                          str(real_end)]
