@@ -761,7 +761,9 @@ class LibraryWorkerThread(QThread):
 
 
 
-class ConvertingNDFsWindow(QtGui.QDialog, convert_ndf_window.Ui_convert_ndf_to_h5):
+class ConvertingNDFsWindow(QtGui.QDialog,
+                           convert_ndf_window.Ui_convert_ndf_to_h5):
+
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
@@ -865,20 +867,6 @@ class ConvertNdfThread(QThread):
                                                  glitch_detection = self.glitch_detection_flag,
                                                  high_pass_filter = self.high_pass_filter_flag,
                                                  gui_object= self)
-
-    def run1(self):
-
-        pool = multiprocessing.Pool(self.n_cores)
-        self.set_progress_bar.emit(str(0))
-        self.update_progress_label.emit('Progress: ' +str(0)+ ' / '+ str(len(self.files)))
-        for i, _ in enumerate(pool.imap(self.handler.convert_ndf, self.files), 1):
-            self.set_progress_bar.emit(str(i))
-            self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files)))
-        pool.close()
-        pool.join()
-        self.update_progress_label.emit('Progress: Done')
-        #self.set_progress_bar.emit(str())
-        self.handler.reset_date_modified_time(self.files)
 
 class LoadingSubwindow(QtGui.QDialog, loading_subwindow.Ui_Dialog):
     ''' this is for checking out predictions on main gui, csv and h5 folder needed '''
