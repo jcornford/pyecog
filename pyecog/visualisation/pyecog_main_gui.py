@@ -198,8 +198,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         fnames = [f for f in os.listdir(self.h5directory) if f.endswith('.h5') if not f.startswith('.') ]
         return fnames
 
-
-
     def load_h5_folder(self):
         fnames = self.get_h5_folder_fnames()
         if fnames == 0:
@@ -217,7 +215,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.predictions_up = False
         self.library_up = False
         self.file_dir_up = True
-        self.substates_up = False
 
     def populate_tree_items_list_from_h5_folder(self,index,fpath,tids):
         self.deleted_tree_items = []
@@ -407,8 +404,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 self.tree_selection_library()
             elif self.file_dir_up:
                 self.tree_selection_file_dir()
-            elif self.substates_up:
-                self.tree_selection_substates()
 
     def get_next_tree_item(self):
         print('not implememented: try to grab next treewidget item!')
@@ -420,26 +415,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.indexes_to_valid_tids = {i:tid for i, tid in enumerate(self.valid_h5_tids)}
         self.previously_displayed_tid = None # you also want to "wipe the list?"
 
-    def tree_selection_substates(self):
-        item = self.treeWidget.currentItem()
-        if item.text(2).startswith('M'):
-            #print('Filerow')
-            self.treeWidget.substate_child_selected = False
-            tids = item.text(1)
-            self.set_valid_h5_ids(eval(tids))
-            self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
-        else:
-            #print('child')
-            self.treeWidget.substate_child_selected = True
-            i = item.text(0)
-            chunk = item.text(1)
-            t_window = chunk.split('-')
-            xmin = int(t_window[0])
-            xmax = int(t_window[1])
-            self.plot_inset.getViewBox().setXRange(min = xmin,
-                                                   max = xmax, padding=0)
-            category = item.text(2)
-
     def tree_selection_file_dir(self):
         # this method does too much
         "grab tree detail and use to plot"
@@ -448,31 +423,64 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if current_item.text(1) != '':
             try:
                 self.tree_selection_predictions()
-            except:
+            except: # think this is catching only a start line
                 if current_item.text(2) == '':
                     msgBox = QtWidgets.QMessageBox()
                     msgBox.setText('Make an end and start line at the same time for best functionality')
                     msgBox.exec_()
 
-                # do something else here
+                # should do something else here, redundant exception
                 self.tree_selection_predictions()
-                #tids = current_item.text(4)
-                #self.set_valid_h5_ids(eval(tids))
-                #self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
+
         else:
+            # this is the most intuitive way to get valid tids
+            """
             tids = current_item.text(4)
             self.set_valid_h5_ids(eval(tids))
+            """
+            # instead grabbing all valid tids for file
+            fname = current_item.text(5)
+            tids = self.get_valid_tids_from_filename_starts_with(fname[:11])
+            self.set_valid_h5_ids(tids)
             self.handle_tid_for_file_dir_plotting() # this will automatically call the plotting by changing the v
 
+    def get_valid_tids_from_filename_starts_with(self, f_startswith):
+        """requires the first 11 characters only"""
+        full_fname = os.path.join(self.h5directory, self.startname_to_full[f_startswith])
+        h5 = H5File(full_fname)
+        tids = list(h5.attributes['t_ids']) # is an array
 
-    def load_filedir_h5_file(self,tid):
+        return tids
+
+    def handle_tid_for_file_dir_plotting(self):
+        # this is called when clicking on the tree structure
+        # therefore first check if can use the same tid or not...
+        current_spinbox_id = self.tid_spinBox.value()
+        if current_spinbox_id not in self.valid_h5_tids:
+            try:
+                self.tid_spinBox.setValue(self.valid_h5_tids[0]) # first in case only one valid
+            except IndexError:
+                # there are no valid h5 ids!
+                throw_error('No valid Transmitter IDs?')
+                return 0
+            # here you add something to hold id if needed
+            #print('File tid changed as previous tid not valid')
+            # this will now automatically call the tid_spinBox_change method - as you have tid changed it
+        else:
+            # can use the same tid so plot
+            self.load_filedir_h5_file(current_spinbox_id)
+
+        # as id number will now be the last value next time changed
+
+    def load_filedir_h5_file(self, tid):
         '''
         Splitting tree_selection_file_dir up so changing the tid spinBox can reload easily
         '''
         import time
         start = time.time()
         fields = self.treeWidget.currentItem()
-        path = fields.text(5)
+        fpath_filetree = fields.text(5)
+        path = self.startname_to_full(fpath_filetree[:11])
         index = float(fields.text(0))
         fpath = os.path.join(self.h5directory, path)
         h5 = H5File(fpath)
@@ -492,25 +500,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_overview.setTitle('Overview of file: '+str(index)+' - '+ fpath)
         self.updatePlot()
 
-    def handle_tid_for_file_dir_plotting(self):
-        # this is called when clicking on the tree structure
-        # therefore first check if can use the same tid or not...
-        current_spinbox_id = self.tid_spinBox.value()
-        if current_spinbox_id not in self.valid_h5_tids:
-            try:
-                self.tid_spinBox.setValue(self.valid_h5_tids[0]) # no reason to default to first
-            except IndexError:
-                # there are no valid h5 ids!
-                throw_error('No valid Transmitter IDs?')
-                return 0
-            # here you add something to hold id if needed
-            #print('File tid changed as previous tid not valid')
-            # this will now automatically call the tid_spinBox_change method - as you have tid changed it
-        else:
-            # can use the same tid so plot
-            self.load_filedir_h5_file(current_spinbox_id)
-
-        # as id number will now be the last value next time changed
+    def set_tid_spinbox(self, value):
+        '''
+        This wil
+        '''
+        #print('Tid_spinbox has been set by code' )
+        self.tid_spinBox.setValue(value)
+        self.tid_spinbox_just_changed = True
 
     def tid_spinBox_change(self):
         ''' called when box data changes '''
@@ -523,14 +519,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         else:
             self.tid_spinBox_handling()
 
-    def set_tid_spinbox(self, value):
-        '''
-        This wil
-        '''
-        #print('Tid_spinbox has been set by code' )
-        self.tid_spinBox.setValue(value)
-        self.tid_spinbox_just_changed = True
-
     def tid_spinBox_handling(self):
         '''
 
@@ -539,6 +527,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         '''
         try:
             new_val = self.tid_spinBox.value()
+            print(new_val)
             set_tid_box = True
             if new_val in self.valid_h5_tids:
                 set_tid_box = False # dont need to overwrite box
@@ -570,8 +559,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             msgBox = QtWidgets.QMessageBox()
             msgBox.setText('Error caught at tid_spinBox_handling() \n'+str(traceback.format_exc()))
             msgBox.exec_()
-
-
 
     def tree_selection_library(self):
         seizure_buffer = 5 # seconds either side of seizure to plot
@@ -650,7 +637,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             tid = eval(fields.text(4))
             if hasattr(tid, '__iter__'):
                 tid = tid[0]
-
 
         start = float(fields.text(1))
         try:
@@ -884,7 +870,6 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.predictions_up = True
         self.library_up = False
         self.file_dir_up = False
-        self.substates_up = False
 
     def populate_tree_items_list_from_predictions(self, row, tids):
         # todo refactor this name to annoations etc
