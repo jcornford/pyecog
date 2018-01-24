@@ -669,21 +669,21 @@ apply_async_with_callback()
         # convert m name
         ndf_time =  self.get_time_from_filename_with_mcode(filename)
         try:
-            ndf = NdfFile(filename, fs = fs, verbose = True)
+            ndf = NdfFile(filename, fs = fs, verbose = False)
             if tids != 'all':
                 tids = [tid for tid in tids if tid in ndf.tid_set]
             if set(tids).issubset(ndf.tid_set) or tids == 'all':
                 ndf.load(tids,
                          auto_glitch_removal=glitch_detection_flag,
                          auto_filter=high_pass_filter_flag)
-                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
+                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(tids))
                 ndf.save(save_file_name= abs_savename)
                 ndf.set_modified_time_to_old()
             else:
                 logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
 
         except Exception:
-            print('Something unexpected went wrong loading '+str(tids)+' from '+mname+' :')
+            print('Something unexpected went wrong loading '+str(tids)+' from '+filename+' :')
             #print('Valid ids are:'+str(ndf.tid_set))
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print (traceback.print_exception(exc_type, exc_value,exc_traceback))

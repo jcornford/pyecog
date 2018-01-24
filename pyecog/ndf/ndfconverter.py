@@ -364,7 +364,11 @@ class NdfFile:
             file_group = f.create_group(os.path.split(self.filepath)[1][:-4])
 
             for tid in self.read_ids:
-                transmitter_group = file_group.create_group(str(tid))
+                try:
+                    transmitter_group = file_group.create_group(str(tid))
+                except:
+                    print('WARNING! Error creating group! Have you entered twice?!', tid)
+                    continue
                 transmitter_group.attrs['fs'] = self.tid_to_fs_dict[tid]
                 transmitter_group.attrs['tid'] = tid
                 transmitter_group.create_dataset('data',
