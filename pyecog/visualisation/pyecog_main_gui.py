@@ -876,7 +876,10 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.deleted_tree_items = []
         self.treeWidget.setColumnCount(7)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
-        tids = eval(tids)
+        try:
+            tids = eval(tids)
+        except TypeError: # should just be the one tid
+            tids = [int(tids)]
         if type(tids) != list:
             tids = list(tids)
         tids = str(tids)
