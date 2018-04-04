@@ -1,5 +1,26 @@
 import pandas as pd
 import os
+
+try:
+    from line_profiler import LineProfiler
+    # decorator for profiling methods
+    def lprofile():
+        def inner(func):
+            def profiled_func(*args, **kwargs):
+                try:
+                    profiler = LineProfiler()
+                    profiler.add_function(func)
+
+                    profiler.enable_by_count()
+                    return func(*args, **kwargs)
+                finally:
+                    profiler.print_stats()
+            return profiled_func
+        return inner
+except:
+    pass
+
+
 def get_time_from_filename_with_mcode( filepath, return_string = True, split_on_underscore = False):
     # convert m name
     filename = os.path.split(filepath)[1]

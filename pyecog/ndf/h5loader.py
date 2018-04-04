@@ -5,44 +5,57 @@ import time
 import sys
 import pandas as pd
 
+if sys.version_info < (3,):
+    range = xrange
+try:
+    from utils import lprofile
+except:
+    pass
+
 class H5Dataset():
     """
-    This is initially to just load up the h5 file converted by the ndf loader
-    # todo everything should be simplified into one dictionary...
+    This class is to represent recording for each hour in h5 file.
+
+    Currently being used as
     """
 
-    def __init__(self,fpath, mcode_id_str):
-        self.fpath = fpath
-        self.mcode_id_str = mcode_id_str
+    def __init__(self,fpath,tid):
+
         self.h5dataset = None
         self.data = None
         self.time = None
         self.features_df = None
         self.features = None
         self.fs = None
-        self.mode_std = None
+        self.scale_coef_for_feature_extraction = None
         self.feature_col_labels = None
-        self._load_data()
+        self.load_data(fpath,tid)
 
-    def _load_data(self):
-        with h5py.File(self.fpath, 'r+') as f:
-            tid_dataset = f[self.mcode_id_str]
+    def load_data(self, fpath, tid):
+        with h5py.File(fpath, 'r+') as f:
+            mcode_id_str = list(f.keys())[0]+'/'+str(tid)
+            if len(list(f.keys())) > 1:
+                pass
+                print('warning, more than one hour contained in h5 file')
+            tid_dataset = f[mcode_id_str]
 
             for member in tid_dataset.keys():
                 if str(member) == 'data':
+                    # here instead of array could slice to avoid loading whole file
                     self.data = np.array(tid_dataset['data'])
                 if str(member) == 'time':
                     self.time = np.array(tid_dataset['time'])
                 if str(member) == 'features':
                     self.features = np.array(tid_dataset['features'])
+
             for att_key in tid_dataset.attrs.keys():
-                #['fs', 'tid', 'time_arr_info_dict', 'resampled', 'col_names', ;mode_std]
+                # these will be ['fs', 'tid', 'time_arr_info_dict', 'resampled', 'col_names', ;mode_std]
                 if str(att_key) == 'col_names':
                     self.feature_col_labels = list(tid_dataset.attrs['col_names'])
                 if str(att_key) == 'fs':
                     self.fs = tid_dataset.attrs['fs']
                 if str(att_key) == 'mode_std':
-                    self.mode_std = tid_dataset.attrs['mode_std']
+                    self.scale_coef_for_feature_extraction = tid_dataset.attrs['mode_std']
 
             if self.time is None:
                 time_arr_info_dict =  eval(tid_dataset.attrs['time_arr_info_dict'])
@@ -52,25 +65,18 @@ class H5Dataset():
             if self.features is not None:
                 self.features_df = pd.DataFrame(self.features, columns = [b.decode("utf-8")  for b in self.feature_col_labels])
 
-    def plot(self):
-        print ('Placeholder: Plot method to implement!')
-        # have indexing argument...
+    def __getitem__(self, item):
+        pass
 
 class H5File():
     '''
-    Class for reading h5 files:
+    Class for easy reading h5 files:
 
     Use transmitter id to index which transmitter you want to access:
-    h5obj = H5File(path_to_h5_file)here)
-    h5obj[2] # for transmitter 2
+        h5obj = H5File(path_to_h5_file)here)
+        h5obj[2] # for transmitter 2
 
-    Attributes available are:
-    -  h5obj[2].time
-    -  h5obj[2].data
-
-    # to do - first test that other modules dont treat as dictionary before finalising this.
-
-
+    This returns a dictionary for each transmitter id.
     '''
     def __init__(self, filepath):
         self.filepath = filepath
@@ -85,21 +91,10 @@ class H5File():
             self.attributes['Mcode'] = list(f.keys())[0] # list in case there is more than one M1etc
 
     def __repr__(self):
-        return 'Better formatting coming soon... \nAttributes:'+str(self.attributes)
+        return 'Attributes:'+str(self.attributes)
 
     def __getitem__(self, tid):
-        assert tid in self.attributes['t_ids'], 'ERROR: Invalid tid for file'
-        tid_dataset = H5Dataset(self.filepath, self.attributes['Mcode']+'/'+str(tid))
-        # again, retarded coding going on here - just have one master dict
+        assert tid in self.attributes['t_ids'], 'ERROR: Invalid tid for file. Valid tids are '+ str(self.attributes['t_ids'])
+        tid_dataset = H5Dataset(self.filepath, tid)
+        return tid_dataset.__dict__
 
-        group_contents = {}
-        group_contents['data'] = tid_dataset.data
-        group_contents['time'] = tid_dataset.time
-
-        group_contents['features'] = tid_dataset.features
-        group_contents['feature_col_names'] = tid_dataset.feature_col_labels
-        group_contents['mode_std'] = tid_dataset.mode_std
-        group_contents['fs'] = tid_dataset.fs
-        group_contents['features_df'] = tid_dataset.features_df
-
-        return group_contents

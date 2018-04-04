@@ -12,40 +12,21 @@ from scipy import signal, stats
 
 if sys.version_info < (3,):
     range = xrange
-try:
-    from line_profiler import LineProfiler
-    # decorator for profiling methods
-    def lprofile():
-        def inner(func):
-            def profiled_func(*args, **kwargs):
-                try:
-                    profiler = LineProfiler()
-                    profiler.add_function(func)
 
-                    profiler.enable_by_count()
-                    return func(*args, **kwargs)
-                finally:
-                    profiler.print_stats()
-            return profiled_func
-        return inner
+try:
+    from utils import lprofile
 except:
     pass
 
-import numba
-from numba import jit
+try:
+    import numba
+    from numba import jit
+except:
+    pass
 
 class NdfFile:
     """
-    TODO:
-     - glitch detection is a little messy, relying on bindings.
-     - bad messages doesnt delete if 2 messages in window for one (minor but would be better to delete both)
-     - Find out if they ever start recording half way through - for auto fs detection
-     - Code up printing the ndf object __repr__
-     - Clean up unused  __init__ attributes
-
-    Note: currently 20,000 messages are required per tid to be assigned as "valid" tid
-
-    Class to load ndf binary files.
+        Class to load ndf binary files.
 
     The NDF file starts with a header of at least twelve bytes:
         - The first four bytes spell the NDF identifier " ndf". The identifier is then
@@ -77,15 +58,23 @@ class NdfFile:
     (e.g. 1024 Hz) it does so for up to 14 transmitters. Each channel sends a message roughly 4 times for every
     channel 0 message (because they are operating at 512 Hz, while the clock is at 128 Hz).
 
+
+    TODO:
+     - glitch detection is a little messy, e.g. relying on bindings.
+     - better handling of missing tids when reading
+
+
     """
     def __init__(self, file_path, verbose = False, fs = 'auto',
                  file_len_seconds = 3600):
         '''
 
-        :param file_path:
-        :param verbose:
-        :param fs: Default is auto
-        :param file_len_seconds: If fs is auto, it is assumed file is 3600 seconds long
+        Arguments:
+         - file_path:
+         - verbose:
+         - fs: Default is auto
+         - file_len_seconds: If fs is auto, it is assumed file is 3600 seconds long.
+
         '''
 
         self.filepath = file_path
@@ -134,7 +123,6 @@ class NdfFile:
 
     def set_modified_time_to_old(self):
         """ This function sets the ndf files modified and access times to those read in self.read_file_metadata"""
-
         mcode  = float(self.filepath.split('.')[0][-10:])
         os.utime(self.filepath, times = (self.file_access_time, mcode))
         #os.utime(self.filepath, times = (self.file_access_time, self.file_modified_time))
@@ -254,7 +242,6 @@ class NdfFile:
         glitch_count = 0
 
         for i1 in crossing_locations:
-
             try:
                 # first check if the next data point has a large transient or is flat lined
                 cond1 = int(abs(self.data_to_deglitch[i1] - self.data_to_deglitch[i1+1]) > diff_threshold * self.stddiff_data_to_deglitch)
@@ -333,7 +320,7 @@ class NdfFile:
             regularised_time = np.linspace(0, self.file_length, num= self.file_length * self.tid_to_fs_dict[tid])
 
             not_nan = np.logical_not(np.isnan(self.tid_data_time_dict[tid]['data']))
-            print(sum(np.isnan(self.tid_data_time_dict[tid]['data'])))
+            #print(sum(np.isnan(self.tid_data_time_dict[tid]['data'])))
             self.tid_data_time_dict[tid]['data'] = np.interp(regularised_time,
                                                              self.tid_data_time_dict[tid]['time'][not_nan],
                                                              self.tid_data_time_dict[tid]['data'][not_nan],)
@@ -355,12 +342,14 @@ class NdfFile:
         if not save_file_name:
             hdf5_filename = self.filepath.strip('.ndf')+'_Tid_'+''.join(str([tid for tid in self.read_ids]))+ '.h5'
         else:
-            hdf5_filename = save_file_name + '.h5'
+            if not save_file_name.endswith('.h5'):
+                save_file_name += '.h5'
+            hdf5_filename = save_file_name
 
         with h5py.File(hdf5_filename, 'w') as f:
             f.attrs['num_channels'] = len(self.read_ids)
             f.attrs['t_ids'] = list(self.read_ids)
-            f.attrs['fs_dict'] = str(self.tid_to_fs_dict)
+            f.attrs['fs_dict'] = str({tid:self.tid_to_fs_dict[tid] for tid in self.read_ids})
             file_group = f.create_group(os.path.split(self.filepath)[1][:-4])
 
             for tid in self.read_ids:
@@ -413,8 +402,6 @@ class NdfFile:
         bad_timing = np.where(np.diff(self.time_array) == (256 + clock_tstamp) * 1 / 128 / 256)[0]  # this might suffer from numerical precision problems...
         self.time_array[bad_timing] = self.time_array[bad_timing] + 1 / 128
         return 0
-        
-
 
     #@lprofile()
     def load(self, read_ids = [],
@@ -503,9 +490,7 @@ class NdfFile:
             data = data - np.mean(data)    # remove mean to try and reduce any filtering artifacts
             b, a = signal.butter(2, cutoff_decimal, 'highpass', analog=False)
             filtered_data = signal.filtfilt(b, a, data)
-
             self.tid_data_time_dict[read_id]['data'] = filtered_data
-
 
     #@lprofile()
     def correct_bad_messages(self): #new
