@@ -197,10 +197,14 @@ class NdfFile:
             while self.n_glitches >= max_glitches and passn <= n_passes: # if too many glitches are found: repeat
                 crossing_locations = np.where(self._diff_based_outlier(self.data_to_deglitch))[0]
                 self._check_glitch_candidates(crossing_locations) # this updates self.n_gltiches
+                passn += 1
+
+                logging.debug('Tid '+str(tid)+' pass ' + str(passn) + ': glitches found - ' + str(self.n_glitches) +
+                              ' (max:' + str(max_glitches) + ')')
+
                 if self.verbose:
                     print('Tid '+str(tid)+' pass ' + str(passn) + ': glitches found - ' + str(self.n_glitches) +
                           ' (max:' + str(max_glitches) + ')')
-                    passn += 1
                     if plot_glitches:
                         plt.figure(figsize=(15, 4))
                         plt.plot(self.time_to_deglitch, self.data_to_deglitch, 'k')
@@ -211,6 +215,7 @@ class NdfFile:
 
             logging.debug('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '
                           +str(self._n_possible_glitches)+' possible glitches.')
+
             if self.verbose:
                 print('Tid '+str(tid)+': removed '+str(self._glitch_count)+' datapoints as glitches. There were '
                       +str(self._n_possible_glitches)+' possible glitches.')
@@ -407,7 +412,8 @@ class NdfFile:
     def load(self, read_ids = [],
              auto_glitch_removal = True,
              auto_resampling = True,
-             auto_filter = True):
+             auto_filter = True,
+             subtract_offset =True):
         '''
         Notes:
             1. You should run glitch removal before high pass filtering and the auto resampling.
@@ -419,7 +425,7 @@ class NdfFile:
             auto_glitch_removal: to automatically detect glitches with default tactic median abs deviation
             auto_resampling: to resample fs to regular sampling frequency
             auto_filter : high pass filter traces at default 1 hz
-            scale_to_mode_std: high pass filter (default 1 hz) and scale to mode std dev 5 second blocks of trace
+            subtract_offset: if not high pass filtering, bool to specify if mean offset should be subtracted
             WARNING: This is more for visualisation of what the feature extractor is working on. TO keep things
             simple, when saving HDF5 files, save non-scaled.
 
@@ -438,7 +444,7 @@ class NdfFile:
         if no_clock_messages_flag:
             return 0
 
-        # seperate into method to handle transmitter ids
+        # todo seperate this block into method to handle transmitter ids
         self.read_ids = read_ids
         logging.info('Loading '+ self.filepath +'read ids are: '+str(self.read_ids))
         if read_ids == [] or str(read_ids).lower() == 'all':
@@ -453,7 +459,9 @@ class NdfFile:
                 self.tid_raw_data_time_dict[read_id]['data'] = self.voltage_messages[self.transmitter_id_bytes == read_id] * self.micro_volt_div
                 self.tid_raw_data_time_dict[read_id]['time'] = self.time_array[self.transmitter_id_bytes == read_id]
 
-        for invalid_id in invalid_ids: self.read_ids.remove(invalid_id)
+        for invalid_id in invalid_ids:
+            self.read_ids.remove(invalid_id)
+
         if len(invalid_ids) != 0: print('Error: Invalid transmitter/s id passed to file: '+ str(invalid_ids))
         # end seperate loading method here
 
@@ -468,10 +476,15 @@ class NdfFile:
 
         if auto_filter:
             self.highpass_filter()
-
+        if not auto_filter and subtract_offset:
+            self.subtract_offset()
         # finally reset the data modified times (python 'modifies' in binary reading mode)
         self.set_modified_time_to_old()
 
+    def subtract_offset(self):
+        for read_id in self.read_ids:
+            data = self.tid_data_time_dict[read_id]['data']
+            self.tid_data_time_dict[read_id]['data'] = data - np.mean(data)
 
     def highpass_filter(self, cutoff_hz = 1):
         '''

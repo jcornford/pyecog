@@ -11,6 +11,7 @@ class StdDevStandardiser():
         '''
         Calculates mode std dev of data and divides by it.
 
+        # we should test median here
         Args:
             data: this should be chunked by timewindow
             std_sigfigs: n signfigs to round to, default 2. Important for the
@@ -53,13 +54,13 @@ class FeatureExtractor():
 
         std_dev_standardiser = StdDevStandardiser(data, std_sigfigs=2)
         self.dataset = std_dev_standardiser.scaled_data
-        self.mode_std = std_dev_standardiser.mode_std
+        self.scale_coef_for_feature_extraction = std_dev_standardiser.mode_std
 
         self.chunk_len = 3600 / self.dataset.shape[0]  # get this as an arg?
         self.flat_data = np.ravel(self.dataset, order='C')
         self.fs = fs
 
-        logging.debug('Standardising dataset to mode std dev' + str(self.mode_std))
+        logging.debug('Standardising dataset by scaling with mode std dev' + str(self.scale_coef_for_feature_extraction))
         logging.debug('Fs passed to Feature extractor was: ' + str(fs) + ' hz')
 
         if self.fs < 512:
@@ -130,7 +131,6 @@ class FeatureExtractor():
             - using a hanning window, so reflecting half of the first and last chunk in
             order to centre the window over the time windows of interest (and to not throw
             anything away)
-
         '''
 
         # first reflect the first and last half chunk length so we don't lose any time
@@ -188,7 +188,6 @@ class FeatureExtractor():
           kept, diff (with a fudge for when few datapoints, but not skew.) Though from looking,
           skew seems very predictive of pre seizure?
 
-        - keep in
         '''
         flat_data = self.flat_data
         array_std = np.std(self.rolling_window(flat_data, window=window_size), -1)

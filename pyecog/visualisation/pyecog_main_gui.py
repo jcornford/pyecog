@@ -996,7 +996,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.set_end_and_calc_duration()
 
     def mouse_click_on_main(self,evt):
-        pos = evt[0].scenePos()
+        # todo annotate library
+        pos = evt[0].scenePos() # evt is MouseClickEvent
         if self.plot_inset.sceneBoundingRect().contains(pos):
             mousePoint = self.bx1.mapSceneToView(pos) # bx1 is just self.plot_1.getViewBox()
 
@@ -1009,6 +1010,12 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.add_start_line_to_h5_file(mousePoint.x())
 
         elif modifier == Qt.AltModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
+            self.add_end_line_to_h5(mousePoint.x())
+
+        elif modifier == Qt.MetaModifier:
             if self.library_up:
                 throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
                 return 0
@@ -1108,8 +1115,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if key_id ==  Qt.Key_Z and modifier == Qt.ControlModifier:
             self.undo_tree_deletion()
 
-        if key_id ==  Qt.Key_Z :
-            self.undo_tree_deletion()
+        #if key_id ==  Qt.Key_Z :
+        #    self.undo_tree_deletion()
 
         if key_id == Qt.Key_Up:
             if self.scroll_flag==True:

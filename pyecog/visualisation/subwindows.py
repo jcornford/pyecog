@@ -173,8 +173,6 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.worker.update_label_above2.connect( self.update_label_above2)
         self.worker.finished.connect(self.end_training)
 
-
-
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
         ntrees = int(self.n_trees.text())
@@ -399,14 +397,22 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
         self.extraction_thread.set_params_for_extraction(h5_folder=self.h5directory,
                                             timewindow = chunk_len,
-                                            run_peakdet_flag = use_peaks_bool,
                                             n_cores=ncores)
         self.extraction_thread.start()
 
 
+    def run(self):
+        self.handler.convert_ndf_directory_to_h5(ndf_dir=self.ndf_dir,
+                                                 tids=self.tids,
+                                                 save_dir=self.save_dir,
+                                                 n_cores= self.n_cores,
+                                                 fs = self.fs,
+                                                 glitch_detection = self.glitch_detection_flag,
+                                                 high_pass_filter = self.high_pass_filter_flag,
+                                                 gui_object= self)
 
 class ExtractPredictionFeaturesThread(QThread):
-    # todo this re implements datahandler - delete this!
+    # todo this re implements datahandler - delete this! run like converter
     set_max_progress = pyqtSignal(str)
     update_hidden_label = pyqtSignal(str)
     set_progress_bar =  pyqtSignal(str)
@@ -418,40 +424,13 @@ class ExtractPredictionFeaturesThread(QThread):
 
     def set_params_for_extraction(self, h5_folder,
                                         timewindow,
-                                        run_peakdet_flag,
                                         n_cores = -1):
-
-        self.handler.parrallel_flag_pred = True
-        self.handler.run_pkdet = run_peakdet_flag
-        self.handler.twindow = timewindow
-        self.files_to_add_features = [f for f in self.handler.fullpath_listdir(h5_folder) if f.endswith('.h5')]
-        if n_cores == -1:
-            n_cores = multiprocessing.cpu_count()
+        self.twindow = timewindow
         self.n_cores = n_cores
-
-        #l = len(self.files_to_add_features)
-
-        self.set_max_progress.emit(str(len(self.files_to_add_features)))
-        self.update_hidden_label.emit(str(len(self.files_to_add_features))+' Files to extract features from')
+        self.folder = h5_folder
 
     def run(self):
-        pool = multiprocessing.Pool(self.n_cores)
-
-        self.set_progress_bar.emit(str(0))
-        self.update_progress_label.emit('Progress: ' +str(0)+ ' / '+ str(len(self.files_to_add_features)))
-
-        for i, _ in enumerate(pool.imap(self.handler.add_predicition_features_to_h5_file, self.files_to_add_features), 1):
-            self.set_progress_bar.emit(str(i))
-            self.update_progress_label.emit('Progress: ' +str(i)+ ' / '+ str(len(self.files_to_add_features)))
-
-        pool.close()
-        pool.join()
-
-        self.update_progress_label.emit('Progress: Done')
-        self.set_progress_bar.emit(str(0))
-        self.handler.reset_date_modified_time(self.files_to_add_features)
-        self.handler.parrallel_flag_pred = False # really not sure this is needed- just a hangover from the datahandler code?
-
+        self.handler.parallel_add_prediction_features(self.folder, self.n_cores,self.twindow,self)
 
 class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
     ''' this is for the predictions, csv and h5 folder needed '''
@@ -731,7 +710,8 @@ class LibraryWorkerThread(QThread):
                                                        file_dir=self.h5_path,
                                                        seizure_library_path=self.library_path,
                                                        overwrite=self.overwrite_bool,
-                                                       timewindow=self.t_len, fs=self.fs)
+                                                       timewindow=self.t_len, fs=self.fs,
+                                                       gui_object = self)
             else:
                 #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
@@ -739,7 +719,8 @@ class LibraryWorkerThread(QThread):
                                                        file_dir=self.h5_path,
                                                        seizure_library_name=self.library_path,
                                                        overwrite=self.overwrite_bool,
-                                                       timewindow=self.t_len, fs=self.fs)
+                                                       timewindow=self.t_len, fs=self.fs,
+                                                       gui_object=self)
                 if output == 0:
                     throw_error(' An error occurred, check terminal window ')
 
@@ -747,14 +728,16 @@ class LibraryWorkerThread(QThread):
             if not self.add_features:
                 #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
-                self.handler.add_labels_to_seizure_library(self.library_path,self.overwrite_bool,self.t_len)
+                self.handler.add_labels_to_seizure_library(self.library_path,self.overwrite_bool,
+                                                           self.t_len,gui_object=self)
                 print('labels done, chunked: '+ str(self.t_len))
 
             elif self.add_features:
                 print('lets do the features')
                 #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
                 self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
-                self.handler.add_features_seizure_library(self.library_path,self.overwrite_bool,self.run_peaks_bool, self.t_len)
+                self.handler.add_features_to_seizure_library(self.library_path, self.overwrite_bool,
+                                                             self.t_len,gui_object=self)
                 print('features done, chunked: '+ str(self.t_len))
         self.exit() # does this emit the finished signal? dont think so
 

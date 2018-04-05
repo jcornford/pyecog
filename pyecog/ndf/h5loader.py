@@ -28,7 +28,7 @@ class H5Dataset():
         self.features = None
         self.fs = None
         self.scale_coef_for_feature_extraction = None
-        self.feature_col_labels = None
+        self.feature_col_names = None
         self.load_data(fpath,tid)
 
     def load_data(self, fpath, tid):
@@ -51,11 +51,11 @@ class H5Dataset():
             for att_key in tid_dataset.attrs.keys():
                 # these will be ['fs', 'tid', 'time_arr_info_dict', 'resampled', 'col_names', ;mode_std]
                 if str(att_key) == 'col_names':
-                    self.feature_col_labels = list(tid_dataset.attrs['col_names'])
+                    self.feature_col_names = list(tid_dataset.attrs['col_names'])
                 if str(att_key) == 'fs':
                     self.fs = tid_dataset.attrs['fs']
-                if str(att_key) == 'mode_std':
-                    self.scale_coef_for_feature_extraction = tid_dataset.attrs['mode_std']
+                if str(att_key) == 'scale_coef_for_feature_extraction':
+                    self.scale_coef_for_feature_extraction = tid_dataset.attrs['scale_coef_for_feature_extraction']
 
             if self.time is None:
                 time_arr_info_dict =  eval(tid_dataset.attrs['time_arr_info_dict'])
@@ -63,20 +63,25 @@ class H5Dataset():
                                         time_arr_info_dict['max_t'],
                                         num= time_arr_info_dict['max_t'] * time_arr_info_dict['fs'])
             if self.features is not None:
-                self.features_df = pd.DataFrame(self.features, columns = [b.decode("utf-8")  for b in self.feature_col_labels])
+                self.features_df = pd.DataFrame(self.features, columns = [b.decode("utf-8") for b in self.feature_col_names])
 
     def __getitem__(self, item):
         pass
 
 class H5File():
     '''
-    Class for easy reading h5 files:
+    Class for reading h5 files:
 
-    Use transmitter id to index which transmitter you want to access:
+    Example use:
+    Transmitter id is used to index which transmitter you want to access:
         h5obj = H5File(path_to_h5_file)here)
         h5obj[2] # for transmitter 2
 
     This returns a dictionary for each transmitter id.
+
+    Note:
+        This code seems unnecessarily complicated, refactor and document required h5 format to facilitate code for
+        loading from other file formats.
     '''
     def __init__(self, filepath):
         self.filepath = filepath

@@ -5,7 +5,6 @@ import multiprocessing
 import shutil
 import traceback
 import time
-import logging
 
 import h5py
 import numpy as np
@@ -20,6 +19,7 @@ if sys.version_info < (3,):
     range = xrange
 
 import logging
+import re
 
 # i am on development
 
@@ -63,10 +63,10 @@ apply_async_with_callback()
     def __init__(self, logpath = os.getcwd()):
 
         self.parallel_savedir = None
-        self.parrallel_flag_pred = False
+        self.calling_add_predictions_from_multiprocessing = False # this is a clunky way to set timewindow
         self.gui_object = False
 
-    def add_labels_to_seizure_library(self, library_path, overwrite, timewindow):
+    def add_labels_to_seizure_library(self, library_path, overwrite, timewindow, gui_object=None):
         '''
 
         Called by self.add_features_seizure_library()
@@ -121,7 +121,7 @@ apply_async_with_callback()
 
                     group.create_dataset('labels', data = labels, compression = "gzip", dtype = 'i2', chunks = labels.shape)
 
-    def add_features_seizure_library(self, library_path, overwrite = False, run_peaks = True, timewindow = 5):
+    def add_features_to_seizure_library(self, library_path, overwrite = False, timewindow = 5, gui_object=None):
         '''
         Inputs:
         - overwrite: if false, will only add labels and features to seizures in the library that do not already
@@ -132,17 +132,18 @@ apply_async_with_callback()
         will make labels too though
         '''
         logging.info('First adding labels to ' + library_path)
-        print('Adding labels first...', end=' ')
+        #print('Adding labels first...', end=' ')
         self.add_labels_to_seizure_library(library_path, overwrite, timewindow)
-        print('Done')
+        #print('Done')
+        # todo this is clunky, should be worked out from h5 file
 
         logging.info('Adding features to ' + library_path)
         with h5py.File(library_path, 'r+') as f:
             seizure_datasets = [f[group] for group in list(f.keys())]
 
-            l = len(seizure_datasets)-1
+            l = len(seizure_datasets)
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-            for i, group in enumerate(seizure_datasets):
+            for i, group in enumerate(seizure_datasets, 1):
                 logging.debug('Loading group: '+ str(group))
 
                 # First check if there are features already there. If overwrite, go to except block
@@ -169,7 +170,7 @@ apply_async_with_callback()
                             pass
                         group.create_dataset('features', data = features, compression = 'gzip', dtype = 'f4')
                         group.attrs['feature_col_names'] = np.array(extractor.col_labels).astype('|S9')
-                        group.attrs['mode_std'] = extractor.mode_std
+                        group.attrs['scale_coef_for_feature_extraction'] = extractor.scale_coef_for_feature_extraction
 
                         # here add feature titles to the dataset attrs?
                         logging.info('Added features to ' + str(group) + ', shape:' + str(features.shape))
@@ -190,7 +191,7 @@ apply_async_with_callback()
                     / tid3  / data
                             / time
         '''
-        if self.parrallel_flag_pred:
+        if self.calling_add_predictions_from_multiprocessing:
             timewindow  = self.twindow
 
         with h5py.File(h5_file_path, 'r+') as f:
@@ -224,7 +225,7 @@ apply_async_with_callback()
                         pass
                     tid.create_dataset('features', data = features, compression = 'gzip')
                     tid.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
-                    tid.attrs['mode_std'] = extractor.mode_std
+                    tid.attrs['scale_coef_for_feature_extraction'] = extractor.scale_coef_for_feature_extraction
 
                     logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
 
@@ -234,28 +235,47 @@ apply_async_with_callback()
 
                     return 0
 
-    def parallel_add_prediction_features(self, h5py_folder, n_cores = -1,  timewindow = 5):
+    def parallel_add_prediction_features(self,
+                                         h5py_folder,
+                                         n_cores = -1,
+                                         timewindow = 5,
+                                         gui_object=False):
         '''
-        # NEED TO ADD SETTINGS HERE FOR THE TIMEWINDOW ETC
 
         '''
-        self.parrallel_flag_pred = True
+        if gui_object: # if been called from the gui
+            gui_object = gui_object
+
+        self.calling_add_predictions_from_multiprocessing = True # set flag to true
         self.twindow = timewindow
-        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.startswith('M')] #switch to self.fullpath_listdir()
+        files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.endswith('.h5')]
+        l = int(len(files_to_add_features))
+
         if n_cores == -1:
             n_cores = multiprocessing.cpu_count()
 
+        if gui_object:
+            gui_object.set_max_progress.emit(str(l))
+            gui_object.update_hidden_label.emit(str(l) + ' Files to extract features from')
+
         pool = multiprocessing.Pool(n_cores)
-        l = int(len(files_to_add_features))
+
         print( ' Adding features to '+str(l)+ ' hours in '+ h5py_folder)
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
             self.printProgress(i, l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
+            if gui_object:
+                gui_object.set_progress_bar.emit(str(i))
+                gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
+
         #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
-        self.parrallel_flag_pred = False
+        if gui_object:
+            gui_object.update_progress_label.emit('Progress: Done')
+            #gui_object.set_progress_bar.emit(str(0))
+        self.calling_add_predictions_from_multiprocessing = False
 
     def prepare_annotation_dataframe(self, df):
         df.columns = [label.lower() for label in df.columns]
@@ -343,7 +363,7 @@ apply_async_with_callback()
                              seizure_library_name = 'seizure_library',
                              verbose = False,
                              overwrite = False,
-                             scale_and_filter = False):
+                             gui_object=None):
         '''
         Args:
 
@@ -389,7 +409,7 @@ apply_async_with_callback()
             print('Creating seizure library: '+ seizure_library_path)
             logging.info('Creating seizure library: '+ seizure_library_path)
             h5file = h5py.File(seizure_library_path, h5code)
-            h5file.attrs['fs'] = fs
+            #h5file.attrs['fs'] = fs
             h5file.attrs['timewindow'] = timewindow
             h5file.close()
 
@@ -405,12 +425,11 @@ apply_async_with_callback()
             l = len(annotation_dicts)-1
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
             for i, annotation in enumerate(annotation_dicts):
-                self._populate_seizure_library(annotation,
-                                               fs,
-                                               timewindow,
-                                               seizure_library_path,
-                                               verbose = verbose,
-                                               scale_and_filter = scale_and_filter)
+                self.populate_seizure_library(annotation,
+                                              fs,
+                                              timewindow,
+                                              seizure_library_path,
+                                              verbose = verbose)
                 self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
         except Exception:
@@ -421,10 +440,10 @@ apply_async_with_callback()
 
     def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
                                   timewindow = 5,
-
                                   verbose = False,
                                   overwrite = False,
-                                  scale_and_filter = False):
+                                  gui_object=None
+                                  ):
         '''
         Args:
 
@@ -460,15 +479,15 @@ apply_async_with_callback()
         logging.info('Datahandler - creating SeizureLibrary')
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, annotation in enumerate(annotation_dicts):
-            self._populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose, scale_and_filter = scale_and_filter)
+            self.populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
 
-    def _populate_seizure_library(self, annotation, fs,
-                                  timewindow,
-                                  seizure_library_path,
-                                  verbose = False,
-                                  scale_and_filter = False):
+    def populate_seizure_library(self, annotation, fs,
+                                 timewindow,
+                                 seizure_library_path,
+                                 verbose = False,
+                                 gui_object=None):
         '''
 
         Uses annotations to add to seizure library
@@ -480,12 +499,15 @@ apply_async_with_callback()
 
         if annotation['fname'].endswith('.ndf'):
             h5file_obj = NdfFile(annotation['fname'],fs = fs)
-            h5file_obj.load(annotation['tid'], scale_to_mode_std= scale_and_filter)
+            h5file_obj.load(annotation['tid'])
         elif annotation['fname'].endswith('.h5'):
             h5file_obj = H5File(annotation['fname'])
             h5_fs = eval(h5file_obj.attributes['fs_dict'])[tid]
+            fs = h5_fs
             if h5_fs != fs:
                 print('WARNING: fs do not match! h5 fs is ' +str(h5_fs)+', you entered '+ str(fs)+'.')
+                
+
         else:
             print('ERROR: Unrecognised file-type')
 
@@ -504,22 +526,19 @@ apply_async_with_callback()
 
                 # todo wrap this in try, not possible to have end earlier than start of the seizure, will throw reverse selection error
 
-                f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack(
-                    [f[annotation['dataset_name']].attrs['precise_annotation'], np.array([(annotation['start'],annotation['end'])])])
-
+                f[annotation['dataset_name']].attrs['precise_annotation'] = np.vstack([f[annotation['dataset_name']].attrs['precise_annotation'],
+                                                                                       np.array([(annotation['start'],annotation['end'])])])
             else:
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
                 group.attrs['fs']  = float(fs)
-                group.attrs['scaled_and_filtered'] = scale_and_filter
                 group.attrs['precise_annotation'] = np.array([(annotation['start'],annotation['end'])])
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
                 if features_array is not None:
                     group.create_dataset('features', data = features_array, compression = 'gzip')
-                    #print(': Features added!', features_array.shape)
                     group.attrs['feature_col_names'] = h5file_obj[tid]['feature_col_names']
                     group.attrs['feature_chunk_len_from_pred_h5'] = (3600/features_array.shape[0])
-                    group.attrs['mode_std'] =  h5file_obj[tid]['mode_std']
+                    group.attrs['scale_coef_for_feature_extraction'] =  h5file_obj[tid]['scale_coef_for_feature_extraction']
                     # here add feature titles to the dataset attrs?
                     logging.info('Features added to' + str(group) + ', shape:' + str(features_array.shape) + str( ' as already found in h5 file'))
 
@@ -614,21 +633,12 @@ apply_async_with_callback()
         pool.join()
         if gui_object:
             gui_object.update_progress_label.emit('Progress: Done')
-
         self.gui_object = False
 
     def get_time_from_filename_with_mcode(self, filepath, return_string = True, split_on_underscore = False):
         # convert m name
         filename = os.path.split(filepath)[1]
-        if filename.endswith('.ndf'):
-            tstamp = float(filename.split('.')[0][-10:])
-        elif filename.endswith('.h5'):
-            tstamp = float(filename.split('_')[0][-10:])
-        elif split_on_underscore:
-            tstamp = float(filename.split('_')[0][-10:])
-        else:
-            print('fileformat for splitting unknown')
-            return 0
+        tstamp = int(re.findall(r'[0-9]{10}', filename)[0])  # move to re for future proofing
 
         if return_string:
             ndf_time = str(pd.Timestamp.fromtimestamp(tstamp)).replace(':', '-')
@@ -659,7 +669,6 @@ apply_async_with_callback()
         return time_stamp_combined
 
     def convert_ndf(self, filename):
-
         savedir = self.savedir_for_parallel_conversion
         tids = self.tids_for_parallel_conversion
         fs = self.fs_for_parallel_conversion
@@ -672,15 +681,13 @@ apply_async_with_callback()
             ndf = NdfFile(filename, fs = fs, verbose = False)
             if tids != 'all':
                 tids = [tid for tid in tids if tid in ndf.tid_set]
-            if set(tids).issubset(ndf.tid_set) or tids == 'all':
-                ndf.load(tids,
-                         auto_glitch_removal=glitch_detection_flag,
-                         auto_filter=high_pass_filter_flag)
-                abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(tids))
-                ndf.save(save_file_name= abs_savename)
-                ndf.set_modified_time_to_old()
-            else:
-                logging.warning('Not all read tids: '+str(tids) +' were valid for '+str(os.path.split(filename)[1])+' skipping!')
+
+            ndf.load(tids,
+                     auto_glitch_removal=glitch_detection_flag,
+                     auto_filter=high_pass_filter_flag)
+            abs_savename = os.path.join(savedir, os.path.split(filename)[-1][:-4]+'_'+ndf_time+'_tids_'+str(ndf.read_ids))
+            ndf.save(save_file_name= abs_savename)
+            ndf.set_modified_time_to_old()
 
         except Exception:
             print('Something unexpected went wrong loading '+str(tids)+' from '+filename+' :')
