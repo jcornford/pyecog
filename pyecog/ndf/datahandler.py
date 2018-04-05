@@ -31,33 +31,6 @@ class DataHandler():
     TODO:
      -  pass in dates for predictions, and print out files you skipped is not transmitter there
 
-    To think about
-    - enable feature extraction to be better handled
-    - remeber when defining maxshape = (None, data_array.shape[1])) - to allow h5 to be resized
-
-
-    import multiprocessing as mp
-    import time
-
-    def foo_pool(x):
-        time.sleep(2)
-        return x*x
-
-    result_list = []
-    def log_result(result):
-        # This is called whenever foo_pool(i) returns a result.
-        # result_list is modified only by the main process, not the pool workers.
-        result_list.append(result)
-
-    def apply_async_with_callback():
-        pool = mp.Pool(4)
-        for i in range(10):
-        pool.imap(foo_pool, args = (i, ), callback = log_result)
-        pool.close()
-        pool.join()
-        print(result_list)
-
-apply_async_with_callback()
     '''
 
     def __init__(self, logpath = os.getcwd()):
@@ -142,12 +115,19 @@ apply_async_with_callback()
             seizure_datasets = [f[group] for group in list(f.keys())]
 
             l = len(seizure_datasets)
+            if gui_object:
+                gui_object.set_max_progress.emit(str(l))
+                gui_object.update_label_above2.emit('Adding features to '+str(l)+' files:')
+                gui_object.update_progress_label.emit('Progress: ' + str(0) + ' / ' + str(l))
+
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
             for i, group in enumerate(seizure_datasets, 1):
                 logging.debug('Loading group: '+ str(group))
 
-                # First check if there are features already there. If overwrite, go to except block
-                # this is convoluted
+                if gui_object:
+                    gui_object.set_progress_bar.emit(str(i))
+                    gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
+
                 try:
                     if not overwrite:
                         features = group['features']
@@ -358,7 +338,7 @@ apply_async_with_callback()
         print('Of the '+str(n_files)+' ndfs in directory, '+str(reference_count)+' references to seizures were found in the passed dataframe')
         return annotation_dicts
 
-    def make_seizure_library(self, df, file_dir,fs ,
+    def make_seizure_library(self, df, file_dir,
                              timewindow = 5,
                              seizure_library_name = 'seizure_library',
                              verbose = False,
@@ -422,15 +402,22 @@ apply_async_with_callback()
         # now populate to seizure lib with data, time and labels
         # make a list
         try:
-            l = len(annotation_dicts)-1
+            l = len(annotation_dicts)
             self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-            for i, annotation in enumerate(annotation_dicts):
+            if gui_object:
+                gui_object.set_max_progress.emit(str(l))
+                gui_object.update_label_above2.emit('Adding '+str(l)+' files to new library:')
+                gui_object.update_progress_label.emit('Progress: ' + str(0) + ' / ' + str(l))
+
+            for i, annotation in enumerate(annotation_dicts,1):
                 self.populate_seizure_library(annotation,
-                                              fs,
                                               timewindow,
                                               seizure_library_path,
                                               verbose = verbose)
                 self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+                if gui_object:
+                    gui_object.set_progress_bar.emit(str(i))
+                    gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
 
         except Exception:
             print ('Error in building seizure library')
@@ -438,7 +425,7 @@ apply_async_with_callback()
             print (traceback.print_exception(exc_type, exc_value, exc_traceback))
             return 0
 
-    def append_to_seizure_library(self, df, file_dir, fs, seizure_library_path,
+    def append_to_seizure_library(self, df, file_dir, seizure_library_path,
                                   timewindow = 5,
                                   verbose = False,
                                   overwrite = False,
@@ -475,15 +462,25 @@ apply_async_with_callback()
         # 'end': 2731.0, 'fname': 'all_ndfs/M1445443776.ndf', 'start': 2688.0,' tid': 9
 
         # now add to to seizure lib with data, time and labels
-        l = len(annotation_dicts)-1
+        l = len(annotation_dicts)
         logging.info('Datahandler - creating SeizureLibrary')
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
-        for i, annotation in enumerate(annotation_dicts):
-            self.populate_seizure_library(annotation, fs, timewindow, seizure_library_path, verbose = verbose)
+
+        if gui_object:
+            gui_object.set_max_progress.emit(str(l))
+            gui_object.update_label_above2.emit('Appending ' + str(l) + ' files to library:')
+            gui_object.update_progress_label.emit('Progress: ' + str(0) + ' / ' + str(l))
+
+        for i, annotation in enumerate(annotation_dicts,1):
+            self.populate_seizure_library(annotation, timewindow, seizure_library_path, verbose = verbose)
             self.printProgress(i,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
 
+            if gui_object:
+                gui_object.set_progress_bar.emit(str(i))
+                gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
 
-    def populate_seizure_library(self, annotation, fs,
+
+    def populate_seizure_library(self, annotation,
                                  timewindow,
                                  seizure_library_path,
                                  verbose = False,
@@ -497,19 +494,17 @@ apply_async_with_callback()
         logging.debug('Adding '+str(annotation['fname']))
         tid = annotation['tid']
 
-        if annotation['fname'].endswith('.ndf'):
-            h5file_obj = NdfFile(annotation['fname'],fs = fs)
-            h5file_obj.load(annotation['tid'])
-        elif annotation['fname'].endswith('.h5'):
+        #if annotation['fname'].endswith('.ndf'):
+            #h5file_obj = NdfFile(annotation['fname'],fs = fs)
+        #    h5file_obj.load(annotation['tid'])
+
+        if annotation['fname'].endswith('.h5'):
             h5file_obj = H5File(annotation['fname'])
             h5_fs = eval(h5file_obj.attributes['fs_dict'])[tid]
             fs = h5_fs
-            if h5_fs != fs:
-                print('WARNING: fs do not match! h5 fs is ' +str(h5_fs)+', you entered '+ str(fs)+'.')
-                
 
         else:
-            print('ERROR: Unrecognised file-type')
+            print('File-type not .h5')
 
         data_array = h5file_obj[tid]['data'] # just 1D at the moment!
 
@@ -531,7 +526,7 @@ apply_async_with_callback()
             else:
                 group = f.create_group(annotation['dataset_name'])
                 group.attrs['tid'] = annotation['tid']
-                group.attrs['fs']  = float(fs)
+                group.attrs['fs']  = fs
                 group.attrs['precise_annotation'] = np.array([(annotation['start'],annotation['end'])])
                 group.create_dataset('data', data = data_array, compression = "gzip", dtype='f4', chunks = data_array.shape)
                 if features_array is not None:

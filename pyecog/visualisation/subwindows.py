@@ -338,7 +338,6 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
         self.set_h5_folder.clicked.connect(self.get_h5_folder)
         self.extract_features_button.clicked.connect(self.run_pred_feature_extraction)
-        self.run_peakdet_checkBox.stateChanged.connect(self.use_peaks_changed)
 
         self.home = '' # default folder that can get set when this is class is called from main window
         self.h5directory  = None
@@ -359,8 +358,6 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
     def update_h5_folder_display(self):
         self.h5_display.setText(str(self.h5directory))
 
-    def use_peaks_changed(self):
-        self.use_peaks_bool = self.run_peakdet_checkBox.isChecked()
 
     def update_hidden(self, label_string):
         self.hidden_label.setText(label_string)
@@ -380,7 +377,6 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
         chunk_len   = int(self.chunk_len_box.text())
         ncores = self.cores_to_use.text()
-        use_peaks_bool = self.run_peakdet_checkBox.isChecked()
 
         if ncores == 'all':
             ncores = -1
@@ -447,11 +443,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.chunk_length.textChanged.connect(self.chunk_len_changed)
         self.add_labels.clicked.connect(self.calculate_labels_for_library)
         self.add_features.clicked.connect(self.calculate_features_for_library)
-        self.use_peaks.clicked.connect(self.use_peaks_changed)
-        self.use_peaks.stateChanged.connect(self.use_peaks_changed)
         self.overwrite_box.stateChanged.connect(self.overwrite_box_changed)
-        self.fs_box.textChanged.connect(self.fs_box_changed)
-
         self.library_path = None
         self.annotation_path = None
         self.h5_folder_path = None
@@ -460,8 +452,6 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
         self.annotation_df = None
         self.overwrite_box.setChecked(True)
         self.overwrite_bool = self.overwrite_box.isChecked()
-        self.use_peaks_bool = self.use_peaks.isChecked()
-        self.fs = int(self.fs_box.text())
 
         #self.progressBar etc...
         #self.progressBar_label_above2
@@ -471,8 +461,8 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             self.worker = LibraryWorkerThread()
             self.worker.finished.connect(self.worker_finished)
             self.worker.update_progress_label.connect(self.update_progress_label)
-            self.worker.SetProgressBar.connect(self.update_progress)
-            self.worker.setMaximum_progressbar.connect( self.set_max_bar)
+            self.worker.set_progress_bar.connect(self.update_progress)
+            self.worker.set_max_progress.connect(self.set_max_bar)
             self.worker.update_label_below.connect( self.update_label_below)
             self.worker.update_label_above2.connect( self.update_label_above2)
 
@@ -514,16 +504,6 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             print(self.chosen_chunk_length)
         except ValueError:
             print('Not valid number entered')
-
-
-    def fs_box_changed(self):
-        try:
-            self.fs = int(self.fs_box.text())
-        except:
-            pass
-
-    def use_peaks_changed(self):
-        self.use_peaks_bool = self.use_peaks.isChecked()
 
     def overwrite_box_changed(self):
         self.overwrite_bool = self.overwrite_box.isChecked()
@@ -579,7 +559,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
                                      self.h5_folder_path,
                                      self.chosen_chunk_length,
                                      self.overwrite_bool,
-                                     self.fs)
+                                     )
             self.worker.new_library_mode()
             self.worker.start()
             self.worker.wait()
@@ -612,7 +592,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
                                      self.h5_folder_path,
                                      self.chosen_chunk_length,
                                      self.overwrite_bool,
-                                     self.fs)
+                                     )
 
             self.worker.append_to_library_mode()
             self.worker.start()
@@ -631,7 +611,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             return 0
         else:
             self.worker.add_features_mode()
-            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool)
             self.worker.start()
             print('Worker finished')
             self.emit_finished_message()
@@ -647,7 +627,7 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
             return 0
         else:
             self.worker.add_labels_mode()
-            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool, self.use_peaks_bool)
+            self.worker.set_library_attributes_for_feats(self.library_path, self.chosen_chunk_length, self.overwrite_bool)
             self.worker.start()
             print('Worker finished')
             self.emit_finished_message()
@@ -656,8 +636,8 @@ class LibraryWorkerThread(QThread):
 
     finished = pyqtSignal(str)
     update_progress_label = pyqtSignal(str)
-    SetProgressBar= pyqtSignal(str)
-    setMaximum_progressbar= pyqtSignal(str)
+    set_progress_bar= pyqtSignal(str)
+    set_max_progress= pyqtSignal(str)
     update_label_below =pyqtSignal(str)
     update_label_above2 = pyqtSignal(str)
 
@@ -670,19 +650,17 @@ class LibraryWorkerThread(QThread):
         #self.wait()
         self.exit()
 
-    def set_library_attributes(self, l_path, a_df, h5_path, timewindow, overwrite_bool, fs):
+    def set_library_attributes(self, l_path, a_df, h5_path, timewindow, overwrite_bool):
         self.library_path = l_path
         self.h5_path = h5_path
         self.annotations_df = a_df
         self.t_len = timewindow
         self.overwrite_bool = overwrite_bool
-        self.fs = fs
 
-    def set_library_attributes_for_feats(self, l_path, timewindow, overwrite_bool, peaks_bool):
+    def set_library_attributes_for_feats(self, l_path, timewindow, overwrite_bool):
         self.library_path = l_path
         self.t_len = timewindow
         self.overwrite_bool = overwrite_bool
-        self.run_peaks_bool = peaks_bool
 
     def add_labels_mode(self):
         self.labels_or_features = True
@@ -705,37 +683,30 @@ class LibraryWorkerThread(QThread):
         # this not how to do it
         if self.labels_or_features == False:
             if self.appending_to_library:
-                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 output = self.handler.append_to_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_path=self.library_path,
                                                        overwrite=self.overwrite_bool,
-                                                       timewindow=self.t_len, fs=self.fs,
+                                                       timewindow=self.t_len,
                                                        gui_object = self)
             else:
-                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
-                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 output = self.handler.make_seizure_library(df = self.annotations_df,
                                                        file_dir=self.h5_path,
                                                        seizure_library_name=self.library_path,
                                                        overwrite=self.overwrite_bool,
-                                                       timewindow=self.t_len, fs=self.fs,
+                                                       timewindow=self.t_len,
                                                        gui_object=self)
                 if output == 0:
                     throw_error(' An error occurred, check terminal window ')
 
         elif self.labels_or_features == True:
             if not self.add_features:
-                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
-                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.add_labels_to_seizure_library(self.library_path,self.overwrite_bool,
                                                            self.t_len,gui_object=self)
                 print('labels done, chunked: '+ str(self.t_len))
 
             elif self.add_features:
                 print('lets do the features')
-                #self.emit(pyqtSignal("update_progress_label(QString)"),'Progress Bar is Frozen - no biggy')
-                self.update_progress_label.emit('Progress Bar is Frozen - no biggy')
                 self.handler.add_features_to_seizure_library(self.library_path, self.overwrite_bool,
                                                              self.t_len,gui_object=self)
                 print('features done, chunked: '+ str(self.t_len))
@@ -794,7 +765,6 @@ class ConvertingNDFsWindow(QtGui.QDialog,
                                                                 save_dir=self.h5directory,
                                                                 tids=self.transmitter_ids.text().strip("'"),
                                                                 n_cores = int(self.cores_to_use.text()),
-                                                                fs=int(self.fs_box.text()),
                                                                 glitch_detection_flag=self.checkbox_ndf_glitch_removal.isChecked(),
                                                                 high_pass_filter_flag=self.checkbox_ndf_hp_filter_1hz.isChecked())
             self.converting_thread.start()
