@@ -187,7 +187,6 @@ class ClassificationAlgorithm():
             # hmm expects postive class probabilites
             class_probs = self.descriminative_model.predict_proba(X)
             posterior = self.hmm.forward_backward(class_probs.T).T
-
         return self.apply_threshold(posterior, threshold)
 
 def load_classifier(filepath):
@@ -228,11 +227,24 @@ class Classifier():
         """Algo object an be anything that has predict and fit methods"""
         self.__algo = algo_object
 
-    def train(self):
-        self.algo.fit(self.X, self.y)
+    def train(self, downsample_bl_factor=1, upsample_seizure_factor=1):
+
+        if downsample_bl_factor == 1 and upsample_seizure_factor == 1:
+            X,y = self.X, self.y
+        else:
+            print('ERROR: resampling needs debugging')
+            X,y = self.X, self.y
+            """
+            counts = self.label_value_counts
+            target_resample = (int(counts[0]/downsample_bl_factor),
+                               int(counts[1]*upsample_seizure_factor))
+            X,y = classifier_utils.resample_training_dataset(self.X, self.y,target_resample)
+            """
+        self.algo.fit(X,y)
 
     def predict(self, X, threshold=0.5):
         return self.algo.predict(X,threshold)
+
 
     def preprocess_features(self):
         self.pyecog_scaler = FeaturePreProcesser(self.lib.X, self.lib.X_colnames)

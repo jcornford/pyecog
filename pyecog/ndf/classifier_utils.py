@@ -62,6 +62,61 @@ def get_predictions_cross_val(X, y, model,
     cross_val_predictions[cross_val_predictions > 0] = 1
     return cross_val_predictions.values, cross_val_probabilities.values
 
+from sklearn.utils import resample
+def resample_training_dataset(feature_array,labels, sizes):
+    """
+    Inputs:
+        - labels
+        - features
+        - sizes: tuple, for each class (0,1,etc)m the number of training chunks you want.
+        i.e for 500 seizures, 5000 baseline, sizes = (5000, 500), as 0 is baseline, 1 is Seizure
+    Takes labels and features an
+
+    WARNING: Up-sampling target class prevents random forest oob from being accurate.
+    """
+    if len (labels.shape) == 1:
+        labels = labels[:, None]
+
+    resampled_labels = []
+    resampled_features = []
+    for i,label in enumerate(np.unique(labels.astype('int'))):
+        class_inds = np.where(labels==label)[0]
+
+        class_labels = labels[class_inds]
+        class_features = feature_array[class_inds,:]
+
+        if class_features.shape[0] < sizes[i]: # need to oversample
+            class_features_duplicated = np.vstack([class_features for i in range(int(sizes[i]/class_features.shape[0]))])
+            class_labels_duplicated  = np.vstack([class_labels for i in range(int(sizes[i]/class_labels.shape[0]))])
+            n_extra_needed = sizes[i] - class_labels_duplicated.shape[0]
+            extra_features = resample(class_features, n_samples =  n_extra_needed,random_state = 7, replace = False)
+            extra_labels = resample(class_labels, n_samples =  n_extra_needed,random_state = 7, replace = False)
+
+            boot_array  = np.vstack([class_features_duplicated,extra_features])
+            boot_labels = np.vstack([class_labels_duplicated,extra_labels])
+
+        elif class_features.shape[0] > sizes[i]: # need to undersample
+            boot_array  = resample(class_features, n_samples =  sizes[i],random_state = 7, replace = False)
+            boot_labels = resample(class_labels,   n_samples =  sizes[i],random_state = 7, replace = False)
+
+        elif class_features.shape[0] == sizes[i]:
+            logging.debug('label '+str(label)+ ' had exact n as sample, doing nothing!')
+            boot_array  = class_features
+            boot_labels = class_labels
+        else:
+            print(class_features.shape[0], sizes[i])
+            print ('fuckup')
+        resampled_features.append(boot_array)
+        resampled_labels.append(boot_labels)
+    # stack both up...
+    resampled_labels = np.vstack(resampled_labels)
+    resampled_features = np.vstack(resampled_features)
+
+    logging.debug('Original label counts: '+str(pd.Series(labels[:,0]).value_counts()))
+    logging.debug('Resampled label counts: '+str(pd.Series(resampled_labels[:,0]).value_counts()))
+    return feature_array, labels
+    return resampled_features,resampled_labels[:,0]
+
 import os
 import logging
 import traceback

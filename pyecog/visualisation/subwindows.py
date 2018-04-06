@@ -181,12 +181,16 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         else:
             ncores = int(ncores)
 
-        self.worker.set_training_params(self.clf, dwnsample_factor, upsample_factor,ntrees, ncores)
+        self.worker.set_training_params(self.clf,
+                                        dwnsample_factor,
+                                        upsample_factor,
+                                        ntrees, ncores)
         self.worker.start()
 
     def end_training(self):
         # todo quit threads properly
-        QtGui.QMessageBox.information(self, "Not implemented, lazy!", "You probably want to save the trained classifier...!")
+        QtGui.QMessageBox.information(self, "INFO",
+                                      "You probably want to save the trained classifier...!")
         self.save_classifier_method()
         self.worker.quit()
         self.worker.terminate()
@@ -294,7 +298,9 @@ class TrainClassifierThread(QThread):
     def __init__(self):
         QThread.__init__(self)
 
-    def set_training_params(self, clf, downsample_bl_by_x, upsample_seizure_by_x, ntrees, n_cores):
+    def set_training_params(self, clf, downsample_bl_by_x,
+                            upsample_seizure_by_x,
+                            ntrees, n_cores):
         # you sort out the re-sampling and n trees here
         # or do you want to use the class importances?
         self.clf = clf
@@ -302,12 +308,6 @@ class TrainClassifierThread(QThread):
         self.ntrees = ntrees
         self.downsample_bl_factor    = downsample_bl_by_x
         self.upsample_seizure_factor = upsample_seizure_by_x
-
-        counts = self.clf.label_value_counts
-        target_resample = (int(counts[0]/self.downsample_bl_factor),counts[1]*self.upsample_seizure_factor)
-        self.update_label_above2.emit('Resampling [BL S] from '+str(counts)+' to ' + str(list(target_resample)))
-        self.res_y, self.res_x = self.clf.resample_training_dataset(self.clf.labels, self.clf.features,
-                                                      sizes = target_resample)
 
     def run(self):
 
@@ -317,14 +317,7 @@ class TrainClassifierThread(QThread):
         '''
         self.update_progress_label.emit('Training Random Forest...')
         self.clf.train(self.downsample_bl_factor,
-                       self.upsample_seizure_factor,
-                       self.ntrees,
-                       self.n_cores,
-                       n_emission_prob_cvfolds = 3,
-                       pyecog_hmm = True,
-                       calc_emissions = True,
-                       rf_weights = None,
-                       calibrate = False)
+                       self.upsample_seizure_factor)
         self.finished.emit()
         self.exit()
 
