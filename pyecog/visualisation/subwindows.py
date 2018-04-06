@@ -11,7 +11,7 @@ import h5py
 import logging
 import pickle
 
-from sklearn.ensemble import RandomForestClassifier
+
 from sklearn import metrics
 
 try:
@@ -76,7 +76,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.library_path_display.setText(self.library_path)
 
     def get_label_counts(self):
-        self.counts = pd.Series(np.ravel(self.clf.labels[:])).value_counts().values
+        self.counts = self.clf.label_value_counts
         self.label_n_baseline.setText('Library has '+ str(self.counts[0]) +' BL chunks')
         self.label_n_seizures.setText('and '+ str(self.counts[1]) +' Seizure chunks. '+str(np.round((self.counts[1]/self.counts[0])*100, 2)) + '%')
 
@@ -100,8 +100,8 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         if self.library_path:
             try:
                 self.clf = Classifier(self.library_path)
-                QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
                 self.get_label_counts()
+                QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
             except:
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText('Error!   \n'+ str(traceback.format_exc(1)) )
@@ -150,7 +150,6 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
     def update_clf_path_display(self):
         self.clf_path_display.setText(str(self.clf_path))
-        print(pd.Series(np.ravel(self.clf.labels[:])).value_counts().values)
 
     def update_h5_folder_display(self):
         self.h5_folder_display.setText(str(self.h5directory))
@@ -263,6 +262,7 @@ class PredictSeizuresThread(QThread):
 
     def __init__(self):
         QThread.__init__(self)
+
     def set_params(self, clf, prediction_dir, excel_sheet):
         self.clf = clf
         self.prediction_dir = prediction_dir
@@ -272,7 +272,6 @@ class PredictSeizuresThread(QThread):
 
     def run(self):
         self.update_label_below.emit('Saving predictions: '+ self.excel_output)
-        self.update_progress_label.emit('We are now rolling - look in your terminal for progress')
 
         output = self.clf.predict_dir(self.prediction_dir,
                              self.excel_output,
@@ -304,7 +303,7 @@ class TrainClassifierThread(QThread):
         self.downsample_bl_factor    = downsample_bl_by_x
         self.upsample_seizure_factor = upsample_seizure_by_x
 
-        counts = pd.Series(np.ravel(self.clf.labels[:])).value_counts().values
+        counts = self.clf.label_value_counts
         target_resample = (int(counts[0]/self.downsample_bl_factor),counts[1]*self.upsample_seizure_factor)
         self.update_label_above2.emit('Resampling [BL S] from '+str(counts)+' to ' + str(list(target_resample)))
         self.res_y, self.res_x = self.clf.resample_training_dataset(self.clf.labels, self.clf.features,

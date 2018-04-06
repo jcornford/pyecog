@@ -3,10 +3,10 @@ from .h5loader import H5File
 from .datahandler import DataHandler
 from .classifier import FeaturePreProcesser
 from .classifier import Classifier
-#ßfrom .classifier  import load_classifier
+from .classifier import ClassificationAlgorithm
+from .hmm_pyecog import HMMBayes, HMM
 
-#from .bokeh_visualisation import plot
-#from .bokeh_visualisation import basic_plot
+
 from .feature_extractor import FeatureExtractor
 
 from . import classifier_utils

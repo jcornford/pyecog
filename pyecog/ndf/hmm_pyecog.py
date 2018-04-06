@@ -2,114 +2,189 @@
 from sklearn.preprocessing import normalize
 import numpy as np
 
-class HMM():
-    ''' Hmm class expecting transition matrix only...
+from numba import jit
+from numba import jitclass
+import numba
+from sklearn.preprocessing import normalize
+
+
+class HMMBayes():
     '''
-    def __init__(self,A):
+    Hmm class expecting transition matrix A only. This class
+    expects probability of p(Zt|Xt) produced by
+    the classifier and uses Bayes rule to relate to
+    p(Xt|Zt) = p(Zt|Xt)p(Xt)/p(Zt).
+
+    See Bishop, Svensen and Hinton 2004:
+    Distinguishing text from graphics in on-line handwritten ink.
+    '''
+
+    def __init__(self):
         '''
         :param A: transition matrix, A_ij is p(Z_t=j|Z_t-1=i)
         '''
-
-        assert all(np.sum(A, axis = 1))==1
-        # transpose to get left eigen vector
-        eigen_vals,eigen_vecs = np.linalg.eig(A.T)
-        ind = np.where(eigen_vals ==1)[0]
-
-        self.stationary_dist = eigen_vecs[:,ind].T[0] # transpose back should be row vec
-        self.A = A
+        self._A = None
+        self.stationary_dist = None
+        pass
 
     @staticmethod
-    def forward(x,k,N,A,phi,stationary_dist):
-        alpha  = np.zeros((k,N))                           # init alpha vect to store alpha vals for each z_k (rows)
-        alpha[:,0] = np.log((phi[:,0] * stationary_dist))
-        for t in np.arange(1,N):
-            max_alpha_t = max(alpha[:,t-1])                #  alphas are alredy logs, therefreo exp to cancel
-            exp_alpha_t = np.exp(alpha[:,t-1]-max_alpha_t) # exp sum over alphas - b
-            alpha_t     = phi[:,t]*(exp_alpha_t.T.dot(A))  # sure no undeflow here...
-            alpha[:,t]  = np.log(alpha_t) + max_alpha_t    # take log and add back max (already in logs)
-                                                           # this may be so small there is an overflow?
+    def get_state_transition_probs(labels):
+        if len(labels.shape) > 1:
+            labels = np.ravel(labels)
+
+        tp = np.zeros(shape=(2, 2))  # todo why is this is hardcoded?
+        for i, label in enumerate(labels[:-1]):
+            next_label = int(labels[i + 1])
+            label = int(label)
+            tp[label, next_label] += 1
+
+        tp = normalize(tp, axis=1, norm='l1')
+        return tp
+
+    @property
+    def A(self):
+        return self._A
+    @A.setter
+    def A(self, A):
+        assert all(np.sum(A, axis=1)) == 1
+        # transpose to get left eigen vector
+        eigen_vals, eigen_vecs = np.linalg.eig(A.T)
+        ind = np.where(eigen_vals == 1)[0]
+        self.stationary_dist = eigen_vecs[:, ind].T[0]  # transpose back as should be row vec
+        self._A = A
+
+    def __repr__(self):
+        return 'Hidden Markov model object : expects probability of p(Zt|Xt) produced by the classifier \
+                and uses Bayes rule to relate to p(Xt|Zt) = p(Zt|Xt)p(Xt)/p(Zt).'
+
+    @staticmethod
+    @numba.jit(nopython=True)
+    def forward(x, k, N, A, phi, stationary_dist):
+        alpha = np.zeros((k, N))  # init alpha vect to store alpha vals for each z_k (rows)
+        alpha[:, 0] = np.log((phi[:, 0] * stationary_dist))
+        for t in np.arange(1, N):
+            max_alpha_t = np.max(alpha[:, t - 1])  # alphas are alredy logs, therefreo exp to cancel
+            exp_alpha_t = np.exp(alpha[:, t - 1] - max_alpha_t)  # exp sum over alphas - b
+            alpha_t = phi[:, t] * np.dot(exp_alpha_t.T, A)  # sure no undeflow here...
+            alpha[:, t] = np.log(alpha_t) + max_alpha_t  # take log and add back max (already in logs)
+            # this may be so small there is an overflow?
         return alpha
 
     @staticmethod
-    def calc_phi(x,stationary_dist):
+    @numba.jit(nopython=True)
+    def calc_phi(x, stationary_dist):
+        # print(stationary_dist, stationary_dist.shape)
         phi = np.zeros(x.shape)
         for t in range(x.shape[1]):
-            phi[:,t] = x[:,t]#/stationary_dist
+            phi[:, t] = x[:, t] / stationary_dist
         return phi
 
     @staticmethod
-    def backward(x,k,N,A,phi,stationary_dist,alpha):
-        beta  = np.zeros((k,N))
-        posterior  = np.zeros((k,N))
-        beta[:,N-1] = 1 # minus one for pythons indexing
-        posterior_t = np.exp(alpha[:,N-1]+beta[:,N-1])
-        posterior_t /= sum(posterior_t)
-        posterior[:,N-1] = posterior_t
+    @numba.jit(nopython=True)
+    def backward(x, k, N, A, phi, stationary_dist, alpha):
+        beta = np.zeros((k, N))
+        posterior = np.zeros((k, N))
+        beta[:, N - 1] = 1  # minus one for pythons indexing
 
-        for t in range(0,N-1)[::-1]: # python actually starts N-2 if [::-1]
-            #print(t,end=',')
-            max_beta_t   = max(beta[:,t+1]) # previous beta
-            exp_beta_t   = np.exp(beta[:,t+1]-max_beta_t)
-            beta_t       = A.dot((phi[:,t+1]*exp_beta_t))# is this correct?
+        max_posterior_t = np.max(alpha[:, N - 1] + beta[:, N - 1])  # previous beta
+        posterior_t = np.exp((alpha[:, N - 1] + beta[:, N - 1]) - max_posterior_t)
+        posterior_t = np.divide(posterior_t, np.sum(posterior_t))  # normalise as just proportional too...
+        posterior[:, N - 1] = posterior_t
+
+        # t = np.arange(0,N-1)
+        for t in np.arange(N - 2, 0 - 1, -1):
+            # for t in range(0,N-1)[::-1]: # python actually starts N-2 if [::-1]
+            # print(t,end=',')
+            max_beta_t = np.max(beta[:, t + 1])  # previous beta
+            exp_beta_t = np.exp(beta[:, t + 1] - max_beta_t)
+            beta_t = np.dot(A, (phi[:, t + 1] * exp_beta_t))  # is this correct?
             # phi inside the dot product as dependnds on the
-            beta[:,t]    = np.log(beta_t)
-            posterior_t  = np.exp(alpha[:,t]+beta[:,t])
-            posterior_t /=sum(posterior_t)  # normalise as just proportional too...
-            posterior[:,t] = posterior_t
+            beta[:, t] = np.log(beta_t) + max_beta_t
+
+            max_posterior_t = np.max(alpha[:, t] + beta[:, t])  # previous beta
+            posterior_t = np.exp((alpha[:, t] + beta[:, t]) - max_posterior_t)
+            posterior_t = np.divide(posterior_t, np.sum(posterior_t))  # normalise as just proportional too...
+            posterior[:, t] = posterior_t
         return beta, posterior
 
-    @staticmethod
-    def calc_phi_from_emission_matrix(x,phi_mat,stationary_dist):
-        phi    = np.zeros((phi_mat.shape[0],x.shape[0]))
-        for t in range(x.shape[0]):
-            phi[:,t] = phi_mat[:,x[t]]
-        return phi
-
-    def forward_backward(self,x, phi_mat = None):
+    def forward_backward(self, x):
         '''
-        If provide phi_mat, x is assumed to be a 1d vector of emissions. Else, if phi_mat = None,
-        assumed x is a 2d vector of p(zt|xt)
+        x is a 2d vector of p(zt|xt)
 
-        x is a vector of p(zt|xt)
         x_i is hidden state (rows)
         x_it t is the timepoint
         returns posterior distribution of p(Zt
         '''
-        if phi_mat is None:
-            self.phi =self.calc_phi(x,self.stationary_dist)
-            k = x.shape[0]
-            N = x.shape[1]
-        else:
-            self.phi =self.calc_phi_from_emission_matrix(x,phi_mat,self.stationary_dist)
-            N = x.shape[0]
-            k = phi_mat.shape[0]
+        self.phi = self.calc_phi(x, self.stationary_dist)
+        k = x.shape[0]
+        N = x.shape[1]
 
-
-        self.alpha = self.forward(x,k,N,self.A,self.phi,self.stationary_dist)
-        self.beta, self.posterior = self.backward(x,k,N,self.A,self.phi,self.stationary_dist,self.alpha)
+        self.alpha = self.forward(x, k, N, self.A, self.phi, self.stationary_dist)
+        self.beta, self.posterior = self.backward(x, k, N, self.A, self.phi, self.stationary_dist, self.alpha)
         return self.posterior
 
 
-def get_state_emission_probs(emissions, annotated_states):
-    n_states = len(np.unique(annotated_states))
-    n_emiss  = len(np.unique(emissions))
-    emis_mat = np.zeros(shape= (n_states,n_emiss))
+class HMM(HMMBayes):
+    """
+    Expects state emission probabilities obtainined through
+    miss-classification of test-data labels. (Cross val).
 
-    for i,label in enumerate(annotated_states.astype('int')):
-        emis = emissions.astype('int')[i]
-        emis_mat[label, emis] += 1
-        emis_probs = normalize(emis_mat, axis = 1, norm='l1')
-    return emis_probs
+    Is therefore a 'standard' HMM implementation.
+    """
 
-def get_state_transition_probs(labels):
-    if len (labels.shape) > 1:
-            labels = np.ravel(labels)
+    def __init__(self):
+        HMMBayes.__init__(self)
 
-    tp = np.zeros(shape= (2,2)) # todo why is this is hardcoded?
-    for i, label in enumerate(labels[:-1]):
-        next_label = int(labels[i+1])
-        label = int(label)
-        tp[label,next_label] += 1
+    def __repr__(self):
+        return 'Hidden Markov model object :Expects state emission probabilities obtainined through \
+                miss-classification of test-data labels. (Cross val). Is therefore a standard HMM implementation.'
 
-    tp = normalize(tp, axis = 1, norm='l1')
-    return tp
+    @property
+    def phi_mat(self):
+        return self._phi_mat
+
+    @phi_mat.setter
+    def phi_mat(self, phi_mat):
+        self._phi_mat = phi_mat
+
+    @staticmethod
+    @numba.jit(nopython=True)
+    def calc_phi_from_emission_matrix(x, phi_mat, stationary_dist):
+        phi = np.zeros((phi_mat.shape[0], x.shape[0]))
+        for t in range(x.shape[0]):
+            phi[:, t] = phi_mat[:, int(x[t])]
+        return phi
+
+    def forward_backward(self, x):
+        '''
+        x is a 1d row vector of "observed" states. ie. classifier
+        predictions
+        x_0t t is the timepoint
+        returns posterior distributions of p(Zt|Xt)
+        '''
+        self.phi = self.calc_phi_from_emission_matrix(x, self.phi_mat, self.stationary_dist)
+        k = self.phi_mat.shape[0]  # n states
+        N = x.shape[0]  # timepoints
+
+        self.alpha = self.forward(x, k, N, self.A, self.phi, self.stationary_dist)
+        self.beta, self.posterior = self.backward(x, k, N, self.A, self.phi, self.stationary_dist, self.alpha)
+        return self.posterior
+
+    @staticmethod
+    def get_state_emission_probs(y, preds):
+        """
+        Uses miss-classification of annotated states labels to
+        'obtain' calssifier state emission probabilities given
+        annotated label.
+
+        Returns:
+        phi_ij - observation emission matrix
+            i is the state
+            j is the observation
+        """
+        from sklearn.metrics import confusion_matrix
+        cm = confusion_matrix(y, preds)
+        phi = np.divide(cm, cm.sum(axis=1)[:, np.newaxis])
+        return phi
+
+

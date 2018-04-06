@@ -24,8 +24,12 @@ from sklearn import cross_validation as cv
 from sklearn import metrics as sk_metrics
 from sklearn.calibration import CalibratedClassifierCV
 
+from . import hmm_pyecog
+from .classifier_utils import get_predictions_cross_val
+from . import classifier_utils
+
 class Library():
-    """Class for library, with features already calculated, to be used in training clf"""
+    """Class for library, with features already calculated, to be used for training clf"""
 
     def __init__(self, library_path):
         with h5py.File(library_path, 'r+') as f:
@@ -72,7 +76,7 @@ class FeaturePreProcesser():
     def transform(self):
         '''
         Here do the particular transformations to make data better behaved (logs etc).
-        This requires the colnames of the dataframe...
+        Requires the colnames of the feature dataframe...
         '''
         preprocessed_lib_df = self.df
 
@@ -147,41 +151,108 @@ class FeaturePreProcesser():
         X = self.std_scaler.transform(X)
         return X
 
+class ClassificationAlgorithm():
+    '''Class to combine a descriminative algorithm with a HMM model'''
+
+    def __init__(self, descriminative_model_object, hmm_class_def):
+        self.descriminative_model = descriminative_model_object
+        self.hmm = hmm_class_def
+
+    def fit(self, X, y):
+        self.fit_hmm(X, y)
+        self.descriminative_model.fit(X, y)
+
+    def fit_hmm(self, X, y):
+        self.hmm.A = self.hmm.get_state_transition_probs(y)
+
+        if isinstance(self.hmm, hmm_pyecog.HMMBayes):
+            pass
+
+        if isinstance(self.hmm, hmm_pyecog.HMM):
+            cv_preds = get_predictions_cross_val(X, y, self.descriminative_model)
+            # the function get_predictions_cross_val returns (labels, probabilties)
+            self.hmm.phi_mat = self.hmm.get_state_emission_probs(y, cv_preds[0])
+
+    @staticmethod
+    def apply_threshold(posterior, threshold):
+        postive_class_predictions = posterior[:, 1] > threshold
+        return postive_class_predictions.astype(int)
+
+    def predict(self, X, threshold=0.5):
+        if isinstance(self.hmm, hmm_pyecog.HMM):
+            # hmm expects labels
+            class_labels = self.descriminative_model.predict(X)
+            posterior = self.hmm.forward_backward(class_labels.T).T
+        else:
+            # hmm expects postive class probabilites
+            class_probs = self.descriminative_model.predict_proba(X)
+            posterior = self.hmm.forward_backward(class_probs.T).T
+
+        return self.apply_threshold(posterior, threshold)
+
+def load_classifier(filepath):
+    f = open(filepath, 'rb')
+    clf = pickle.load(f)
+    return clf
 
 class Classifier():
+
     """ We need: save, load, add data (with warm start). """
 
     def __init__(self, library_path):
         self.lib = Library(library_path)
+        self.pyecog_scaler = None
         self.y_to_label_dict = {0: 'baseline', 1: 'ictal'}
         self.lib.ystr_ = pd.Series(self.lib.y).map(self.y_to_label_dict).values
 
-        # self.prepare_library_data() - should be run
+    def save(self, fname):
+        fname = fname if fname.endswith('.p') else fname+'.p'
+        f = open(fname,'wb')
+        pickle.dump(self,f)
 
-    def prepare_library_data(self):
+    @property
+    def label_value_counts(self):
+        return pd.Series(self.lib.y).value_counts()
+    @property
+    def y(self):
+        return self.lib.y
+    @property
+    def X(self):
+        return self.lib.X
+
+    @property
+    def algo(self):
+        return self.__algo
+    @algo.setter
+    def algo(self,algo_object):
+        """Algo object an be anything that has predict and fit methods"""
+        self.__algo = algo_object
+
+    def train(self):
+        self.algo.fit(self.X, self.y)
+
+    def predict(self, X, threshold=0.5):
+        return self.algo.predict(X,threshold)
+
+    def preprocess_features(self):
         self.pyecog_scaler = FeaturePreProcesser(self.lib.X, self.lib.X_colnames)
         self.lib.X, self.lib.X_colnames = self.pyecog_scaler.transform()
         self.lib.X = self.pyecog_scaler.fit_transform_std_scaler(self.lib.X)
 
-    def train_basic_rf_oob(self):
-        """Just a temp method to get basic idea of performance"""
-        y = pd.Series(self.lib.y)
-        y_str = y.map(self.y_to_label_dict)
 
-        target_counts = pd.Series(y_str).value_counts()
-        print(target_counts)
+    def predict_directory(self,prediction_dir,
+                            output_csv_filename,
+                            overwrite_previous_predicitions = True,
+                            posterior_thresh = 0.5,
+                            gui_object = None):
 
-        rf = RandomForestClassifier(n_estimators=600, oob_score=True,
-                                    random_state=7, n_jobs=-1, class_weight=None,
-                                    max_features='auto')  # when you have None, coastline massive
-        rf.fit(self.lib.X, y_str)
-        oob_preds = get_preds_from_rf_oob(rf)
-        print(sk_metrics.classification_report(y_str, oob_preds))
-        cm, n_cm = labelled_confusion_matrix(y_str, oob_preds, rf)
-        print(cm, '\n', n_cm)
-        self.feature_importances = get_feature_imps(rf, clf.lib.X_colnames)
-        self.rf = rf
-        # sk_metrics.f1_score(y_str,oob_preds,average='binary', pos_label='ictal')
-        # sk_metrics.f1_score(y_str,oob_preds,average='binary', pos_label='baseline')
+        classifier_utils.predict_dir(prediction_dir,
+                                     output_csv_filename,
+                                     classfier_object = self,
+                                     overwrite_previous_predicitions = overwrite_previous_predicitions,
+                                     posterior_thresh = posterior_thresh,
+                                     gui_object=gui_object)
 
-        pass
+
+
+
