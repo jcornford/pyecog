@@ -23,7 +23,10 @@ except:
 
 from ndf.h5loader import H5File
 from ndf.datahandler import DataHandler, NdfFile # todo - should bot be importing ndffile?
-from ndf.classifier import Classifier
+from ndf.classifier import Classifier, ClassificationAlgorithm
+from ndf.hmm_pyecog import HMMBayes,HMM
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 '''
 except:
     import loading_subwindow, convert_ndf_window, library_subwindow, add_pred_features_subwindow, clf_subwindow
@@ -65,6 +68,20 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         self.estimate_error.clicked.connect(self.not_done_yet)
         self.run_clf_on_folder.clicked.connect(self.predict_seizures)
 
+        self.descrim_algo_button_group = QtGui.QButtonGroup(self)
+        self.descrim_algo_button_group.addButton(self.lg_box)
+        self.descrim_algo_button_group.addButton(self.rf_box)
+
+    @staticmethod
+    def throw_error(error_text=None):
+        msgBox = QtWidgets.QMessageBox()
+        if error_text is None:
+            msgBox.setText('Error caught! \n' + str(traceback.format_exc(1)))
+        else:
+            msgBox.setText('Error caught! \n' + str(error_text))
+        msgBox.exec_()
+        return 0
+
     def not_done_yet(self):
         QtGui.QMessageBox.information(self,"Not implemented, lazy!", "Not implemented yet! Jonny has been lazy!")
 
@@ -100,8 +117,21 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
         if self.library_path:
             try:
                 self.clf = Classifier(self.library_path)
+                if self.lg_box.isChecked():
+                    descrim_algo = LogisticRegression()
+                elif self.rf_box.isChecked():
+                    descrim_algo = RandomForestClassifier(n_estimators=int(self.n_trees.text()),
+                                                          random_state=7)
+                if self.probabilistic_hmm_box.isChecked():
+                    hmm_algo = HMMBayes()
+                else:
+                    hmm_algo = HMM()
+                self.clf.algo = ClassificationAlgorithm(descrim_algo,hmm_algo)
+                self.clf.preprocess_features()
+                print(self.clf.algo.descriminative_model)
+                print(self.clf.algo.hmm)
                 self.get_label_counts()
-                QtGui.QMessageBox.information(self, "Not?", "Classifier initialised successfully!")
+                QtGui.QMessageBox.information(self, "Info:", "Classifier initialised successfully!")
             except:
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText('Error!   \n'+ str(traceback.format_exc(1)) )
@@ -133,8 +163,6 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
                     self.clf = pickle.load(f)
             except:
                 QtGui.QMessageBox.information(self, "Not?", "ERROR: Classifier loading failed. ")
-                with open(temp_clf_path, 'rb') as f:
-                    self.clf = pickle.load(f)
                 return 0
 
             self.clf_path = temp_clf_path
@@ -277,11 +305,9 @@ class PredictSeizuresThread(QThread):
     def run(self):
         self.update_label_below.emit('Saving predictions: '+ self.excel_output)
 
-        output = self.clf.predict_dir(self.prediction_dir,
+        output = self.clf.predict_directory(self.prediction_dir,
                              self.excel_output,
-                             called_from_gui = True)
-        if output != 0:
-            self.missing_features.emit(str(output))
+                             gui_object = self)
         self.update_progress_label.emit('Done')
         self.finished.emit()
         self.exit()

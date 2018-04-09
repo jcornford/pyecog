@@ -219,6 +219,9 @@ def predict_dir(prediction_dir,
     if skip_n != 0:
         print('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
         time.sleep(5)
+        if gui_object:
+            gui_object.throw_error('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
+
     return skip_n
 
 def reorder_prediction_csv(csv_path):

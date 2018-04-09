@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>808</width>
-    <height>891</height>
+    <width>825</width>
+    <height>928</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -58,7 +58,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>806</y>
+     <y>830</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -71,7 +71,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>836</y>
+     <y>860</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -84,7 +84,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>776</y>
+     <y>800</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -97,7 +97,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>746</y>
+     <y>770</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -128,7 +128,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>596</y>
+     <y>620</y>
      <width>750</width>
      <height>16</height>
     </rect>
@@ -167,7 +167,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>606</y>
+     <y>630</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -193,7 +193,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>186</y>
+     <y>502</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -206,7 +206,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>156</y>
+     <y>472</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -218,8 +218,8 @@
   <widget class="QPushButton" name="make_classifier">
    <property name="geometry">
     <rect>
-     <x>220</x>
-     <y>114</y>
+     <x>180</x>
+     <y>440</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -232,7 +232,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>214</y>
+     <y>530</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -245,7 +245,7 @@
    <property name="geometry">
     <rect>
      <x>220</x>
-     <y>214</y>
+     <y>530</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -258,7 +258,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>636</y>
+     <y>660</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -271,7 +271,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>670</y>
+     <y>694</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -290,7 +290,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>706</y>
+     <y>730</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -303,7 +303,7 @@
    <property name="geometry">
     <rect>
      <x>220</x>
-     <y>706</y>
+     <y>730</y>
      <width>250</width>
      <height>31</height>
     </rect>
@@ -319,7 +319,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>556</y>
+     <y>580</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -335,7 +335,7 @@
    <property name="geometry">
     <rect>
      <x>390</x>
-     <y>556</y>
+     <y>580</y>
      <width>31</width>
      <height>25</height>
     </rect>
@@ -351,7 +351,7 @@
    <property name="geometry">
     <rect>
      <x>250</x>
-     <y>556</y>
+     <y>580</y>
      <width>161</width>
      <height>31</height>
     </rect>
@@ -364,7 +364,7 @@
    <property name="geometry">
     <rect>
      <x>450</x>
-     <y>556</y>
+     <y>580</y>
      <width>320</width>
      <height>31</height>
     </rect>
@@ -377,7 +377,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>260</y>
+     <y>180</y>
      <width>451</width>
      <height>231</height>
     </rect>
@@ -679,6 +679,9 @@
       <property name="checked">
        <bool>true</bool>
       </property>
+      <property name="autoExclusive">
+       <bool>false</bool>
+      </property>
      </widget>
     </item>
     <item row="8" column="0" colspan="2">
@@ -722,8 +725,8 @@
   <widget class="QPushButton" name="train_clf">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>520</y>
+     <x>400</x>
+     <y>440</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -736,7 +739,7 @@
    <property name="geometry">
     <rect>
      <x>480</x>
-     <y>280</y>
+     <y>200</y>
      <width>291</width>
      <height>141</height>
     </rect>

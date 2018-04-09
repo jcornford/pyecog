@@ -484,11 +484,13 @@ class ConvertingNDFsWindow(QtGui.QDialog,
                                                                 save_dir=self.h5directory,
                                                                 tids=self.transmitter_ids.text().strip("'"),
                                                                 n_cores = int(self.cores_to_use.text()),
+                                                                fs = int(self.fs_box.text()),
                                                                 glitch_detection_flag=self.checkbox_ndf_glitch_removal.isChecked(),
                                                                 high_pass_filter_flag=self.checkbox_ndf_hp_filter_1hz.isChecked())
             self.converting_thread.start()
         except:
-            QtGui.QMessageBox.information(self," ", "Error!")
+            throw_error()
+            # QtGui.QMessageBox.information(self," ", "Error!")
 
 
     def update_hidden(self, label_string):
