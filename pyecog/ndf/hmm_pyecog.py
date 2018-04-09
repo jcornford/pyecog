@@ -32,7 +32,7 @@ class HMMBayes():
         if len(labels.shape) > 1:
             labels = np.ravel(labels)
 
-        tp = np.zeros(shape=(2, 2))  # todo why is this is hardcoded?
+        tp = np.zeros(shape=(2, 2))  # todo this should not be hardcoded?
         for i, label in enumerate(labels[:-1]):
             next_label = int(labels[i + 1])
             label = int(label)

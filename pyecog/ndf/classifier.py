@@ -158,9 +158,25 @@ class ClassificationAlgorithm():
         self.descriminative_model = descriminative_model_object
         self.hmm = hmm_class_def
 
-    def fit(self, X, y):
+    def fit(self, X, y, downsample_bl_factor=1, upsample_seizure_factor=1):
+        """
+        Fit descrim algo and then HMM.
+
+        Todo: handle resampling and class weights for descrim classifier.
+        """
+
+        if downsample_bl_factor == 1 and upsample_seizure_factor == 1:
+            Xclf, yclf = X, y
+            print('here')
+        else:
+            counts = pd.Series(y).value_counts()
+            target_resample = (int(counts[0] / downsample_bl_factor),
+                               int(counts[1] * upsample_seizure_factor))
+            Xclf, yclf = classifier_utils.resample_training_dataset(X, y, target_resample)
+            print('resample', target_resample)
+
         self.fit_hmm(X, y)
-        self.descriminative_model.fit(X, y)
+        self.descriminative_model.fit(Xclf, yclf) # class weights to be added here too
 
     def fit_hmm(self, X, y):
         self.hmm.A = self.hmm.get_state_transition_probs(y)
@@ -228,19 +244,9 @@ class Classifier():
         self.__algo = algo_object
 
     def train(self, downsample_bl_factor=1, upsample_seizure_factor=1):
-
-        if downsample_bl_factor == 1 and upsample_seizure_factor == 1:
-            X,y = self.X, self.y
-        else:
-            print('ERROR: resampling needs debugging')
-            X,y = self.X, self.y
-            """
-            counts = self.label_value_counts
-            target_resample = (int(counts[0]/downsample_bl_factor),
-                               int(counts[1]*upsample_seizure_factor))
-            X,y = classifier_utils.resample_training_dataset(self.X, self.y,target_resample)
-            """
-        self.algo.fit(X,y)
+        self.algo.fit(self.X,self.y,
+                      downsample_bl_factor=downsample_bl_factor,
+                      upsample_seizure_factor=upsample_seizure_factor)
 
     def predict(self, X, threshold=0.5):
         return self.algo.predict(X,threshold)

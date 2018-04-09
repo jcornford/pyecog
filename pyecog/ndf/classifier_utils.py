@@ -114,7 +114,6 @@ def resample_training_dataset(feature_array,labels, sizes):
 
     logging.debug('Original label counts: '+str(pd.Series(labels[:,0]).value_counts()))
     logging.debug('Resampled label counts: '+str(pd.Series(resampled_labels[:,0]).value_counts()))
-    return feature_array, labels
     return resampled_features,resampled_labels[:,0]
 
 import os
