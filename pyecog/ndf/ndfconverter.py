@@ -330,7 +330,7 @@ class NdfFile:
                                                              self.tid_data_time_dict[tid]['time'][not_nan],
                                                              self.tid_data_time_dict[tid]['data'][not_nan],)
 
-            #self.tid_data_time_dict[tid]['time'] = regularised_time
+            self.tid_data_time_dict[tid]['time'] = regularised_time
 
             if self.verbose:
                 print('Tid '+str(tid)+': regularised fs to '+str(self.tid_to_fs_dict[tid])+' Hz '+str(self.tid_data_time_dict[tid]['data'].shape[0]) +' datapoints')

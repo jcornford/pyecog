@@ -98,6 +98,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.hp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.lp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.add_extra_line.clicked.connect(self.add_extra_line_to_plot)
+        self.show_fft_checkbox.stateChanged.connect(self.toggle_fft_subplot)
 
         self.fs = None # change !
         self.previously_displayed_tid = None
@@ -145,6 +146,20 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.file_dir_up = False
         self.substates_up = False
         self.substate_child_selected = False
+
+    def toggle_fft_subplot(self):
+        if self.hdf5_plot_inset is None:
+            return 0
+        if self.show_fft_checkbox.isChecked():
+            self.fft_plot = self.GraphicsLayoutWidget.addPlot()
+            self.fft_plot.setLabel('left', 'Amplitude')
+            self.fft_plot.setLabel('bottom', 'Frequency (Hz)')
+            self.hdf5_plot_inset.updateHDF5Plot()
+            # addPlot(row=None, col=None, rowspan=1, colspan=1, **kargs)
+        else:
+            if self.fft_plot:
+                self.GraphicsLayoutWidget.removeItem(self.fft_plot)
+                self.fft_plot = None
 
     def filter_settings_changed(self):
         if self.hdf5_plot_inset is not None:
@@ -708,12 +723,15 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.no_extra_lines = 0 # these are for adding offset to the green lines
         self.no_extra_lines = 0
         self.bx1 = self.plot_inset.getViewBox()
-        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_inset,
-                                                          main_gui_obj = self,
-                                                          viewbox = self.bx1)
-        if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
+        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent=self.plot_inset,
+                                                          main_gui_obj=self,
+                                                          viewbox=self.bx1)
+        if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked():
             self.hdf5_plot_inset.display_filter_update()
-        self.hdf5_plot_inset.setHDF5(data, time, self.fs)
+        try:
+            self.hdf5_plot_inset.setHDF5(data, time, self.fs)
+        except:
+            throw_error()
         self.plot_inset.addItem(self.hdf5_plot_inset)
         self.plot_inset.setLabel('left', 'Voltage (uV)')
         self.plot_inset.setLabel('bottom', 'Time (s)')
@@ -724,10 +742,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_overview.setXRange(0,3600, padding=0) # hardcoding in the hour here...
         self.plot_overview.setMouseEnabled(x = False, y= True)
         self.bx_overview = self.plot_overview.getViewBox()
-        hdf5_plotoverview = main_gui_plotting.HDF5Plot(parent = self.plot_overview,
+        hdf5_plotoverview = main_gui_plotting.HDF5Plot(parent=self.plot_overview,
                                                        main_gui_obj=self,
-                                                       viewbox = self.bx_overview)
-        hdf5_plotoverview.setHDF5(data, time, self.fs)
+                                                       viewbox=self.bx_overview)
+        try:
+            hdf5_plotoverview.setHDF5(data, time, self.fs)
+        except:
+            throw_error()
         self.plot_overview.addItem(hdf5_plotoverview)
         self.plot_overview.setXRange(time[0],time[-1], padding=0)
         self.plot_overview.setLabel('left', 'Voltage (uV)')
