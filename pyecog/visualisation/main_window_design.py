@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'main_window_design_v4.ui'
+# Form implementation generated from reading ui file 'main_window_design_v5.ui'
 #
 # Created by: PyQt5 UI code generator 5.6
 #
@@ -341,9 +341,9 @@ class Ui_MainWindow(object):
         self.formLayout_4.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.downsample_spinbox)
         self.horizontalLayout.addWidget(self.frame_3)
         self.splitter = QtWidgets.QSplitter(self.splitter_2)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
-        sizePolicy.setHorizontalStretch(100)
-        sizePolicy.setVerticalStretch(100)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(self.splitter.sizePolicy().hasHeightForWidth())
         self.splitter.setSizePolicy(sizePolicy)
         self.splitter.setOrientation(QtCore.Qt.Vertical)

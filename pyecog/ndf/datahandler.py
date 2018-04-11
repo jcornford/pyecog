@@ -29,7 +29,8 @@ class DataHandler():
     Class to handle all ingesting of data and outputing it in a format for the Classifier Handler
 
     TODO:
-     -  pass in dates for predictions, and print out files you skipped is not transmitter there
+     -  refactor multiprocessing
+     https://stackoverflow.com/questions/5442910/python-multiprocessing-pool-map-for-multiple-arguments?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
 
     '''
 
@@ -160,35 +161,37 @@ class DataHandler():
                         logging.error("Didn't add features to file: "+str(group))
                         return 0
 
-    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5):
+    def add_predicition_features_to_h5_file(self, h5_file_path, timewindow = 5, overwrite=False):
         '''
         Currently assuming only one transmitter per h5 file
 
-        Could eventually (now only one tid) have the structure of:
-
-        M1445612etc / tid1
-                    / tid2
-                    / tid3  / data
-                            / time
+        Note: might be useful to flag when skipping a file due to pre-existing features
         '''
         if self.calling_add_predictions_from_multiprocessing:
             timewindow  = self.twindow
+            overwrite   = self.overwrite_prediction_features
 
         with h5py.File(h5_file_path, 'r+') as f:
-
             mcodes = [f[group] for group in list(f.keys())]
-            assert len(mcodes) == 1 # assuming one transmitter per file
+            assert len(mcodes) == 1 # assert one transmitter per file
             mcode = mcodes[0]
-
             tids = [mcode[tid] for tid in list(mcode.keys())]
 
-            for tid in tids: # loop through groups which are tids for predicition h5s
+            for tid in tids:
+                try:
+                    tid['features']
+                    if overwrite:
+                        del tid['features']
+                    else:
+                        # features found, so skip over tid
+                        continue
+                except:
+                    # no features
+                    pass
                 data_array = tid['data'][:]
-
                 if data_array is not None:
-
                     logging.debug('Reshaping data from '+str(data_array.shape)+ ' using '+str(tid.attrs['fs']) +' fs' +
-                                  ' and timewindow of '+ str(timewindow)  )
+                                  ' and timewindow of '+ str(timewindow) )
                     data_array = self._make_array_from_data(data_array, fs = tid.attrs['fs'], timewindow = timewindow)
                     try:
                         assert data_array.shape[0] == int(3600/timewindow)
@@ -197,12 +200,6 @@ class DataHandler():
                     #return data_array
                     extractor = FeatureExtractor(data_array, tid.attrs['fs'])
                     features = extractor.feature_array
-
-                    try:
-                        del tid['features']
-                        logging.debug('Deleted old features')
-                    except:
-                        pass
                     tid.create_dataset('features', data = features, compression = 'gzip')
                     tid.attrs['col_names'] = np.array(extractor.col_labels).astype('|S9')
                     tid.attrs['scale_coef_for_feature_extraction'] = extractor.scale_coef_for_feature_extraction
@@ -210,24 +207,26 @@ class DataHandler():
                     logging.debug('Added features to ' + str(os.path.basename(h5_file_path)) + ', shape:' + str(features.shape))
 
                 elif data_array is None:
-                    logging.error('File has None for data - perhaps all the same')
+                    logging.error('File has None for data')
                     logging.error("Didn't add features to group: "+ str(tid))
-
                     return 0
 
     def parallel_add_prediction_features(self,
                                          h5py_folder,
                                          n_cores = -1,
                                          timewindow = 5,
+                                         overwrite_features=False,
                                          gui_object=False):
         '''
-
+        Note: refactor with pool.starmap
         '''
         if gui_object: # if been called from the gui
             gui_object = gui_object
 
         self.calling_add_predictions_from_multiprocessing = True # set flag to true
         self.twindow = timewindow
+        self.overwrite_prediction_features = overwrite_features
+
         files_to_add_features = [os.path.join(h5py_folder, fname) for fname in os.listdir(h5py_folder) if fname.endswith('.h5')]
         l = int(len(files_to_add_features))
 
@@ -240,7 +239,7 @@ class DataHandler():
 
         pool = multiprocessing.Pool(n_cores)
 
-        print( ' Adding features to '+str(l)+ ' hours in '+ h5py_folder)
+        print( 'Adding features to transmitters in '+str(l)+ ' h5 files in '+ h5py_folder)
         self.printProgress(0,l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
         for i, _ in enumerate(pool.imap(self.add_predicition_features_to_h5_file, files_to_add_features), 1):
             self.printProgress(i, l, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
@@ -248,13 +247,10 @@ class DataHandler():
             if gui_object:
                 gui_object.set_progress_bar.emit(str(i))
                 gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
-
-        #pool.map(self.add_predicition_features_to_h5_file, files_to_add_features)
         pool.close()
         pool.join()
         if gui_object:
             gui_object.update_progress_label.emit('Progress: Done')
-            #gui_object.set_progress_bar.emit(str(0))
         self.calling_add_predictions_from_multiprocessing = False
 
     def prepare_annotation_dataframe(self, df):
