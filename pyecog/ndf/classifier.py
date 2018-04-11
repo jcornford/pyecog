@@ -17,12 +17,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.utils import resample
 from sklearn.preprocessing import Imputer, StandardScaler, normalize
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import cross_validation as cv
-from sklearn import metrics as sk_metrics
-from sklearn.calibration import CalibratedClassifierCV
 
 from . import hmm_pyecog
 from .classifier_utils import get_predictions_cross_val

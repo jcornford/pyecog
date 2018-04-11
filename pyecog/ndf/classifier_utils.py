@@ -2,7 +2,6 @@ import numpy as np
 
 import pandas as pd
 
-from sklearn.preprocessing import Imputer, StandardScaler
 from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics as sk_metrics
 
@@ -31,7 +30,7 @@ def get_predictions_cross_val(X, y, model,
 
         model.fit(x_train, y_train)
         if cc_lr:
-            print('running ccs',)
+            print('running case control sampling',)
             model.intercept_ = cc_correct_intercept(model, 0.002993, 0.028)
             print(model.intercept_)
         # get predictions
