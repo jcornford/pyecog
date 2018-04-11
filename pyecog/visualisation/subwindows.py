@@ -91,7 +91,7 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
         # grab the settings...
 
         if self.extraction_thread.isRunning():
-            QtGui.QMessageBox.information(self, "Not implemented, lazy!", "Worker thread still running, please wait for previous orders to be finished!")
+            QtGui.QMessageBox.information(self, "Info", "Worker thread still running, please wait for previous orders to be finished!")
             return 0
 
         chunk_len   = int(self.chunk_len_box.text())
@@ -192,7 +192,8 @@ class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
 
 
     def worker_finished(self):
-        print('worker finished! method called - terminating? - needlessly?')
+        # not called
+        print('worker finished!')
         if self.worker:
             print(self.worker)
         self.spawn_worker()
