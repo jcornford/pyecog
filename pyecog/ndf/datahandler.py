@@ -166,6 +166,7 @@ class DataHandler():
         Currently assuming only one transmitter per h5 file
 
         Note: might be useful to flag when skipping a file due to pre-existing features
+        - 2 you should implement h5 file save function and work through that
         '''
         if self.calling_add_predictions_from_multiprocessing:
             timewindow  = self.twindow
@@ -235,6 +236,7 @@ class DataHandler():
 
         if gui_object:
             gui_object.set_max_progress.emit(str(l))
+            gui_object.set_progress_bar.emit(str(0))
             gui_object.update_hidden_label.emit(str(l) + ' Files to extract features from')
 
         pool = multiprocessing.Pool(n_cores)

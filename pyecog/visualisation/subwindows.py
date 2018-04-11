@@ -112,6 +112,7 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
 
         self.extraction_thread.set_params_for_extraction(h5_folder=self.h5directory,
                                             timewindow = chunk_len,
+                                            overwrite=self.overwrite_prediction_features_checkbox.isChecked(),
                                             n_cores=ncores)
         self.extraction_thread.start()
 
@@ -127,7 +128,6 @@ class AddPredictionFeaturesWindow(QtGui.QDialog, add_pred_features_subwindow.Ui_
                                                  gui_object= self)
 
 class ExtractPredictionFeaturesThread(QThread):
-    # todo this re implements datahandler - delete this! run like converter
     set_max_progress = pyqtSignal(str)
     update_hidden_label = pyqtSignal(str)
     set_progress_bar =  pyqtSignal(str)
@@ -139,13 +139,18 @@ class ExtractPredictionFeaturesThread(QThread):
 
     def set_params_for_extraction(self, h5_folder,
                                         timewindow,
+                                        overwrite,
                                         n_cores = -1):
         self.twindow = timewindow
         self.n_cores = n_cores
         self.folder = h5_folder
+        self.overwrite = overwrite
 
     def run(self):
-        self.handler.parallel_add_prediction_features(self.folder, self.n_cores,self.twindow,self)
+        self.handler.parallel_add_prediction_features(self.folder, self.n_cores,
+                                                      self.twindow,
+                                                      overwrite_features=self.overwrite,
+                                                      gui_object=self)
 
 class LibraryWindow(QtGui.QDialog, library_subwindow.Ui_LibraryManagement):
     ''' this is for the predictions, csv and h5 folder needed '''
