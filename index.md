@@ -1,1 +1,1 @@
-Pyecog
+Pyecog documentation
