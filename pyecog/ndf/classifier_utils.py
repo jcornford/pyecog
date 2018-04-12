@@ -2,7 +2,334 @@ import numpy as np
 
 import pandas as pd
 
-from sklearn.preprocessing import Imputer, StandardScaler
+from sklearn.model_selection import StratifiedKFold
+from sklearn import metrics as sk_metrics
+
+
+def get_predictions_cross_val(X, y, model,
+                              n_cvfolds=3,
+                              random_state=7,
+                              print_scores=False,
+                              cc_lr=False):
+    '''
+    returns cross_val_predictions.values, cross_val_probabilities.values '''
+
+    skfold_cv = StratifiedKFold(n_cvfolds, random_state=7)
+    cross_val_predictions = pd.DataFrame(np.zeros(shape=(y.shape[0], n_cvfolds)))  # do the df stack..
+    cross_val_probabilities = pd.DataFrame(np.zeros(shape=(y.shape[0], np.unique(y).shape[0])))
+    metrics = [sk_metrics.f1_score]
+    model_cv_performance = {m.__name__: [] for m in metrics}
+    model_tr_performance = {m.__name__: [] for m in metrics}
+
+    fold_i = 0
+    for t_index, v_index in skfold_cv.split(X, y):
+        x_val = X[v_index, :]
+        x_train = X[t_index, :]
+        y_val = y[v_index]
+        y_train = y[t_index]
+
+        model.fit(x_train, y_train)
+        if cc_lr:
+            print('running case control sampling',)
+            model.intercept_ = cc_correct_intercept(model, 0.002993, 0.028)
+            print(model.intercept_)
+        # get predictions
+        val_preds = model.predict(x_val)
+        val_probs = model.predict_proba(x_val)
+        cross_val_predictions.iloc[v_index, fold_i] = val_preds
+        cross_val_probabilities.iloc[v_index] = val_probs
+
+        # validation scores
+        f1score = sk_metrics.f1_score(y_val, val_preds, pos_label=1)
+        model_cv_performance['f1_score'].append(f1score)
+
+        # training scores
+        train_preds = model.predict(x_train)
+        f1score = sk_metrics.f1_score(y_train, train_preds, pos_label=1)
+        model_tr_performance['f1_score'].append(f1score)
+
+        fold_i += 1
+
+    for key in model_cv_performance.keys():
+        model_cv_performance[key] = np.mean(model_cv_performance[key])
+        model_tr_performance[key] = np.mean(model_tr_performance[key])
+    if print_scores:
+        print('Ran CV on library data for HMM state emissions:')
+        print('Training:', model_tr_performance)
+        print('Testing: ', model_cv_performance)
+    cross_val_predictions = cross_val_predictions.sum(axis=1)
+    cross_val_predictions[cross_val_predictions > 0] = 1
+    return cross_val_predictions.values, cross_val_probabilities.values
+
+from sklearn.utils import resample
+def resample_training_dataset(feature_array,labels, sizes):
+    """
+    Inputs:
+        - labels
+        - features
+        - sizes: tuple, for each class (0,1,etc)m the number of training chunks you want.
+        i.e for 500 seizures, 5000 baseline, sizes = (5000, 500), as 0 is baseline, 1 is Seizure
+    Takes labels and features an
+
+    WARNING: Up-sampling target class prevents random forest oob from being accurate.
+    """
+    if len (labels.shape) == 1:
+        labels = labels[:, None]
+
+    resampled_labels = []
+    resampled_features = []
+    for i,label in enumerate(np.unique(labels.astype('int'))):
+        class_inds = np.where(labels==label)[0]
+
+        class_labels = labels[class_inds]
+        class_features = feature_array[class_inds,:]
+
+        if class_features.shape[0] < sizes[i]: # need to oversample
+            class_features_duplicated = np.vstack([class_features for i in range(int(sizes[i]/class_features.shape[0]))])
+            class_labels_duplicated  = np.vstack([class_labels for i in range(int(sizes[i]/class_labels.shape[0]))])
+            n_extra_needed = sizes[i] - class_labels_duplicated.shape[0]
+            extra_features = resample(class_features, n_samples =  n_extra_needed,random_state = 7, replace = False)
+            extra_labels = resample(class_labels, n_samples =  n_extra_needed,random_state = 7, replace = False)
+
+            boot_array  = np.vstack([class_features_duplicated,extra_features])
+            boot_labels = np.vstack([class_labels_duplicated,extra_labels])
+
+        elif class_features.shape[0] > sizes[i]: # need to undersample
+            boot_array  = resample(class_features, n_samples =  sizes[i],random_state = 7, replace = False)
+            boot_labels = resample(class_labels,   n_samples =  sizes[i],random_state = 7, replace = False)
+
+        elif class_features.shape[0] == sizes[i]:
+            logging.debug('label '+str(label)+ ' had exact n as sample, doing nothing!')
+            boot_array  = class_features
+            boot_labels = class_labels
+        else:
+            print(class_features.shape[0], sizes[i])
+            print ('fuckup')
+        resampled_features.append(boot_array)
+        resampled_labels.append(boot_labels)
+    # stack both up...
+    resampled_labels = np.vstack(resampled_labels)
+    resampled_features = np.vstack(resampled_features)
+
+    logging.debug('Original label counts: '+str(pd.Series(labels[:,0]).value_counts()))
+    logging.debug('Resampled label counts: '+str(pd.Series(resampled_labels[:,0]).value_counts()))
+    return resampled_features,resampled_labels[:,0]
+
+import os
+import logging
+import traceback
+import time
+import h5py
+import sys
+from . import utils
+def predict_dir(prediction_dir,
+                output_csv_filename,
+                classfier_object,
+                overwrite_previous_predicitions = True,
+                posterior_thresh = 0.5,
+                gui_object = False):
+    '''
+    Function to handle prediction of directory
+    '''
+    if not output_csv_filename.endswith('.csv'):
+        output_csv_filename = output_csv_filename + '.csv'
+    files_to_predict = [os.path.join(prediction_dir,f) for f in os.listdir(prediction_dir) if not f.startswith('.') if f.endswith('.h5') ]
+    l = len(files_to_predict)
+
+    print('Looking through '+ str(len(files_to_predict)) + ' files for seizures:')
+    print_progress_preds(0,l,pred_count=0, prefix = 'Progress:', suffix = 'Complete', barLength = 50)
+
+    if gui_object:
+        gui_object.update_label_above2.emit('Looking through '+ str(len(files_to_predict)) + ' files for seizures:')
+        gui_object.setMaximum_progressbar.emit(str(l))
+        gui_object.update_progress_label.emit('Progress: ' + str(0) + ' / ' + str(l))
+
+    if overwrite_previous_predicitions:
+        try:
+            os.remove(output_csv_filename)
+        except:
+            pass
+
+    skip_n =  0
+    pred_count = 0
+    all_predictions_df = None
+
+    for i,fpath in enumerate(files_to_predict, 1):
+        full_fname = str(os.path.split(fpath)[1]) # this has more than one tid
+
+        print_progress_preds(i, l, pred_count, prefix='Progress:', suffix='Seizure predictions:', barLength=50)
+        if gui_object:
+            gui_object.update_progress_label.emit('Progress: ' + str(i) + ' / ' + str(l))
+            gui_object.SetProgressBar.emit(str(i))
+
+        try:
+            with h5py.File(fpath, 'r+') as f:
+                # todo refactor and use h5 loading class
+                group = f[list(f.keys())[0]]
+                for tid_no in list(group.keys()):
+                    tid_no = str(tid_no)
+                    tid = group[tid_no]
+                    pred_features = tid['features'][:]
+                    logging.info(full_fname + ' now predicting tid '+tid_no)
+
+                    posterior_y = classfier_object.predict(pred_features)
+                    if sum(posterior_y):
+                        fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
+                        name_array = np.array([fname for i in range(posterior_y.shape[0])])
+                        prediction_df = make_prediction_dataframe_rows_from_chunk_labels(tid_no,
+                                                                                         to_stack = [name_array, posterior_y])
+                        pred_count += prediction_df.shape[0]
+                        if all_predictions_df is None:
+                            all_predictions_df = prediction_df
+                        else:
+                            all_predictions_df = all_predictions_df.append(prediction_df, ignore_index=True)
+
+                        if all_predictions_df.shape[0] > 50:
+                            if not os.path.exists(output_csv_filename):
+                                all_predictions_df.to_csv(output_csv_filename, index=False)
+                            else:
+                                with open(output_csv_filename, 'a') as f2:
+                                    all_predictions_df.to_csv(f2, header=False, index=False)
+                            all_predictions_df = None
+                    else:
+                        pass
+                        # no seizures detected for that posterior_y
+        except KeyError:
+            # gui should throw error
+            print('KeyError:did not contain any features! Skipping')
+            logging.error(str(full_fname) + 'did not contain any features! Skipping')
+            skip_n += 1
+
+    # save whatever is left of the predicitions (will be < 50 rows)
+    if not os.path.exists(output_csv_filename):
+        all_predictions_df.to_csv(output_csv_filename, index = False)
+    else:
+        with open(output_csv_filename, 'a') as f2:
+            all_predictions_df.to_csv(f2, header=False, index = False)
+    try:
+        print('Re - ordering spreadsheet by date')
+        reorder_prediction_csv(output_csv_filename)
+        print ('Done')
+    except:
+        print('unable to re-order spreadsheet by date')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        print (traceback.print_exception(exc_type, exc_value, exc_traceback))
+
+    if skip_n != 0:
+        print('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
+        time.sleep(5)
+        if gui_object:
+            gui_object.throw_error('WARNING: There were files '+str(skip_n)+' without features that were skipped ')
+
+    return skip_n
+
+def reorder_prediction_csv(csv_path):
+    df = pd.read_csv(csv_path, parse_dates=['real_start'])
+    reordered_df = df.sort_values(by='real_start')
+    reordered_df.to_csv(csv_path)
+
+def make_prediction_dataframe_rows_from_chunk_labels(tid_no, to_stack = [], columns_list = ['Name', 'Pred'], verbose = False):
+    '''
+    to_stack list:
+        - first needs to be the name array
+        - second needs to be the predictions
+    '''
+    for i,array in enumerate(to_stack):
+        if len(array.shape) == 1:
+            to_stack[i] = array[:,None]
+    data = np.hstack([to_stack[0],to_stack[1].astype(int)])
+    df = pd.DataFrame(data, columns = columns_list)
+
+    # Make time index...
+    df['f_index'] = df.groupby(by = columns_list[0]).cumcount()
+    # assuming 1 hour per filename, first assert all files have same
+    # number of
+    x = df[str(columns_list[0])].value_counts()
+    n_chunks = x.max()
+    try:
+        assert x.isin([n_chunks]).all()
+    except:
+        if verbose:
+            print('Warning: Files not all the same length \n'+str(x))
+        else:
+            print('Warning: Files not all the same length, run again with verbose flag True for more detail')
+    sec_per_chunk = 3600/n_chunks # assumes  hour here
+    df['start_time'] = df['f_index']*sec_per_chunk
+    df['end_time'] = (df['f_index']+1)*sec_per_chunk
+
+    # okay, now find the seizures!
+    seizure_indexes = df.groupby(columns_list[1]).indices['1']
+    seizures_idx_tups = []
+    start = None
+    for i,t  in enumerate(seizure_indexes):
+        if start is None:
+            start = t
+        try:
+            if seizure_indexes[i+1] - t != 1:
+                end = t
+                seizures_idx_tups.append((start,end))
+                start = None
+        except IndexError:
+            end = t
+            seizures_idx_tups.append((start,end))
+            start = None
+
+    # make the Dataframe for predicted seizures
+    df_rows = []
+    for tup in seizures_idx_tups:
+        name = df.ix[tup[0],columns_list[0]]
+        start_time = df.ix[tup[0],'start_time']
+        end_time = df.ix[tup[1],'end_time']
+        duration = end_time-start_time
+        real_start = utils.get_time_from_seconds_and_filepath(name, float(start_time), split_on_underscore = True).round('s')
+        real_end   = utils.get_time_from_seconds_and_filepath(name,float(end_time), split_on_underscore = True ).round('s')
+        row = pd.Series([name,start_time,end_time,duration, tid_no, real_start, real_end],
+                        index = ['filename','start', 'end','duration', 'transmitter','real_start','real_end'])
+        df_rows.append(row)
+    excel_sheet = pd.DataFrame(df_rows)
+    return excel_sheet
+
+def printProgress (iteration, total, prefix = '', suffix = '', decimals = 2, barLength = 100):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : number of decimals in percent complete (Int)
+        barLength   - Optional  : character length of bar (Int)
+    """
+    filledLength    = int(round(barLength * iteration / float(total)))
+    percents        = round(100.00 * (iteration / float(total)), decimals)
+    bar             = '*' * filledLength + '-' * (barLength - filledLength)
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+    sys.stdout.flush()
+    if iteration == total:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+def print_progress_preds (iteration, total, pred_count, prefix = '', suffix = '', decimals = 2, barLength = 100):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : number of decimals in percent complete (Int)
+        barLength   - Optional  : character length of bar (Int)
+    """
+    filledLength    = int(round(barLength * iteration / float(total)))
+    percents        = round(100.00 * (iteration / float(total)), decimals)
+
+    bar             = '*' * filledLength + '-' * (barLength - filledLength)
+    sys.stdout.write('\r%s |%s| %.2f%s %s %s' % (prefix, bar, percents, '%', suffix, pred_count)),
+    sys.stdout.flush()
+    if iteration == total:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
 
 
 def get_feature_imps(clf_obj, X_df_columns):

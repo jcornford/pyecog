@@ -98,6 +98,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.hp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.lp_filter_freq.valueChanged.connect(self.filter_settings_changed)
         self.add_extra_line.clicked.connect(self.add_extra_line_to_plot)
+        self.show_fft_checkbox.stateChanged.connect(self.toggle_fft_subplot)
 
         self.fs = None # change !
         self.previously_displayed_tid = None
@@ -145,6 +146,20 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.file_dir_up = False
         self.substates_up = False
         self.substate_child_selected = False
+
+    def toggle_fft_subplot(self):
+        if self.hdf5_plot_inset is None:
+            return 0
+        if self.show_fft_checkbox.isChecked():
+            self.fft_plot = self.GraphicsLayoutWidget.addPlot()
+            self.fft_plot.setLabel('left', 'Amplitude')
+            self.fft_plot.setLabel('bottom', 'Frequency (Hz)')
+            self.hdf5_plot_inset.updateHDF5Plot()
+            # addPlot(row=None, col=None, rowspan=1, colspan=1, **kargs)
+        else:
+            if self.fft_plot:
+                self.GraphicsLayoutWidget.removeItem(self.fft_plot)
+                self.fft_plot = None
 
     def filter_settings_changed(self):
         if self.hdf5_plot_inset is not None:
@@ -708,12 +723,15 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.no_extra_lines = 0 # these are for adding offset to the green lines
         self.no_extra_lines = 0
         self.bx1 = self.plot_inset.getViewBox()
-        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent = self.plot_inset,
-                                                          main_gui_obj = self,
-                                                          viewbox = self.bx1)
-        if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked() :
+        self.hdf5_plot_inset = main_gui_plotting.HDF5Plot(parent=self.plot_inset,
+                                                          main_gui_obj=self,
+                                                          viewbox=self.bx1)
+        if self.checkbox_lp_filter.isChecked() or self.checkbox_hp_filter.isChecked():
             self.hdf5_plot_inset.display_filter_update()
-        self.hdf5_plot_inset.setHDF5(data, time, self.fs)
+        try:
+            self.hdf5_plot_inset.setHDF5(data, time, self.fs)
+        except:
+            throw_error()
         self.plot_inset.addItem(self.hdf5_plot_inset)
         self.plot_inset.setLabel('left', 'Voltage (uV)')
         self.plot_inset.setLabel('bottom', 'Time (s)')
@@ -724,10 +742,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.plot_overview.setXRange(0,3600, padding=0) # hardcoding in the hour here...
         self.plot_overview.setMouseEnabled(x = False, y= True)
         self.bx_overview = self.plot_overview.getViewBox()
-        hdf5_plotoverview = main_gui_plotting.HDF5Plot(parent = self.plot_overview,
+        hdf5_plotoverview = main_gui_plotting.HDF5Plot(parent=self.plot_overview,
                                                        main_gui_obj=self,
-                                                       viewbox = self.bx_overview)
-        hdf5_plotoverview.setHDF5(data, time, self.fs)
+                                                       viewbox=self.bx_overview)
+        try:
+            hdf5_plotoverview.setHDF5(data, time, self.fs)
+        except:
+            throw_error()
         self.plot_overview.addItem(hdf5_plotoverview)
         self.plot_overview.setXRange(time[0],time[-1], padding=0)
         self.plot_overview.setLabel('left', 'Voltage (uV)')
@@ -876,6 +897,13 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.deleted_tree_items = []
         self.treeWidget.setColumnCount(7)
         self.treeWidget.setHeaderLabels(['index', 'start', 'end','duration', 'tid', 'fname', 'real_start', 'real_end'])
+        try:
+            tids = eval(tids)
+        except TypeError: # should just be the one tid
+            tids = [int(tids)]
+        if type(tids) != list:
+            tids = list(tids)
+        tids = str(tids)
         filename = row['filename']
         index =  row['index']
         start =  row['start']
@@ -904,7 +932,7 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                          str(start),
                          str(end),
                          str(duration),
-                         str(tids), # bad, should make only tid having one explicit - predictions should only have one!
+                         str(tids),
                          str(filename),
                          str(real_start),
                          str(real_end)]
@@ -989,7 +1017,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         self.set_end_and_calc_duration()
 
     def mouse_click_on_main(self,evt):
-        pos = evt[0].scenePos()
+        # todo annotate library
+        pos = evt[0].scenePos() # evt is MouseClickEvent
         if self.plot_inset.sceneBoundingRect().contains(pos):
             mousePoint = self.bx1.mapSceneToView(pos) # bx1 is just self.plot_1.getViewBox()
 
@@ -1002,6 +1031,12 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             self.add_start_line_to_h5_file(mousePoint.x())
 
         elif modifier == Qt.AltModifier:
+            if self.library_up:
+                throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
+                return 0
+            self.add_end_line_to_h5(mousePoint.x())
+
+        elif modifier == Qt.MetaModifier:
             if self.library_up:
                 throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
                 return 0
@@ -1101,8 +1136,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
         if key_id ==  Qt.Key_Z and modifier == Qt.ControlModifier:
             self.undo_tree_deletion()
 
-        if key_id ==  Qt.Key_Z :
-            self.undo_tree_deletion()
+        #if key_id ==  Qt.Key_Z :
+        #    self.undo_tree_deletion()
 
         if key_id == Qt.Key_Up:
             if self.scroll_flag==True:

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>790</width>
-    <height>770</height>
+    <width>825</width>
+    <height>928</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -58,7 +58,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>710</y>
+     <y>830</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -71,7 +71,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>740</y>
+     <y>860</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -84,7 +84,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>680</y>
+     <y>800</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -97,7 +97,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>650</y>
+     <y>770</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -128,7 +128,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>500</y>
+     <y>620</y>
      <width>750</width>
      <height>16</height>
     </rect>
@@ -167,7 +167,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>510</y>
+     <y>630</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -193,7 +193,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>186</y>
+     <y>502</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -206,7 +206,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>156</y>
+     <y>472</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -218,8 +218,8 @@
   <widget class="QPushButton" name="make_classifier">
    <property name="geometry">
     <rect>
-     <x>220</x>
-     <y>114</y>
+     <x>180</x>
+     <y>440</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -232,7 +232,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>214</y>
+     <y>530</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -245,7 +245,7 @@
    <property name="geometry">
     <rect>
      <x>220</x>
-     <y>214</y>
+     <y>530</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -258,7 +258,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>540</y>
+     <y>660</y>
      <width>750</width>
      <height>31</height>
     </rect>
@@ -271,7 +271,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>574</y>
+     <y>694</y>
      <width>750</width>
      <height>28</height>
     </rect>
@@ -290,7 +290,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>610</y>
+     <y>730</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -303,7 +303,7 @@
    <property name="geometry">
     <rect>
      <x>220</x>
-     <y>610</y>
+     <y>730</y>
      <width>250</width>
      <height>31</height>
     </rect>
@@ -313,23 +313,29 @@
    </property>
   </widget>
   <widget class="QPushButton" name="estimate_error">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>460</y>
+     <y>580</y>
      <width>200</width>
      <height>31</height>
     </rect>
    </property>
    <property name="text">
-    <string> Estimate Error</string>
+    <string> Estimate Error (todo)</string>
    </property>
   </widget>
   <widget class="QLineEdit" name="cv_nfolds">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>390</x>
-     <y>460</y>
+     <y>580</y>
      <width>31</width>
      <height>25</height>
     </rect>
@@ -339,10 +345,13 @@
    </property>
   </widget>
   <widget class="QLabel" name="label_4">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>250</x>
-     <y>460</y>
+     <y>580</y>
      <width>161</width>
      <height>31</height>
     </rect>
@@ -355,7 +364,7 @@
    <property name="geometry">
     <rect>
      <x>450</x>
-     <y>460</y>
+     <y>580</y>
      <width>320</width>
      <height>31</height>
     </rect>
@@ -368,9 +377,9 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>270</y>
-     <width>440</width>
-     <height>151</height>
+     <y>180</y>
+     <width>451</width>
+     <height>231</height>
     </rect>
    </property>
    <property name="frameShape">
@@ -398,15 +407,21 @@
     <property name="verticalSpacing">
      <number>0</number>
     </property>
-    <item row="0" column="0">
-     <widget class="QLabel" name="label_8">
+    <item row="20" column="0" colspan="2">
+     <widget class="QCheckBox" name="cc_sampling_box">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="text">
-       <string>Set n cores:</string>
+       <string>Case control sampling</string>
       </property>
      </widget>
     </item>
-    <item row="0" column="1">
-     <widget class="QLineEdit" name="n_cores">
+    <item row="20" column="4">
+     <widget class="QLineEdit" name="cc_total_hours">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="maximumSize">
        <size>
         <width>80</width>
@@ -414,71 +429,18 @@
        </size>
       </property>
       <property name="text">
-       <string>all</string>
+       <string>(todo)</string>
       </property>
      </widget>
     </item>
     <item row="1" column="0">
-     <widget class="QLabel" name="label_9">
-      <property name="text">
-       <string>Downsample BL:</string>
+     <widget class="Line" name="line_6">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
       </property>
      </widget>
     </item>
-    <item row="1" column="1">
-     <widget class="QLineEdit" name="downsample_bl">
-      <property name="maximumSize">
-       <size>
-        <width>80</width>
-        <height>16777215</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>1</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="3">
-     <widget class="QLineEdit" name="BL_weight">
-      <property name="maximumSize">
-       <size>
-        <width>80</width>
-        <height>16777215</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>auto</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="0">
-     <widget class="QLabel" name="label_10">
-      <property name="text">
-       <string>Upsample seizures:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLineEdit" name="upsample_s_factor">
-      <property name="maximumSize">
-       <size>
-        <width>80</width>
-        <height>16777215</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>1</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QLabel" name="label_14">
-      <property name="text">
-       <string>No. Trees</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1">
+    <item row="8" column="2">
      <widget class="QLineEdit" name="n_trees">
       <property name="maximumSize">
        <size>
@@ -491,18 +453,149 @@
       </property>
      </widget>
     </item>
-    <item row="0" column="2" colspan="2">
-     <widget class="QLabel" name="label_11">
+    <item row="20" column="2">
+     <widget class="QLabel" name="label_15">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="text">
-       <string>Class weights</string>
+       <string>Total  hours</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="2">
+     <widget class="Line" name="line_7">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="3" colspan="2">
+     <widget class="QLabel" name="label_11">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Class weights (todo)</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
       </property>
      </widget>
     </item>
+    <item row="18" column="0">
+     <widget class="QCheckBox" name="probabilistic_hmm_box">
+      <property name="text">
+       <string>Probabilisitc HMM </string>
+      </property>
+     </widget>
+    </item>
+    <item row="20" column="3">
+     <widget class="QLabel" name="label_16">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>analysed</string>
+      </property>
+     </widget>
+    </item>
+    <item row="16" column="0">
+     <widget class="Line" name="line_9">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label_8">
+      <property name="text">
+       <string>Set n cores:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <widget class="QLineEdit" name="n_cores">
+      <property name="maximumSize">
+       <size>
+        <width>80</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>all</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QCheckBox" name="lg_box">
+      <property name="text">
+       <string>Logistic regression</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="2">
+     <widget class="QLineEdit" name="upsample_s_factor">
+      <property name="maximumSize">
+       <size>
+        <width>80</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>1</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="0">
+     <widget class="QLabel" name="label_9">
+      <property name="text">
+       <string>Downsample BL:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="0">
+     <widget class="QLabel" name="label_10">
+      <property name="text">
+       <string>Upsample seizures:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="10" column="0" colspan="3">
+     <widget class="QLabel" name="label_7">
+      <property name="text">
+       <string>Resample chunks for descriminative clf</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="2">
+     <widget class="QLineEdit" name="downsample_bl">
+      <property name="maximumSize">
+       <size>
+        <width>80</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>1</string>
+      </property>
+     </widget>
+    </item>
     <item row="2" column="3">
+     <widget class="QLabel" name="label_12">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>BL</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="4">
      <widget class="QLineEdit" name="s_weight">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="maximumSize">
        <size>
         <width>80</width>
@@ -514,40 +607,126 @@
       </property>
      </widget>
     </item>
-    <item row="2" column="2">
+    <item row="2" column="4">
+     <widget class="QLineEdit" name="BL_weight">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>80</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>auto</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="3">
      <widget class="QLabel" name="label_13">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="text">
        <string>S</string>
       </property>
      </widget>
     </item>
-    <item row="1" column="2">
-     <widget class="QLabel" name="label_12">
+    <item row="9" column="2">
+     <widget class="Line" name="line_5">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="0">
+     <widget class="Line" name="line_4">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="19" column="0">
+     <widget class="Line" name="line_8">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="Line" name="line">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="2">
+     <widget class="Line" name="line_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="7" column="0" colspan="2">
+     <widget class="QCheckBox" name="rf_box">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
       <property name="text">
-       <string>BL</string>
+       <string>Random Forest</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+      <property name="autoExclusive">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0" colspan="2">
+     <widget class="QLabel" name="label_14">
+      <property name="text">
+       <string>No. Trees</string>
       </property>
      </widget>
     </item>
    </layout>
-   <zorder>label_12</zorder>
-   <zorder>s_weight</zorder>
-   <zorder>label_13</zorder>
-   <zorder>downsample_bl</zorder>
-   <zorder>upsample_s_factor</zorder>
-   <zorder>BL_weight</zorder>
    <zorder>n_trees</zorder>
-   <zorder>label_11</zorder>
-   <zorder>label_10</zorder>
-   <zorder>label_9</zorder>
    <zorder>label_8</zorder>
    <zorder>label_14</zorder>
    <zorder>n_cores</zorder>
+   <zorder>label_7</zorder>
+   <zorder>label_9</zorder>
+   <zorder>label_10</zorder>
+   <zorder>upsample_s_factor</zorder>
+   <zorder>downsample_bl</zorder>
+   <zorder>label_11</zorder>
+   <zorder>rf_box</zorder>
+   <zorder>lg_box</zorder>
+   <zorder>BL_weight</zorder>
+   <zorder>label_12</zorder>
+   <zorder>s_weight</zorder>
+   <zorder>label_13</zorder>
+   <zorder>line_4</zorder>
+   <zorder>line_5</zorder>
+   <zorder>line_6</zorder>
+   <zorder>line_7</zorder>
+   <zorder>cc_sampling_box</zorder>
+   <zorder>label_15</zorder>
+   <zorder>label_16</zorder>
+   <zorder>cc_total_hours</zorder>
+   <zorder>line_9</zorder>
+   <zorder>probabilistic_hmm_box</zorder>
+   <zorder>line_8</zorder>
+   <zorder>line</zorder>
+   <zorder>line_3</zorder>
   </widget>
   <widget class="QPushButton" name="train_clf">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>424</y>
+     <x>400</x>
+     <y>440</y>
      <width>200</width>
      <height>31</height>
     </rect>
@@ -560,7 +739,7 @@
    <property name="geometry">
     <rect>
      <x>480</x>
-     <y>280</y>
+     <y>200</y>
      <width>291</width>
      <height>141</height>
     </rect>
