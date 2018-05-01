@@ -3,6 +3,8 @@
 This module is for detecting epileptiform activity from *single* channel intracranial EEG (or ECoG) recordings.
 Currently under heavy construction!
 
+http://jcornford.github.io/pyecog/
+
 ### Recommended installation procedure:
 
 1. Install [Anaconda](https://www.continuum.io/downloads). Choose the Python 3, 64-bit version for your operating system (Linux, Windows, or OS X). You can also download python 2, but just make sure your python version for the environment is 3 (next step).
