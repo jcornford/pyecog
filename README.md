@@ -31,7 +31,7 @@ python start.py
 ### For running without an environment:
 Replace step 2 with
  ```{bash}
-    conda install jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.17.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6
+    conda install jupyter=1 scipy=0.18.1 numpy=1.11.2 scikit-learn=0.18.1 pandas=0.19.2 matplotlib=2 seaborn=0.7.1 h5py=2.6.0 xlrd=1 pyqt=5.6 numba=0.37.0
     pip install pyqtgraph==0.10
  ```
  And then do not activate an enviroment before 
