@@ -56,6 +56,8 @@ class H5Dataset():
                     self.fs = tid_dataset.attrs['fs']
                 if str(att_key) == 'scale_coef_for_feature_extraction':
                     self.scale_coef_for_feature_extraction = tid_dataset.attrs['scale_coef_for_feature_extraction']
+                if str(att_key) == 'mode_std':
+                    self.scale_coef_for_feature_extraction = tid_dataset.attrs['mode_std']
 
             if self.time is None:
                 time_arr_info_dict =  eval(tid_dataset.attrs['time_arr_info_dict'])
