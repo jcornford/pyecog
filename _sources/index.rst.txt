@@ -18,6 +18,7 @@ It is currently under quite heavy construction!
    :caption: Site Contents:
 
    installation
+   gui_guide
 
 Example (outdated) videos
 =========================
