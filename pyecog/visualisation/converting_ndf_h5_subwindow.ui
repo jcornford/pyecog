@@ -40,6 +40,9 @@
      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="label_2">
+       <property name="toolTip">
+        <string>List of transmitter IDs separated by commas: e.g. 1,2,5,7</string>
+       </property>
        <property name="text">
         <string>Select transmitter IDs to convert</string>
        </property>
@@ -47,6 +50,9 @@
      </item>
      <item row="2" column="1">
       <widget class="QLineEdit" name="transmitter_ids">
+       <property name="toolTip">
+        <string>List of transmitter IDs separated by commas: e.g. 1,2,5,7</string>
+       </property>
        <property name="text">
         <string>all</string>
        </property>
@@ -125,6 +131,9 @@
      </item>
      <item row="7" column="0">
       <widget class="QLabel" name="label_5">
+       <property name="toolTip">
+        <string/>
+       </property>
        <property name="text">
         <string>High pass filter 1 Hz</string>
        </property>
@@ -152,7 +161,7 @@
         <string/>
        </property>
        <property name="checked">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
       </widget>
      </item>
