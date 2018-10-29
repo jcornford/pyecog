@@ -19,12 +19,12 @@ It is currently under quite heavy construction!
 
    installation
    gui_guide
+   Using Pyecog with jupyter notebooks
+
 
 Example (outdated) videos
-=========================
-Note: No audio - it is not your speakers!
-
-
+-------------------------
+Note: There is no audio - it is not your speakers!
 
 Browsing recordings
 -------------------
