@@ -174,7 +174,13 @@ class DataHandler():
 
         with h5py.File(h5_file_path, 'r+') as f:
             mcodes = [f[group] for group in list(f.keys())]
-            assert len(mcodes) == 1 # assert one transmitter per file
+            try:
+                assert len(mcodes) == 1 # assert one transmitter per file
+            except:
+                print('Assertion Error: assert len(mcodes) == 1 # assert one transmitter per file')
+                print(h5_file_path)
+                print(mcodes)
+                raise
             mcode = mcodes[0]
             tids = [mcode[tid] for tid in list(mcode.keys())]
 
