@@ -84,8 +84,10 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">How to install Pyecog</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gui_guide.html">How to use the gui</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Pyecog as a python module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#analysis-steps">Analysis steps</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#loading-the-pyecog-module">Loading the pyecog module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="Notebook 1 Converting Ndf files to h5py.html">Notebook 1: Converting .ndf files to .h5 files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Notebook 2 Adding features to h5 files.html">Notebook 2: Adding features to h5 files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Notebook 3 Applying classifier to h5 files.html">Notebook 3: Applying classifier to h5 files</a></li>
 </ul>
 </li>
 </ul>
@@ -175,16 +177,29 @@
 </style>
 <div class="section" id="pyecog-as-a-python-module">
 <h1>Pyecog as a python module<a class="headerlink" href="#pyecog-as-a-python-module" title="Permalink to this headline">¶</a></h1>
-<p>Currently the smoothest way to use pyecog is to to use jupyter notebooks for file conversion, feature extraction and training/applying classifiers.</p>
-<p>While these can be done with the GUI, it is a little clunky, and any uncaught error with crash the window :(</p>
-<p>Furthermore, interacting with the files through python directly does not restrict your analysis to pre-coded routines.</p>
-<div class="section" id="analysis-steps">
-<h2>Analysis steps<a class="headerlink" href="#analysis-steps" title="Permalink to this headline">¶</a></h2>
-<p>testing update</p>
+<p>Currently the smoothest way to use pyecog is to combine python code and the GUI. While it is possible to do
+everything in the GUI, it is a little clunky and any uncaught error will currently crash the program.</p>
+<p>It is suggested to use jupyter notebooks for ndf to h5 file conversion, feature extraction and the training &amp; applying
+of classifiers. Furthermore, by interacting with the files through python directly you do not restrict your
+analysis to pre-coded routines.</p>
+<div class="section" id="loading-the-pyecog-module">
+<h2>Loading the pyecog module<a class="headerlink" href="#loading-the-pyecog-module" title="Permalink to this headline">¶</a></h2>
+<p>For the tutorial notebooks below, we will be loading the pyecog module into python. The easiest way to do this
+is by placing the notebook in the directory downloaded from github, e.g. Pyecog-Master as the pyecog module will be
+found in this folder. However, if you want to run the notebook from else where on your computer you first need
+to make sure that python can find the pyecog module using sys.path.append().
+To do this copy the following code into a cell and run it (shift+enter).:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">pyecog_path</span> <span class="o">=</span> <span class="s1">&#39;/home/jonathan/git_repos/pyecog&#39;</span> <span class="c1"># replace this with the Pyecog-Master location</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pyecog_path</span><span class="p">)</span>
+</pre></div>
+</div>
 <div class="toctree-wrapper compound">
-<p class="caption"><span class="caption-text">Notebooks:</span></p>
+<p class="caption"><span class="caption-text">Tutorial Notebooks:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="Notebook 1 Converting Ndf files to h5py.html">Notebook 1: Converting .ndf files to .h5 files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Notebook 2 Adding features to h5 files.html">Notebook 2: Adding features to h5 files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Notebook 3 Applying classifier to h5 files.html">Notebook 3: Applying classifier to h5 files</a></li>
 </ul>
 </div>
 </div>
