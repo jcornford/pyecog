@@ -122,6 +122,10 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
                 elif self.rf_box.isChecked():
                     ntrees = int(self.n_trees.text())
                     ncores = self.n_cores.text()
+                    if ncores == 'all':
+                        ncores = -1
+                    else:
+                        ncores = int(ncores)
                     descrim_algo = RandomForestClassifier(n_estimators=ntrees,
                                                           random_state=7, n_jobs=ncores)
                 if self.probabilistic_hmm_box.isChecked():
@@ -204,17 +208,10 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
-        ntrees = int(self.n_trees.text()) # these arent required here
-        ncores = self.n_cores.text()
-        if ncores == 'all':
-            ncores = -1
-        else:
-            ncores = int(ncores)
 
         self.worker.set_training_params(self.clf,
                                         dwnsample_factor,
-                                        upsample_factor,
-                                        ntrees, ncores)
+                                        upsample_factor)
         self.worker.start()
 
     def end_training(self):
@@ -327,13 +324,10 @@ class TrainClassifierThread(QThread):
         QThread.__init__(self)
 
     def set_training_params(self, clf, downsample_bl_by_x,
-                            upsample_seizure_by_x,
-                            ntrees, n_cores):
+                            upsample_seizure_by_x,):
         # you sort out the re-sampling and n trees here
         # or do you want to use the class importances?
         self.clf = clf
-        self.n_cores = n_cores
-        self.ntrees = ntrees
         self.downsample_bl_factor    = downsample_bl_by_x
         self.upsample_seizure_factor = upsample_seizure_by_x
 
