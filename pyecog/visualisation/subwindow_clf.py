@@ -344,11 +344,9 @@ class TrainClassifierThread(QThread):
         # NOTE doesnt use the n cores or n trees here anymore!
         #self.feature_weightings = sorted(zip(self.clf.rf.feature_importances_, self.clf.feature_names),reverse = True)
         '''
-        try:
-            self.update_progress_label.emit('Training classifier...')
-            self.clf.train(self.downsample_bl_factor,
-                           self.upsample_seizure_factor)
-            self.finished.emit()
-            self.exit()
-        except:
-            throw_error()
+
+        self.update_progress_label.emit('Training classifier...')
+        self.clf.train(self.downsample_bl_factor,
+                       self.upsample_seizure_factor)
+        self.finished.emit()
+        self.exit()
