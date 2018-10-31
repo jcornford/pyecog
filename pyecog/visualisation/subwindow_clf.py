@@ -120,8 +120,10 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
                 if self.lg_box.isChecked():
                     descrim_algo = LogisticRegression()
                 elif self.rf_box.isChecked():
-                    descrim_algo = RandomForestClassifier(n_estimators=int(self.n_trees.text()),
-                                                          random_state=7)
+                    ntrees = int(self.n_trees.text())
+                    ncores = self.n_cores.text()
+                    descrim_algo = RandomForestClassifier(n_estimators=ntrees,
+                                                          random_state=7, n_jobs=ncores)
                 if self.probabilistic_hmm_box.isChecked():
                     hmm_algo = HMMBayes()
                 else:
@@ -202,7 +204,7 @@ class ClfWindow(QtGui.QDialog,clf_subwindow.Ui_ClfManagement):
 
         dwnsample_factor = int(self.downsample_bl.text())
         upsample_factor = int(self.upsample_s_factor.text())
-        ntrees = int(self.n_trees.text())
+        ntrees = int(self.n_trees.text()) # these arent required here
         ncores = self.n_cores.text()
         if ncores == 'all':
             ncores = -1
@@ -339,10 +341,14 @@ class TrainClassifierThread(QThread):
 
         '''
         # would be very nice to emit this back
+        # NOTE doesnt use the n cores or n trees here anymore!
         #self.feature_weightings = sorted(zip(self.clf.rf.feature_importances_, self.clf.feature_names),reverse = True)
         '''
-        self.update_progress_label.emit('Training Random Forest...')
-        self.clf.train(self.downsample_bl_factor,
-                       self.upsample_seizure_factor)
-        self.finished.emit()
-        self.exit()
+        try:
+            self.update_progress_label.emit('Training classifier...')
+            self.clf.train(self.downsample_bl_factor,
+                           self.upsample_seizure_factor)
+            self.finished.emit()
+            self.exit()
+        except:
+            throw_error()
