@@ -201,17 +201,18 @@ def predict_dir(prediction_dir,
             skip_n += 1
 
     # save whatever is left of the predicitions (will be < 50 rows)
-    if not os.path.exists(output_csv_filename):
-        all_predictions_df.to_csv(output_csv_filename, index = False)
-    else:
-        with open(output_csv_filename, 'a') as f2:
-            all_predictions_df.to_csv(f2, header=False, index = False)
+    if all_predictions_df is not None:
+        if not os.path.exists(output_csv_filename):
+            all_predictions_df.to_csv(output_csv_filename, index = False)
+        else:
+            with open(output_csv_filename, 'a') as f2:
+                all_predictions_df.to_csv(f2, header=False, index = False)
     try:
         print('Re - ordering spreadsheet by date')
         reorder_prediction_csv(output_csv_filename)
         print ('Done')
     except:
-        print('unable to re-order spreadsheet by date')
+        print('Unable to re-order prediction spreadsheet by date - maybe you had no seizures?')
         exc_type, exc_value, exc_traceback = sys.exc_info()
         print (traceback.print_exception(exc_type, exc_value, exc_traceback))
 

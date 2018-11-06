@@ -1023,6 +1023,10 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
             mousePoint = self.bx1.mapSceneToView(pos) # bx1 is just self.plot_1.getViewBox()
 
         modifier = evt[0].modifiers()
+        # print(repr(modifier))
+        # print(modifier== Qt.ShiftModifier)
+        # print(modifier== Qt.ControlModifier)
+        # print(dir(modifier))
 
         if modifier == Qt.ShiftModifier:
             if self.library_up:
@@ -1041,6 +1045,8 @@ class MainGui(QtGui.QMainWindow, main_window_design.Ui_MainWindow):
                 throw_error('Unfortunately unable to add to library at the moment. You have to edit the annotations csv that was used to make the library, sorry.' )
                 return 0
             self.add_end_line_to_h5(mousePoint.x())
+
+
 
     def mouse_click_in_overview(self,evt):
         # signal for this is coming from self.data,
