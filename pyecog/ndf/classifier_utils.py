@@ -122,11 +122,12 @@ import time
 import h5py
 import sys
 from . import utils
+from . import h5loader
 def predict_dir(prediction_dir,
                 output_csv_filename,
                 classfier_object,
+                posterior_thresh,
                 overwrite_previous_predicitions = True,
-                posterior_thresh = 0.5,
                 gui_object = False):
     '''
     Function to handle prediction of directory
@@ -163,37 +164,41 @@ def predict_dir(prediction_dir,
             gui_object.SetProgressBar.emit(str(i))
 
         try:
-            with h5py.File(fpath, 'r+') as f:
-                # todo refactor and use h5 loading class
-                group = f[list(f.keys())[0]]
-                for tid_no in list(group.keys()):
-                    tid_no = str(tid_no)
-                    tid = group[tid_no]
-                    pred_features = tid['features'][:]
-                    logging.info(full_fname + ' now predicting tid '+tid_no)
+            h5file = h5loader.H5File(fpath)
+            for tid_no in h5file.attributes['t_ids']:
+                tid_no = str(tid_no)
+                try:
+                    col_names = h5file[int(tid_no)]['feature_col_names']
+                    col_names = [b.decode("utf-8") for b in col_names]
+                except:
+                    continue # to next tid
+                pred_features = h5file[int(tid_no)]['features']
+                pred_features = classfier_object.pyecog_scaler.transform_features(pred_features, col_names)
+                logging.info(full_fname + ' now predicting tid ' + str(tid_no))
 
-                    posterior_y = classfier_object.predict(pred_features)
-                    if sum(posterior_y):
-                        fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
-                        name_array = np.array([fname for i in range(posterior_y.shape[0])])
-                        prediction_df = make_prediction_dataframe_rows_from_chunk_labels(tid_no,
-                                                                                         to_stack = [name_array, posterior_y])
-                        pred_count += prediction_df.shape[0]
-                        if all_predictions_df is None:
-                            all_predictions_df = prediction_df
-                        else:
-                            all_predictions_df = all_predictions_df.append(prediction_df, ignore_index=True)
+                posterior_y = classfier_object.predict(pred_features, posterior_thresh)
 
-                        if all_predictions_df.shape[0] > 50:
-                            if not os.path.exists(output_csv_filename):
-                                all_predictions_df.to_csv(output_csv_filename, index=False)
-                            else:
-                                with open(output_csv_filename, 'a') as f2:
-                                    all_predictions_df.to_csv(f2, header=False, index=False)
-                            all_predictions_df = None
+                if sum(posterior_y):
+                    fname = full_fname.split('[')[0]+'['+tid_no+'].h5'
+                    name_array = np.array([fname for i in range(posterior_y.shape[0])])
+                    prediction_df = make_prediction_dataframe_rows_from_chunk_labels(tid_no,
+                                                                                     to_stack = [name_array, posterior_y])
+                    pred_count += prediction_df.shape[0]
+                    if all_predictions_df is None:
+                        all_predictions_df = prediction_df
                     else:
-                        pass
-                        # no seizures detected for that posterior_y
+                        all_predictions_df = all_predictions_df.append(prediction_df, ignore_index=True)
+
+                    if all_predictions_df.shape[0] > 50:
+                        if not os.path.exists(output_csv_filename):
+                            all_predictions_df.to_csv(output_csv_filename, index=False)
+                        else:
+                            with open(output_csv_filename, 'a') as f2:
+                                all_predictions_df.to_csv(f2, header=False, index=False)
+                        all_predictions_df = None
+                else:
+                    pass
+                    # no seizures detected for that posterior_y
         except KeyError:
             # gui should throw error
             print('KeyError:did not contain any features! Skipping')

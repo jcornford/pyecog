@@ -162,7 +162,7 @@ class ClassificationAlgorithm():
 
         if downsample_bl_factor == 1 and upsample_seizure_factor == 1:
             Xclf, yclf = X, y
-            print('here')
+            #print('here')
         else:
             counts = pd.Series(y).value_counts()
             target_resample = (int(counts[0] / downsample_bl_factor),
@@ -189,7 +189,7 @@ class ClassificationAlgorithm():
         postive_class_predictions = posterior[:, 1] > threshold
         return postive_class_predictions.astype(int)
 
-    def predict(self, X, threshold=0.5):
+    def predict(self, X, threshold):
         if isinstance(self.hmm, hmm_pyecog.HMM):
             # hmm expects labels
             class_labels = self.descriminative_model.predict(X)
@@ -243,7 +243,7 @@ class Classifier():
                       downsample_bl_factor=downsample_bl_factor,
                       upsample_seizure_factor=upsample_seizure_factor)
 
-    def predict(self, X, threshold=0.5):
+    def predict(self, X, threshold):
         return self.algo.predict(X,threshold)
 
 
