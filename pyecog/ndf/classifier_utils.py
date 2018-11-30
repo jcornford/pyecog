@@ -123,6 +123,8 @@ import h5py
 import sys
 from . import utils
 from . import h5loader
+import numba
+
 def predict_dir(prediction_dir,
                 output_csv_filename,
                 classfier_object,

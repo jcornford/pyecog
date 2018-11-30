@@ -172,17 +172,21 @@ class ClassificationAlgorithm():
 
         self.fit_hmm(X, y)
         self.descriminative_model.fit(Xclf, yclf) # class weights to be added here too
+        print('Clf stage 3 complete: descriminative_model fit')
 
     def fit_hmm(self, X, y):
         self.hmm.A = self.hmm.get_state_transition_probs(y)
+        print('Clf stage 1 complete: HMM hidden state transition probabilities')
 
         if isinstance(self.hmm, hmm_pyecog.HMMBayes):
+            print('Clf stage 2 complete: no emission probabilities needed')
             pass
 
         if isinstance(self.hmm, hmm_pyecog.HMM):
             cv_preds = get_predictions_cross_val(X, y, self.descriminative_model)
             # the function get_predictions_cross_val returns (labels, probabilties)
             self.hmm.phi_mat = self.hmm.get_state_emission_probs(y, cv_preds[0])
+            print('Clf stage 2 complete: HMM emission probabilities')
 
     @staticmethod
     def apply_threshold(posterior, threshold):
